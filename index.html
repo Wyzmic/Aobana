@@ -420,9 +420,10 @@
     .folder-link.selected .count-badge { background: var(--accent); color: var(--on-accent); }
     .sidebar-more { text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 0.8em 0; list-style: none; }
     .side-divider { height: 1px; background: var(--border-color); margin: 0.5em 0; }
+    li.side-divider { list-style: none; }
 
     .search-bar { margin-bottom: var(--pad); display: flex; align-items: center; row-gap: var(--pad); column-gap: 0.8em; flex-wrap: wrap; }
-    .search-options { display: flex; align-items: center; gap: 0.6em; margin-left: auto; }
+    .search-options { display: contents; }
     .search-input-wrap {
       display: flex; align-items: center; flex: 1; min-width: 250px;
       position: relative; border-radius: 8px; transition: box-shadow 0.2s;
@@ -462,7 +463,7 @@
     .exact-chip:hover { border-color: var(--border-strong); color: var(--text-main); }
     .exact-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
     .exact-chip:focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
-    .sort-dd { width: 180px; }
+    .sort-dd { width: 180px; max-width: 100%; }
     .filter-note {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 1em; font-size: 0.88em;
     }
@@ -474,6 +475,7 @@
       border-radius: 16px; padding: 4px 4px 4px 12px; box-sizing: border-box;
     }
     .filter-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .filter-chip.dim { opacity: .5; }
     .filter-chip button {
       border: none; background: none; color: inherit; cursor: pointer; font-size: 1em; padding: 0 6px; line-height: 1;
       flex-shrink: 0;
@@ -502,6 +504,8 @@
       display: flex; justify-content: space-between; align-items: flex-start;
     }
     .card-meta .src { padding-right: 16px; line-height: 1.4; }
+    .page-link { color: var(--link); cursor: pointer; user-select: none; -webkit-user-select: none; }
+    .page-link:hover { text-decoration: underline; }
     .card-meta .chars { color: var(--text-faint); font-weight: 600; white-space: nowrap; line-height: 1.4; user-select: none; -webkit-user-select: none; }
     .file-title { color: var(--text-title); display: flex; align-items: flex-start; line-height: 1.6em; }
     .main-sentence { flex: 1; min-width: 0; padding-right: 0.5em; }
@@ -612,9 +616,10 @@
 
     .media-toolbar-wrap { container-type: inline-size; }
     .media-toolbar { display: flex; gap: var(--pad); align-items: center; flex-wrap: wrap; margin-bottom: var(--pad); }
-    .media-toolbar .seg { width: 300px; max-width: 100%; order: 1; }
+    .media-toolbar .seg { width: auto; max-width: 100%; order: 1; }
+    .media-toolbar .seg .seg-btn { flex: 0 0 auto; padding: 0 12px; }
     .media-toolbar .folder-filter { flex: 1; min-width: 200px; width: auto; height: 38px; order: 2; }
-    .media-toolbar .page-dd { width: 150px; order: 3; flex-shrink: 0; }
+    .media-toolbar .page-dd { width: 190px; order: 3; flex-shrink: 0; }
     .media-toolbar .page-dd .dd-btn { height: 38px; }
     @container (max-width: 700px) {
       .media-toolbar .page-dd { order: 2; flex: 1; min-width: 130px; width: auto; }
@@ -622,6 +627,7 @@
     }
     .media-more { text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 1em; min-height: 1px; }
     .load-eta { margin-top: 0.6em; color: var(--text-muted); font-size: 0.92em; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+    .load-eta:empty { display: none; }
     .media-summary { color: var(--text-muted); font-size: 0.9em; margin: 0 0 var(--pad) 0.2em; }
     .media-list { background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
     .media-row {
@@ -706,7 +712,8 @@
     .lib-card .path { display: block; word-break: break-all; padding: 6px 8px; margin-bottom: 0.7em; line-height: 1.5; }
     .lib-card .facts { font-size: 0.87em; color: var(--text-muted); line-height: 1.7; margin-bottom: 0.8em; }
     .lib-card .facts .warn { color: var(--gold); }
-    .lib-card .btns { display: flex; gap: 0.5em; flex-wrap: wrap; }
+    .lib-card .btns { display: flex; gap: 0.5em; flex-wrap: wrap; align-items: center; }
+    .lib-card .btns label { display: inline-flex; align-items: center; line-height: 1; }
     .lib-card input[type=text] {
       width: 100%; box-sizing: border-box; height: 34px; margin-bottom: 0.6em;
       background: var(--bg-input); color: var(--text-main); border: 1.5px solid var(--border-color);
@@ -714,7 +721,7 @@
     }
     .lib-card input[type=text]:focus { border-color: var(--accent); }
     .lib-card input[type=number] {
-      width: 7em; box-sizing: border-box; height: 34px;
+      width: 7em; box-sizing: border-box; height: 36px;
       background: var(--bg-input); color: var(--text-main); border: 1.5px solid var(--border-color);
       border-radius: 8px; padding: 0 10px; font-size: 0.88em; outline: none;
     }
@@ -849,7 +856,6 @@
     @media (max-width: 900px) {
       .sidebar { min-width: 190px; width: 230px; padding: 0.9em; }
       .search-input-wrap { flex-basis: 100%; min-width: 0; }
-      .search-options { margin-left: 0; }
       .lib-grid { grid-template-columns: 1fr; }
     }
     .topbar.c-lang #lang-dd .dd-btn { width: 36px; padding: 0; justify-content: center; }
@@ -907,7 +913,6 @@
       .flex-row { flex-direction: column; }
       .sidebar { width: 100%; max-width: none; min-width: 0; height: 38vh; position: static; top: auto; align-self: auto; }
       .main-content { width: 100%; }
-      .search-options { width: 100%; }
       .search-options .sort-dd { flex: 1; }
       .steps { grid-template-columns: 1fr; }
       .panel { padding: 1.1em 1.1em; }
@@ -937,6 +942,12 @@
     }
     function fmt(n) { return Number(n || 0).toLocaleString(LANG === 'ja' ? 'ja-JP' : 'en-US'); }
 
+    const LIST_CAP = 100;
+    function capList(list) {
+      return list.slice(0, LIST_CAP).map(f => `<li>${esc(f)}</li>`).join('')
+        + (list.length > LIST_CAP ? `<li>${esc(t('list_more', { n: fmt(list.length - LIST_CAP) }))}</li>` : '');
+    }
+
     let LANG = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'ja';
     const I18N = {
       ja: {
@@ -949,12 +960,16 @@
         furigana: 'ふりがなの表示 / 非表示 (F)', shortcuts: 'ショートカット (?)',
         sort_recommended: 'おすすめ', sort_chrono: '時系列順', sort_desc: '長い順', sort_asc: '短い順', sort_random: 'ランダム',
         sort_title: '例文の並べ替え',
-        filter_folders: '作品名で絞り込み', all: '全て', menu: 'メニュー', sidebar_more: 'さらに {n} 件（スクロールで表示）',
+        filter_folders: '作品名で絞り込み', all: '全て', menu: 'メニュー', sidebar_more: 'さらに {n} 件（スクロールで表示）', counting_others: 'ほかの作品を数えています…',
         placeholder: '検索（例: 食べる、たべる、"食べて"）', exact: '完全一致', exact_title: '入力した語形のまま検索します',
+        multi: '絞り込み', multi_title: '選んだ作品の中だけを検索し、選んだ作品は上にまとまります。切ると、押した作品に移るだけになります',
+        folder_hint_one: '左の作品名を押すと、その作品の中だけを検索します。',
         recent: '最近の検索:', searching: 'データベースを検索中…', no_results: '一致する結果が見つかりませんでした。',
+        no_results_chosen: '選んだ作品には一致する結果が見つかりませんでした。',
+        no_results_outside_media: "選んだ作品は、現在のメディアには含まれていません。",
         no_more: 'これ以上ありません', loading: '読み込み中…', error: 'エラーが発生しました', load_failed: '読み込みに失敗しました',
         chars: '{n} 字', filtering: '絞り込み中:', remove_filter: '「{f}」を外す',
-        folder_hint: '左の作品名を押すと、その作品の中だけを検索します。いくつでも選べます。',
+        folder_hint: '左の作品名を押すと、その作品の中だけを検索します。いくつでも選べて、選んだ作品は上の ✕ を押すかタブを閉じるまで上に残ります。',
         empty_title: 'ライブラリが空です',
         empty_body: '字幕（.srt / .ass）、電子書籍（.epub）、漫画（.mokuro）をフォルダに入れて、ライブラリタブでインデックスを作成すると検索できるようになります。',
         empty_btn: 'ライブラリを開く',
@@ -962,13 +977,14 @@
         saved_count: '{n} 件',
         media_summary_subs: '{n} 作品', media_summary_epub: '{n} 冊', media_summary_manga: '{n} シリーズ', media_filter: 'タイトル・著者で絞り込み',
         media_matches: '該当 {n} 件', media_preparing: 'メディア一覧を準備しています',
-        page_size_title: '一度に読み込む件数', page_size_n: '{n} 件ずつ', page_size_all: 'すべて',
+        media_sort_title: '並べ替え', media_sort_name: 'タイトル順', media_sort_parts_desc: '収録数の多い順', media_sort_parts_asc: '収録数の少ない順',
+        media_sort_lines_desc: '行数の多い順', media_sort_lines_asc: '行数の少ない順',
         eta_left: '残り約 {t}', eta_s: '{n} 秒', eta_m: '{m} 分', eta_ms: '{m} 分 {s} 秒', eta_soon: 'まもなく完了',
         media_none: '該当する作品はありません。', back_media: 'メディア一覧',
         media_mode_title: 'タイトル', media_mode_content: '本文',
         media_detail_filter_subs: '話タイトルで絞り込み', media_detail_filter_epub: '章タイトルで絞り込み', media_detail_filter_manga: '巻タイトルで絞り込み',
         stat_eps: '{n} 話', stat_lines: '{n} 行', stat_chaps: '{n} 章', stat_sents: '{n} 文', stat_vols: '{n} 巻',
-        kind_subs: '字幕', kind_epub: '書籍', kind_manga: '漫画', page_n: '{n} ページ',
+        kind_subs: '字幕', kind_epub: '書籍', kind_manga: '漫画', page_n: '{n} ページ', page_open: 'ページの画像を開く',
         sc_title: 'ショートカット', sc_focus: '検索バーにフォーカス', sc_next: '次のカードを選択', sc_prev: '前のカードを選択',
         sc_context: '文脈の展開 / 折りたたみ', sc_save: 'お気に入りに追加 / 解除', sc_furigana: 'ふりがなの表示 / 非表示',
         sc_help: 'このヘルプの表示 / 非表示', sc_close: 'ダイアログを閉じる', close: '閉じる',
@@ -1018,13 +1034,13 @@
         lib_indexed_subs: 'インデックス済み: {files} ファイル · {rows} 行',
         lib_indexed_books: 'インデックス済み: {files} 冊 · {rows} 文',
         lib_indexed_manga: 'インデックス済み: {files} 巻 · {rows} 行',
-        lib_outdated: '以前のバージョンでインデックスされたファイルがあります（字幕 {subs} · 書籍 {books}）。書籍の章の分け方と字幕の読み込みの改善は、再インデックスするまで反映されません。',
+        lib_outdated: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、再インデックスしてください。',
         lib_outdated_run: '再インデックスする',
         lib_tables: 'インデックスの一度だけの更新がまだです（{which}）。更新するまでは、大きなライブラリでは検索や書籍を開くのに時間がかかります。ファイルは読み直しません。',
         lib_tables_run: '更新する',
         lib_phase_chapters: '章の表を作成中…', lib_phase_lengths: '行の長さの表を作成中…', lib_phase_lexicon: 'ふりがなの表を作成中…',
         reindex_title: '再インデックスをおすすめします',
-        reindex_body: 'このバージョンでは、一部のファイルの読み込み方が改善されました。以前のバージョンでインデックスしたファイル（字幕 {subs} · 書籍 {books}）は、再インデックスするまで古い結果のままです。<b>ライブラリ</b>タブからワンクリックで更新できます。',
+        reindex_body: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、<b>ライブラリ</b>タブから再インデックスしてください。',
         reindex_later: 'あとで', reindex_go: 'ライブラリを開く',
         checkfirst_title: 'インデックスの前に、ライブラリを点検しますか？',
         checkfirst_body: '点検すると、日本語以外のファイルと重複（同じ本の別ファイル、同じエピソードの別リッピング）を一覧にします。どれを外すかは一覧から選べます。点検しない場合は、フォルダ内のファイルがすべてインデックスされます。この確認は今回だけです。',
@@ -1048,13 +1064,13 @@
         lib_log: '詳細ログ', lib_error: 'エラー: {e}',
         lib_err_busy: 'インデックス作成中は変更できません。', lib_err_notfound: 'そのフォルダは存在しません。', lib_err_notfull: '{path} のような完全なパスを入力してください。', setup_err_make: 'そのフォルダを作成できません。別の場所を選んでください。',
         lib_data: 'データベースの保存先', lib_saved: '保存しました。次回のインデックス作成から反映されます。',
-        lib_db_lead: 'subs.db、epub.db、manga.db を、指定した既存のフォルダへそのまま移動します。設定とログは移動しません。',
+        lib_db_lead: 'subs.db、epub.db、manga.db と、その横にある Aobana のファイル（キャッシュ、チェックの結果など）を、指定した既存のフォルダへそのまま移動します。設定とログは移動しません。',
         lib_db_move: '移動', lib_db_default: '既定の場所に戻す', lib_db_is_default: '既定の場所です。',
-        lib_db_moving: '移動中です…別のドライブへの移動は数十秒かかることがあります。',
+        lib_db_moving: '移動中です…', lib_db_progress: '移動中です… {done} / {total}　{eta}',
         lib_db_none: 'まだありません', lib_db_moved: 'データベースを移動しました。',
         lib_db_old_kept: 'データベースを移動しました。ただし使用中のため、元のファイルを削除できませんでした。不要であれば手動で削除してください: {files}',
-        lib_db_err_busy: 'インデックス作成中は移動できません。', lib_db_err_same: 'データベースはすでにこのフォルダにあります。',
-        lib_db_err_exists: 'そのフォルダにはすでに subs.db、epub.db または manga.db があります。上書きはしません。',
+        lib_db_err_busy: 'インデックス作成中、ライブラリのチェック中、または別の移動中は移動できません。', lib_db_err_same: 'データベースはすでにこのフォルダにあります。',
+        lib_db_err_exists: 'そのフォルダにはすでに Aobana のファイルがあります: {files}。上書きはしません。',
         lib_db_err_notwritable: 'そのフォルダには書き込めません。',
         lib_db_err_failed: '移動できませんでした。データベースは元の場所のままです。',
         lib_cache_title: '検索キャッシュ', lib_cache: '保存済み: {n} 件 · {size}',
@@ -1104,7 +1120,7 @@
         an_filter: 'チェックしたファイルをインデックスしない',
         an_filtered_done: '{n} 件をインデックスから外す対象にしました（ファイルはそのままです）。次にインデックスを作成すると検索から外れます。',
         an_filter_failed: '外せなかったファイル（点検のあとでフォルダが変わりました）:',
-        an_filtered_title: 'インデックスしないファイル', an_kept_is: '残すファイル: {keep}',
+        an_filtered_title: 'インデックスしないファイル', an_kept_is: '残すファイル: {keep}', list_more: 'ほか {n} 件',
         an_unfilter: 'チェックしたファイルを再び対象にする', an_missing: '（フォルダにありません）',
         an_unfiltered: '{n} 件を戻しました。インデックスを作成し直すと検索に戻ります。',
         an_err_busy: 'インデックス作成中は変更できません。',
@@ -1119,6 +1135,25 @@
         port_save: '保存', port_bad: '1024〜65535 の数字を入力してください。',
         port_restart: '保存しました。Aobana を閉じて起動し直すと http://127.0.0.1:{port}/ で開きます。',
         port_env: '環境変数 AOBANA_PORT が設定されているため、ここでの設定は使われません。',
+        workers_title: '並列処理',
+        workers_lead: "インデックス作成とライブラリの点検で、同時に処理するファイル数を設定します。数を増やすと速くなる場合がありますが、メモリの使用量も増えます。このパソコンには CPU スレッドが {cpus} 個あり、推奨値は {rec} です。",
+        workers_save: '保存', workers_auto: 'おすすめに戻す',
+        workers_is_auto: '自動（おすすめの数）',
+        workers_bad: '1〜{max} の数字を入力してください。',
+        workers_saved: '保存しました。次のインデックスから使われます。',
+        workers_over: "推奨値の {rec} を超えると、速くならないままメモリの使用量が増える場合があります。",
+        workers_env: '環境変数 AOBANA_INDEX_WORKERS が設定されているため、ここでの設定は使われません。',
+        workers_single: 'この環境では、ファイルを 1 つずつ処理します。',
+        workers_ask_title: 'インデックスの並列処理について',
+        workers_ask_body: "Aobana はインデックス作成とライブラリの点検で、同時に最大 {n} 個のファイルを処理します。このパソコンには CPU スレッドが {cpus} 個あります。数を増やすと速くなる場合がありますが、メモリの使用量も増えます。「設定」でいつでも変更できます。",
+        workers_ask_go: "設定を開く", workers_ask_continue: '続ける',
+        search_workers_title: '検索の並列処理',
+        search_workers_lead: "検索はまず 1 つの処理で始まり、設定した時間を過ぎても続いていれば並列処理を追加します。0 秒ならすぐに追加します。このパソコンには CPU スレッドが {cpus} 個あり、推奨値は {rec} です。数を増やしすぎると、速くならないままメモリの使用量が増える場合があります。",
+        search_workers_count: '検索で使う処理の数', search_workers_delay: '追加するまでの秒数',
+        search_workers_saved: '保存しました。次の検索から使われます。',
+        search_workers_over: "推奨値の {rec} を超えると、検索が速くならないままメモリの使用量が増える場合があります。",
+        search_workers_active: "{n} 個のワーカーで検索を続けています。",
+        search_workers_active_now: "{n} 個のワーカーで検索しています。",
         reset_title: '設定の初期化', lib_scope_aria: 'インデックスする対象',
         reset_lead: 'このポートの設定、お気に入り、検索履歴をすべて消して、初めて起動したときの状態に戻します。ライブラリとインデックスはそのまま残ります。',
         reset_btn: '初期化', reset_q: 'すべての設定を初期化しますか？',
@@ -1135,12 +1170,16 @@
         furigana: 'Show / hide furigana (F)', shortcuts: 'Keyboard shortcuts (?)',
         sort_recommended: 'Recommended', sort_chrono: 'Chronological', sort_desc: 'Longest', sort_asc: 'Shortest', sort_random: 'Random',
         sort_title: 'Sort sentences',
-        filter_folders: 'Filter titles', all: 'All', menu: 'Menu', sidebar_more: '{n} more (scroll to load)',
+        filter_folders: 'Filter titles', all: 'All', menu: 'Menu', sidebar_more: '{n} more (scroll to load)', counting_others: 'Counting other titles...',
         placeholder: 'Search (e.g. 食べる, たべる, "食べて")', exact: 'Exact', exact_title: 'Match the form exactly as typed',
+        multi: 'Filtered', multi_title: 'Search inside the titles you pick, kept at the top. Off, a click moves to that title alone',
+        folder_hint_one: 'Click a title on the left to search inside it only.',
         recent: 'Recent searches:', searching: 'Searching...', no_results: 'No matching sentences found.',
+        no_results_chosen: 'No matching sentences in the chosen titles.',
+        no_results_outside_media: "The selected {n|title is|titles are} not in this category.",
         no_more: 'No more results', loading: 'Loading...', error: 'Something went wrong', load_failed: 'Could not load',
         chars: '{n} {n|char|chars}', filtering: 'Filtered to:', remove_filter: 'Remove "{f}"',
-        folder_hint: 'Click a title on the left to search inside it only. You can pick several.',
+        folder_hint: 'Click titles on the left to search inside them. You can pick several; they stay at the top until you click their ✕ above or close the tab.',
         empty_title: 'Your library is empty',
         empty_body: 'Put subtitle files (.srt / .ass), e-books (.epub) and manga (.mokuro) in your folders, then build the index in the Library tab to start searching.',
         empty_btn: 'Open Library',
@@ -1148,13 +1187,14 @@
         saved_count: '{n} saved',
         media_summary_subs: '{n} {n|show|shows}', media_summary_epub: '{n} {n|book|books}', media_summary_manga: '{n} manga {n|series|series}', media_filter: 'Filter by title or author',
         media_matches: '{n} matching', media_preparing: 'Preparing the media list',
-        page_size_title: 'How many to load at once', page_size_n: '{n} at a time', page_size_all: 'All',
+        media_sort_title: 'Sort', media_sort_name: 'Title', media_sort_parts_desc: 'Most entries', media_sort_parts_asc: 'Fewest entries',
+        media_sort_lines_desc: 'Most lines', media_sort_lines_asc: 'Fewest lines',
         eta_left: 'About {t} left', eta_s: '{n} s', eta_m: '{m} min', eta_ms: '{m} min {s} s', eta_soon: 'Almost done',
         media_none: 'Nothing matches.', back_media: 'All media',
         media_mode_title: 'Titles', media_mode_content: 'Content',
         media_detail_filter_subs: 'Filter episode titles', media_detail_filter_epub: 'Filter chapter titles', media_detail_filter_manga: 'Filter volume titles',
         stat_eps: '{n} {n|episode|episodes}', stat_lines: '{n} {n|line|lines}', stat_chaps: '{n} {n|chapter|chapters}', stat_sents: '{n} {n|sentence|sentences}', stat_vols: '{n} {n|volume|volumes}',
-        kind_subs: 'SUBS', kind_epub: 'BOOK', kind_manga: 'MANGA', page_n: 'p. {n}',
+        kind_subs: 'SUBS', kind_epub: 'BOOK', kind_manga: 'MANGA', page_n: 'p. {n}', page_open: 'Open the page image',
         sc_title: 'Keyboard shortcuts', sc_focus: 'Focus the search bar', sc_next: 'Select the next card', sc_prev: 'Select the previous card',
         sc_context: 'Show / hide context', sc_save: 'Add to / remove from favorites', sc_furigana: 'Show / hide furigana',
         sc_help: 'Show / hide this help', sc_close: 'Close a dialog', close: 'Close',
@@ -1204,13 +1244,13 @@
         lib_indexed_subs: 'Indexed: {files} {files|file|files} · {rows} {rows|line|lines}',
         lib_indexed_books: 'Indexed: {files} {files|book|books} · {rows} {rows|sentence|sentences}',
         lib_indexed_manga: 'Indexed: {files} {files|volume|volumes} · {rows} {rows|line|lines}',
-        lib_outdated: 'Some files were indexed by an earlier version ({subs} subtitle {subs|file|files} · {books} {books|book|books}). The improved book chapters and cleaner subtitles apply to them only after they are re-indexed.',
+        lib_outdated: 'Some files were indexed using earlier reading rules ({which}). Re-index them to use the current reading rules.',
         lib_outdated_run: 'Re-index them',
         lib_tables: 'Your index needs a one-time update ({which}). Until then, searching and opening a book can be slow on a large library. No files are read again.',
         lib_tables_run: 'Update',
         lib_phase_chapters: 'Building the chapter table...', lib_phase_lengths: 'Building the line-length table...', lib_phase_lexicon: 'Building the furigana table...',
         reindex_title: 'Re-indexing recommended',
-        reindex_body: 'This version reads some files better. Files indexed by an earlier version ({subs} subtitle {subs|file|files} · {books} {books|book|books}) keep the old result until they are re-indexed. The <b>Library</b> tab does it in one click.',
+        reindex_body: 'Some files were indexed using earlier reading rules ({which}). Re-index them from the <b>Library</b> tab to use the current reading rules.',
         reindex_later: 'Later', reindex_go: 'Open Library',
         checkfirst_title: 'Check the library before indexing?',
         checkfirst_body: 'The check lists files that are not in Japanese and duplicates (one book in two files, other rips of one episode). You choose which to leave out. Without it, every file in the folders is indexed. You are only asked once.',
@@ -1234,13 +1274,13 @@
         lib_log: 'Detailed log', lib_error: 'Error: {e}',
         lib_err_busy: 'Folders cannot be changed while indexing.', lib_err_notfound: 'That folder does not exist.', lib_err_notfull: 'Enter a full path, such as {path}.', setup_err_make: 'That folder cannot be made. Choose another place.',
         lib_data: 'Databases folder', lib_saved: 'Saved. It takes effect at the next indexing run.',
-        lib_db_lead: 'Moves subs.db, epub.db and manga.db, as they are, into an existing folder you choose. Settings and logs stay where they are.',
+        lib_db_lead: 'Moves subs.db, epub.db and manga.db, with Aobana\'s other files beside them (the caches, the library check\'s report), as they are, into an existing folder you choose. Settings and logs stay where they are.',
         lib_db_move: 'Move', lib_db_default: 'Back to the default', lib_db_is_default: 'This is the default folder.',
-        lib_db_moving: 'Moving... a move to another drive can take a few dozen seconds.',
+        lib_db_moving: 'Moving...', lib_db_progress: 'Moving... {done} of {total} · {eta}',
         lib_db_none: 'not there yet', lib_db_moved: 'The databases were moved.',
         lib_db_old_kept: 'The databases were moved, but the old files were in use and could not be deleted. Delete them by hand if you no longer need them: {files}',
-        lib_db_err_busy: 'The databases cannot be moved while indexing.', lib_db_err_same: 'The databases are already in this folder.',
-        lib_db_err_exists: 'That folder already holds a subs.db, epub.db or manga.db. Nothing is overwritten.',
+        lib_db_err_busy: 'The databases cannot be moved while indexing, checking the library or another move.', lib_db_err_same: 'The databases are already in this folder.',
+        lib_db_err_exists: 'That folder already holds Aobana\'s files: {files}. Nothing is overwritten.',
         lib_db_err_notwritable: 'That folder cannot be written to.',
         lib_db_err_failed: 'The move failed. The databases are still where they were.',
         lib_cache_title: 'Search cache', lib_cache: 'Saved: {n} {n|search|searches} · {size}',
@@ -1290,7 +1330,7 @@
         an_filter: "Don't index the ticked files",
         an_filtered_done: '{n} {n|file|files} will be left out of the index (the files stay where they are). They leave search at the next "Index library".',
         an_filter_failed: 'Files that could not be left out (the folder changed after the check):',
-        an_filtered_title: 'Left out of the index', an_kept_is: 'kept: {keep}',
+        an_filtered_title: 'Left out of the index', an_kept_is: 'kept: {keep}', list_more: 'and {n} more',
         an_unfilter: 'Include the ticked files again', an_missing: '(no longer in the folder)',
         an_unfiltered: '{n} {n|file|files} taken off the list. Index again to put them back in search.',
         an_err_busy: 'This cannot be changed while indexing.',
@@ -1305,6 +1345,25 @@
         port_save: 'Save', port_bad: 'Enter a number from 1024 to 65535.',
         port_restart: 'Saved. Close Aobana and start it again, and it opens at http://127.0.0.1:{port}/.',
         port_env: 'The AOBANA_PORT environment variable is set, so this setting is not used.',
+        workers_title: 'Workers',
+        workers_lead: "Set how many files indexing and the library check process at once. More workers can speed up larger jobs, but use more memory. This computer has {cpus} CPU threads; the recommended count is {rec}.",
+        workers_save: 'Save', workers_auto: 'Use recommended',
+        workers_is_auto: 'Automatic (the recommended number)',
+        workers_bad: 'Enter a number from 1 to {max}.',
+        workers_saved: 'Saved. The next index run uses it.',
+        workers_over: "Above the recommended {rec}, memory use may rise without making indexing faster.",
+        workers_env: 'The AOBANA_INDEX_WORKERS environment variable is set, so this setting is not used.',
+        workers_single: 'On this system, files are processed one at a time.',
+        workers_ask_title: 'About indexing speed',
+        workers_ask_body: "Aobana indexes and checks up to {n} files at once. This computer has {cpus} CPU threads. More workers can speed up larger jobs, but use more memory. You can change the count in Settings at any time.",
+        workers_ask_go: "Open Settings", workers_ask_continue: 'Continue',
+        search_workers_title: 'Search workers',
+        search_workers_lead: "Search starts with one worker and adds more if it is still running after the chosen delay. At 0 seconds, it adds them immediately. This computer has {cpus} CPU threads; the recommended count is {rec}. Higher counts can use more memory without speeding up a search.",
+        search_workers_count: 'Workers for search', search_workers_delay: 'Start after (seconds)',
+        search_workers_saved: 'Saved. The next search uses these settings.',
+        search_workers_over: "Above the recommended {rec}, some searches may use more memory without finishing faster.",
+        search_workers_active: "Using {n} workers to continue this search.",
+        search_workers_active_now: "Using {n} workers for this search.",
         reset_title: 'Reset settings', lib_scope_aria: 'What to index',
         reset_lead: 'Clears every setting, your favorites and your search history on this port, as on a first start. Your library and index stay as they are.',
         reset_btn: 'Reset all settings to default', reset_q: 'Reset all settings?',
@@ -1358,12 +1417,35 @@
                : (SORTS.includes(store.get('sort')) ? store.get('sort') : 'recommended');
     const MEDIA = MEDIAS.includes(PARAMS.get('media')) ? PARAMS.get('media')
                 : (MEDIAS.includes(store.get('media')) ? store.get('media') : MEDIAS[0]);
-    let currentFolders = PARAMS.getAll('folder').filter(Boolean);
+    let currentFolders = TAB === 'search' ? PARAMS.getAll('folder').filter(Boolean) : [];
+    let pinnedFolders = [];
+    try { pinnedFolders = JSON.parse(sessionStorage.getItem('pinnedFolders') || '[]'); } catch (e) {}
+    if (!Array.isArray(pinnedFolders)) pinnedFolders = [];
+    let multiPick = store.get('multiPick') === 'on';
+    function clearPins() {
+      pinnedFolders = [];
+      try { sessionStorage.removeItem('pinnedFolders'); } catch (e) {}
+    }
+    function unpinFolder(f) {
+      pinnedFolders = pinnedFolders.filter(p => p !== f);
+      try { sessionStorage.setItem('pinnedFolders', JSON.stringify(pinnedFolders)); } catch (e) {}
+    }
+    function pinFolders(list) {
+      if (!multiPick) return;
+      const before = pinnedFolders.length;
+      for (const f of list) if (f && !pinnedFolders.includes(f)) pinnedFolders.push(f);
+      if (pinnedFolders.length !== before) {
+        try { sessionStorage.setItem('pinnedFolders', JSON.stringify(pinnedFolders)); } catch (e) {}
+      }
+    }
+    if (TAB === 'search') pinFolders(currentFolders);
     function searchParams() {
       const p = new URLSearchParams(window.location.search);
       p.delete('tab');
       p.set('sort', SORT);
       p.set('media', MEDIA);
+      p.delete('pin');
+      pinnedFolders.forEach(f => p.append('pin', f));
       return p;
     }
 
@@ -1417,6 +1499,7 @@
 
     const searchSeed = (() => {
       const fresh = Math.floor(Math.random() * 2147483647);
+      if (TAB !== 'search') return fresh;
       const p = new URLSearchParams(window.location.search);
       const url = [p.get('q') || '', p.get('sort') || 'recommended', p.get('media') || 'all',
                    p.get('exact') || '', p.getAll('folder').join('\u0001')].join('\u0000');
@@ -1446,6 +1529,19 @@
       return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' }, body: JSON.stringify(body || {}) })
         .then(r => r.json());
     }
+    let serverSearchInFlight = 0;
+    function cancelServerSearch(grace) {
+      if (serverSearchInFlight <= 0) return;
+      serverSearchInFlight = 0;
+      try {
+        fetch(`/api/search/cancel?client=${encodeURIComponent(clientToken)}`, {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' },
+          body: JSON.stringify({ grace: grace || 0 }),
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    window.addEventListener('pagehide', () => cancelServerSearch(1));
 
     let currentSearchController = null;
     let currentOffset = 0;
@@ -1453,6 +1549,22 @@
     let hasMoreResults = true;
     let loadMoreObserver = null;
     let searchGen = 0;
+    let outsideMedia = new Set();
+
+    function setEmptyStateForFolders(folders) {
+      const empty = document.getElementById('empty-state');
+      if (!empty) return;
+      if (folders.length && folders.every(f => outsideMedia.has(f))) {
+        empty.dataset.i18n = 'no_results_outside_media';
+        empty.textContent = t('no_results_outside_media', { n: folders.length });
+      } else if (folders.length) {
+        empty.dataset.i18n = 'no_results_chosen';
+        empty.textContent = t('no_results_chosen');
+      } else {
+        empty.dataset.i18n = 'no_results';
+        empty.textContent = t('no_results');
+      }
+    }
 
     let epSentinelObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -1476,7 +1588,17 @@
       const q = PARAMS.get('q');
       setTitle(q ? t('title_results', { q }) : t('tab_search'));
 
+      if (currentSearchController) {
+          currentSearchController.abort();
+      }
+      currentSearchController = new AbortController();
+      searchGen++;
+      hasMoreResults = false;
+      stopSearchEta();
+
       if (!q) {
+        document.getElementById('main-loading').style.display = 'none';
+        cancelServerSearch(0);
         showSearchHistory(inPage);
         return;
       }
@@ -1484,13 +1606,6 @@
 
       saveToHistory(q);
       store.set('aobana_last_search', window.location.pathname + window.location.search);
-
-      if (currentSearchController) {
-          currentSearchController.abort();
-      }
-      currentSearchController = new AbortController();
-      searchGen++;
-      hasMoreResults = false;
 
       document.getElementById('history-state').style.display = 'none';
       document.getElementById('main-loading').style.display = 'flex';
@@ -1509,6 +1624,7 @@
 
       const gen = searchGen;
       startSearchEta(searchParams().toString(), gen);
+      serverSearchInFlight++;
       try {
         const response = await fetch(apiSearchUrl(`${searchParams().toString()}&limit=500&offset=0`), {
             signal: currentSearchController.signal
@@ -1517,16 +1633,20 @@
 
         if (data.aborted) return;
 
-        if (data.results.length === 0 && currentFolders.length) {
-            applyFolders([], true);
-            return;
-        }
+        outsideMedia = new Set(Array.isArray(data.outside_media) ? data.outside_media : []);
+        setEmptyStateForFolders(currentFolders);
 
         allResults = data.results;
         hasMoreResults = data.has_more;
         currentOffset = 500;
 
-        renderSidebar(data, inPage);
+        if (data.scoped) {
+          renderSidebar(scopedSidebar(data), inPage);
+          fillOtherCounts(data, gen);
+        } else {
+          renderSidebar(data, inPage);
+          if (data.global_total != null) countsGen = gen;
+        }
         renderBatches();
         setupLoadMoreSentinel();
 
@@ -1537,6 +1657,7 @@
             console.error("Fetch error:", err);
         }
       } finally {
+        serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
         if (gen === searchGen) {
           stopSearchEta();
           document.getElementById('results').style.minHeight = '';
@@ -1547,26 +1668,101 @@
       }
     }
 
+    function scopedSidebar(data) {
+      const prev = sidebarData && sidebarData.q === PARAMS.get('q') ? sidebarData : null;
+      const counts = { ...(prev ? prev.folder_counts : {}), ...data.folder_counts };
+      const folders = prev ? prev.all_folders.slice() : [];
+      for (const f of [...(data.all_folders || []), ...currentFolders]) if (!folders.includes(f)) folders.push(f);
+      return { ...data, folder_counts: counts, all_folders: folders, q: PARAMS.get('q'),
+               global_total: prev ? prev.global_total : null };
+    }
+    let countingGen = -1;
+    let countsGen = -1;
+    function knownEmpty(f) {
+      return outsideMedia.has(f) || (countsGen === searchGen && !!sidebarData && !((sidebarData.folder_counts || {})[f] > 0));
+    }
+    function countingRow() {
+      return countingGen === searchGen
+        ? `<li class="sidebar-more" id="sidebar-counting">${esc(t('counting_others'))}</li>` : '';
+    }
+    async function fillOtherCounts(scoped, gen) {
+      const p = searchParams();
+      p.delete('folder');
+      countingGen = gen;
+      document.getElementById('sidebar-counting')?.remove();
+      document.getElementById('folder-list-dynamic')?.insertAdjacentHTML('beforeend', countingRow());
+      serverSearchInFlight++;
+      try {
+        const opts = { signal: currentSearchController.signal };
+        let all = await fetch(apiSearchUrl(`${p.toString()}&limit=0&offset=0`).replace('/api/search?', '/api/search/counts?'), opts)
+                          .then(r => r.json());
+        if (gen === searchGen && all.fallback) {
+          all = await fetch(apiSearchUrl(`${p.toString()}&limit=0&offset=0`), opts).then(r => r.json());
+        }
+        if (gen !== searchGen || all.aborted || !all.all_folders) return;
+        countingGen = -1;
+        countsGen = gen;
+        const counts = { ...all.folder_counts, ...scoped.folder_counts };
+        const folders = all.all_folders.slice();
+        for (const f of [...(scoped.all_folders || []), ...currentFolders]) if (!folders.includes(f)) folders.push(f);
+        renderSidebar({ ...all, folder_counts: counts, all_folders: folders, q: PARAMS.get('q') }, true);
+      } catch (e) {
+      } finally {
+        serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
+        if (countingGen === gen) countingGen = -1;
+        if (gen === searchGen) document.getElementById('sidebar-counting')?.remove();
+      }
+    }
+
     let searchEtaTimer = null;
-    function startSearchEta(qs, gen) {
+    let searchWorkerTimer = null;
+    let searchEtaGeneration = 0;
+    function startSearchEta(qs, gen, current) {
       stopSearchEta();
+      const epoch = searchEtaGeneration;
       const el = document.getElementById('search-eta');
+      const live = current || (() => searchGen);
       const poll = async () => {
-        if (gen !== searchGen) return;
+        if (gen !== live() || epoch !== searchEtaGeneration) return;
+        clearTimeout(searchWorkerTimer);
+        searchWorkerTimer = null;
         try {
-          const p = await fetch(`/api/search/progress?${qs}&seed=${searchSeed}`).then(r => r.json());
-          if (gen !== searchGen) return;
-          if (p.running) el.textContent = fmtEta(p.remaining);
+          const p = await fetch(`/api/search/progress?${qs}&seed=${searchSeed}&client=${encodeURIComponent(clientToken)}`).then(r => r.json());
+          if (gen !== live() || epoch !== searchEtaGeneration) return;
+          if (p.running) {
+            el.textContent = fmtEta(p.remaining);
+            const active = document.getElementById('search-workers-active');
+            const key = p.delay > 0 ? 'search_workers_active' : 'search_workers_active_now';
+            if (active) active.textContent = p.workers > 1 ? t(key, { n: fmt(p.workers) }) : '';
+          }
         } catch (e) {}
-        searchEtaTimer = setTimeout(poll, 1000);
+        if (gen === live() && epoch === searchEtaGeneration) searchEtaTimer = setTimeout(poll, 1000);
       };
       searchEtaTimer = setTimeout(poll, 3000);
+      const pollWorkers = async () => {
+        if (gen !== live() || epoch !== searchEtaGeneration) return;
+        try {
+          const p = await fetch(`/api/search/progress?${qs}&seed=${searchSeed}&client=${encodeURIComponent(clientToken)}&status=1`).then(r => r.json());
+          if (gen !== live() || epoch !== searchEtaGeneration) return;
+          const active = document.getElementById('search-workers-active');
+          const key = p.delay > 0 ? 'search_workers_active' : 'search_workers_active_now';
+          if (active) active.textContent = p.running && p.workers > 1
+            ? t(key, { n: fmt(p.workers) }) : '';
+        } catch (e) {}
+        if (gen === live() && epoch === searchEtaGeneration && searchWorkerTimer !== null) searchWorkerTimer = setTimeout(pollWorkers, 1000);
+      };
+      searchWorkerTimer = setTimeout(pollWorkers, 500);
     }
     function stopSearchEta() {
+      searchEtaGeneration++;
       clearTimeout(searchEtaTimer);
+      clearTimeout(searchWorkerTimer);
       searchEtaTimer = null;
+      searchWorkerTimer = null;
       const el = document.getElementById('search-eta');
       if (el) el.textContent = '';
+      const active = document.getElementById('search-workers-active');
+      if (active) active.textContent = '';
     }
 
     function saveToHistory(q) {
@@ -1593,17 +1789,20 @@
           return `<a href="/?${p.toString()}" class="history-chip" draggable="false">${esc(q)}</a>`;
         }).join('');
         panel.innerHTML = `<div class="history-label">${esc(t('recent'))}</div><div class="history-chips">${chips}</div>
-          <p class="folder-hint">${esc(t('folder_hint'))}</p>`;
+          <p class="folder-hint">${esc(t(multiPick ? 'folder_hint' : 'folder_hint_one'))}</p>`;
       } else {
-        panel.innerHTML = `<p class="folder-hint">${esc(t('folder_hint'))}</p>`;
+        panel.innerHTML = `<p class="folder-hint">${esc(t(multiPick ? 'folder_hint' : 'folder_hint_one'))}</p>`;
       }
       panel.style.display = 'block';
-      if (inPage && sidebarData) return;
+      if (inPage && sidebarData) { renderSidebar(sidebarData, true); return; }
 
       const historySignal = currentSearchController ? currentSearchController.signal : undefined;
       fetch(apiSearchUrl(`q=&media=${encodeURIComponent(MEDIA)}&limit=0`), historySignal ? { signal: historySignal } : {})
         .then(r => r.json())
         .then(data => {
+          if (!data || data.aborted) return;
+          const mediaFolders = new Set(data.all_folders || []);
+          outsideMedia = new Set([...currentFolders, ...pinnedFolders].filter(f => !mediaFolders.has(f)));
           renderSidebar(data);
           if (!data.global_total && !(data.all_folders || []).length) showEmptyLibrary();
         })
@@ -1613,10 +1812,20 @@
     function renderFilterNote() {
       const note = document.getElementById('filter-note');
       if (!note) return;
-      if (currentFolders.length) {
-        note.innerHTML = `<span class="filter-label">${esc(t('filtering'))}</span>` + currentFolders.map(f => `
-          <span class="filter-chip"><span class="filter-chip-name">${esc(f)}</span><button type="button" data-folder="${esc(f)}" title="${esc(t('remove_filter', { f }))}" aria-label="${esc(t('remove_filter', { f }))}">✕</button></span>`).join('');
-        note.querySelectorAll('button[data-folder]').forEach(b => b.addEventListener('click', e => setFolder(b.dataset.folder, e)));
+      const pinnedOnly = multiPick ? pinnedFolders.filter(f => !currentFolders.includes(f)) : [];
+      if ((currentFolders.length || pinnedOnly.length) && (multiPick || currentFolders.length > 1)) {
+        const shown = [...pinnedFolders.filter(f => currentFolders.includes(f) || pinnedOnly.includes(f)),
+                       ...currentFolders.filter(f => !pinnedFolders.includes(f))];
+        note.innerHTML = `<span class="filter-label">${esc(t('filtering'))}</span>` + shown.map(f => `
+          <span class="filter-chip${currentFolders.includes(f) ? '' : ' dim'}"><span class="filter-chip-name">${esc(f)}</span><button type="button" data-folder="${esc(f)}" title="${esc(t('remove_filter', { f }))}" aria-label="${esc(t('remove_filter', { f }))}">✕</button></span>`).join('');
+        note.querySelectorAll('button[data-folder]').forEach(b => b.addEventListener('click', e => {
+          const f = b.dataset.folder;
+          unpinFolder(f);
+          if (currentFolders.includes(f)) { setFolder(f, e); return; }
+          e.preventDefault();
+          if (sidebarData) renderSidebar(sidebarData, true);
+          renderFilterNote();
+        }));
         note.hidden = false;
       } else {
         note.hidden = true;
@@ -1643,49 +1852,66 @@
     }
 
     const SIDEBAR_PAGE = 500;
-    let sidebarData = null, sidebarMatches = [], sidebarShown = 0;
+    let sidebarData = null, sidebarMatches = [], sidebarShown = 0, sidebarPinned = 0;
+    function sidebarRows(from, to) {
+      let html = '';
+      sidebarMatches.slice(from, to).forEach((f, k) => {
+        if (from + k === sidebarPinned && sidebarPinned) html += '<li class="side-divider" aria-hidden="true"></li>';
+        html += sidebarRow(f);
+      });
+      return html;
+    }
 
     function sidebarRow(f) {
       const data = sidebarData;
       const isSelected = currentFolders.includes(f) ? 'selected' : '';
       const count = data.folder_counts && data.folder_counts[f] !== undefined ? data.folder_counts[f] : 0;
+      const hasCount = data.global_total != null
+        || (data.folder_counts && data.folder_counts[f] !== undefined)
+        || currentFolders.includes(f)
+        || pinnedFolders.includes(f);
       return `
           <li>
             <a href="#" data-folder="${esc(f)}" class="folder-link ${isSelected}" draggable="false">
               <span class="folder-name">${esc(f)}</span>
-              ${PARAMS.get('q') ? `<span class="count-badge">${fmt(count)}</span>` : ''}
+              ${PARAMS.get('q') && hasCount ? `<span class="count-badge">${fmt(count)}</span>` : ''}
             </a>
           </li>`;
     }
 
     function renderSidebar(data, inPage) {
       sidebarData = data;
-      const folders = data.all_folders || [];
       if (inPage && sidebarShown) {
-        if (sidebarSignature(data) === sidebarDrawn) { markSelected(); return; }
+        if (sidebarSignature(data) === sidebarDrawn) { markSelected(); setTimeout(revealChosen, 0); return; }
         const sidebar = document.querySelector('.sidebar');
         const top = sidebar ? sidebar.scrollTop : 0;
         drawSidebar();
         if (sidebar) sidebar.scrollTop = top;
+        setTimeout(revealChosen, 0);
         return;
       }
-      const saved = parseInt(sessionStorageGet('sidebarShown') || '0', 10) || 0;
-      sidebarShown = Math.max(SIDEBAR_PAGE, ...currentFolders.map(f => folders.indexOf(f) + 1), saved);
+      sidebarShown = SIDEBAR_PAGE;
       drawSidebar();
-
-      const scrollPos = sessionStorageGet('sidebarScroll');
-      if (scrollPos) {
-        setTimeout(() => {
-          const sidebar = document.querySelector('.sidebar');
-          if (sidebar) sidebar.scrollTop = parseInt(scrollPos, 10);
-        }, 0);
-      }
+      setTimeout(revealChosen, 0);
     }
-    function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+
+    function revealChosen() {
+      if (multiPick || currentFolders.length !== 1 || !sidebarData) return;
+      const f = currentFolders[0];
+      const idx = sidebarMatches.indexOf(f);
+      if (idx < 0) return;
+      if (idx >= sidebarShown) { sidebarShown = idx + 1; drawSidebar(); }
+      const side = document.querySelector('.sidebar');
+      const row = [...document.querySelectorAll('#folder-list-dynamic .folder-link[data-folder]')].find(a => a.dataset.folder === f);
+      if (!side || !row) return;
+      const box = side.getBoundingClientRect(), r = row.getBoundingClientRect();
+      if (r.top < box.top || r.bottom > box.bottom) side.scrollTop += r.top - box.top - (box.height - r.height) / 2;
+    }
 
     let sidebarDrawn = null;
     function sidebarSignature(data) {
-      return JSON.stringify([data.all_folders || [], data.folder_counts || {}, data.global_total || 0]);
+      return JSON.stringify([data.all_folders || [], data.folder_counts || {}, data.global_total || 0,
+                             [...pinnedFolders].sort(), [...currentFolders].sort()]);
     }
 
     function markSelected() {
@@ -1701,17 +1927,24 @@
       sidebarDrawn = sidebarSignature(sidebarData);
       const input = document.getElementById('folder-filter');
       const needle = input ? input.value.trim().toLowerCase() : '';
-      const folders = sidebarData.all_folders || [];
-      sidebarMatches = needle ? folders.filter(f => f.toLowerCase().includes(needle)) : folders;
+      const listed = sidebarData.all_folders || [];
+      const unlisted = currentFolders.filter(f => !listed.includes(f) && !pinnedFolders.includes(f));
+      const top = [...listed.filter(f => pinnedFolders.includes(f)),
+                   ...pinnedFolders.filter(f => !listed.includes(f)),
+                   ...(multiPick ? unlisted : [])];
+      const rest = [...listed.filter(f => !pinnedFolders.includes(f)), ...(multiPick ? [] : unlisted)];
+      const match = f => !needle || f.toLowerCase().includes(needle);
+      sidebarPinned = top.filter(match).length;
+      sidebarMatches = [...top.filter(match), ...rest.filter(match)];
       let html = `
         <li>
           <a href="#" data-folder="" class="folder-link ${!currentFolders.length ? 'selected' : ''}" id="folder-all" draggable="false">
             <span>${esc(t('all'))}</span>
-            <span class="count-badge">${fmt(sidebarData.global_total || 0)}</span>
+            ${sidebarData.global_total == null ? '' : `<span class="count-badge">${fmt(sidebarData.global_total)}</span>`}
           </a>
         </li>`;
-      html += sidebarMatches.slice(0, sidebarShown).map(sidebarRow).join('');
-      list.innerHTML = html + sidebarMoreRow();
+      html += sidebarRows(0, sidebarShown);
+      list.innerHTML = html + sidebarMoreRow() + countingRow();
     }
 
     function sidebarMoreRow() {
@@ -1724,7 +1957,7 @@
       if (!more || !sidebarData) return;
       const from = sidebarShown;
       sidebarShown += SIDEBAR_PAGE;
-      more.insertAdjacentHTML('beforebegin', sidebarMatches.slice(from, sidebarShown).map(sidebarRow).join(''));
+      more.insertAdjacentHTML('beforebegin', sidebarRows(from, sidebarShown));
       more.outerHTML = sidebarMoreRow() || '<li hidden></li>';
     }
 
@@ -1744,20 +1977,40 @@
       if (event && event.preventDefault) event.preventDefault();
       if (!folder) applyFolders([]);
       else if (currentFolders.includes(folder)) applyFolders(currentFolders.filter(f => f !== folder));
-      else applyFolders([...currentFolders, folder]);
+      else applyFolders(multiPick ? [...currentFolders, folder] : [folder]);
     }
 
     function applyFolders(next, replace) {
+      const withHits = list => list.filter(f => !knownEmpty(f)).sort().join('\n');
+      const q = PARAMS.get('q');
+      const unchanged = q && currentFolders.length && next.length && withHits(currentFolders) === withHits(next);
+      const empty = q && next.length && next.every(knownEmpty);
       currentFolders = next;
+      pinFolders(next);
       const url = new URL(window.location);
       url.searchParams.delete('view');
       url.searchParams.delete('folder');
       next.forEach(f => url.searchParams.append('folder', f));
       history[replace ? 'replaceState' : 'pushState'](null, '', url);
+      store.set('aobana_last_search', window.location.pathname + window.location.search);
       syncHiddenFolders();
       markSelected();
       renderFilterNote();
-      initFetch(true);
+      if (!unchanged && !empty) { initFetch(true); return; }
+      if (empty) {
+        if (currentSearchController) currentSearchController.abort();
+        stopSearchEta();
+        document.getElementById('main-loading').style.display = 'none';
+        cancelServerSearch(0);
+        const hadAllCounts = countsGen === searchGen;
+        searchGen++;
+        if (hadAllCounts) countsGen = searchGen;
+        allResults = [];
+        hasMoreResults = false;
+        setEmptyStateForFolders(next);
+        renderBatches();
+      }
+      renderSidebar(sidebarData, true);
     }
 
     function syncHiddenFolders() {
@@ -1802,13 +2055,6 @@
       }).observe(bar);
     });
 
-    window.addEventListener('beforeunload', () => {
-      const sidebar = document.querySelector('.sidebar');
-      if (sidebar) {
-        try { sessionStorage.setItem('sidebarScroll', sidebar.scrollTop); sessionStorage.setItem('sidebarShown', sidebarShown); } catch (e) {}
-      }
-    });
-
     function renderBatches() {
       const resultsContainer = document.getElementById('results');
       const emptyState = document.getElementById('empty-state');
@@ -1842,7 +2088,9 @@
           resultsContainer.insertAdjacentElement('afterend', sentinel);
       }
 
-      if (!hasMoreResults) {
+      if (!hasMoreResults && !allResults.length) {
+          sentinel.innerHTML = '';
+      } else if (!hasMoreResults) {
           sentinel.innerHTML = `<div class="status-line" style="padding-top:4em;">${esc(t('no_more'))}</div>`;
       } else {
           sentinel.innerHTML = '';
@@ -1869,6 +2117,7 @@
         const myGen = searchGen;
         const sentinel = document.getElementById('load-more-sentinel');
 
+        serverSearchInFlight++;
         try {
             sentinel.innerHTML = `<div class="status-line" style="padding:1.5em;">${esc(t('loading'))}</div>`;
 
@@ -1902,6 +2151,7 @@
             console.error("Fetch more error:", err);
             sentinel.innerHTML = '';
         } finally {
+            serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
             isFetchingMore = false;
         }
     }
@@ -1946,7 +2196,7 @@
         html += `
         <div class="card" id="card-${rId}">
           <div class="card-meta">
-            <div class="src">${esc(r.title || r.folder)}${r.page ? ' · ' + esc(t('page_n', { n: fmt(r.page) })) : ''}</div>
+            <div class="src">${esc(r.title || r.folder)}${r.page ? ' · ' + pageLabel(r) : ''}</div>
             <div class="chars">${r.char_count !== undefined ? esc(t('chars', { n: r.char_count })) : ''}</div>
           </div>
           <div class="file-title">
@@ -2061,7 +2311,9 @@
     function showSavedSentences() {
       allResults = savedSentences;
       document.getElementById('saved-meta').textContent = t('saved_count', { n: fmt(savedSentences.length) });
-      document.getElementById('empty-state').textContent = t('no_saved');
+      const empty = document.getElementById('empty-state');
+      empty.dataset.i18n = 'no_saved';
+      empty.textContent = t('no_saved');
       renderBatches();
     }
 
@@ -2212,12 +2464,13 @@
       return t('eta_left', { t: r && m < 10 ? t('eta_ms', { m, s: r }) : t('eta_m', { m: Math.round(s / 60) }) });
     }
 
-    const MEDIA_PAGE_SIZES = ['100', '250', '500', '1000', '2500', 'all'];
-    const MEDIA_PAGE_DEFAULT = '500';
-    function mediaPageSize() {
-      const v = store.get('mediaPageSize', MEDIA_PAGE_DEFAULT);
-      return MEDIA_PAGE_SIZES.includes(v) ? v : MEDIA_PAGE_DEFAULT;
+    const MEDIA_PAGE = '500';
+    const MEDIA_SORTS = ['name', 'parts_desc', 'parts_asc', 'lines_desc', 'lines_asc'];
+    function mediaSort() {
+      const v = store.get('mediaSort', 'name');
+      return MEDIA_SORTS.includes(v) ? v : 'name';
     }
+    function mediaSortLabel(v) { return t('media_sort_' + v); }
     let mediaGen = 0, mediaCtrl = null, mediaOffset = 0, mediaHasMore = false, mediaBusy = false;
     let mediaMoreObserver = null, mediaFilterTimer = null;
 
@@ -2253,10 +2506,9 @@
       mediaBusy = true;
       const gen = mediaGen;
       mediaCtrl = new AbortController();
-      const size = mediaPageSize();
       const needle = (document.getElementById('media-filter').value || '').trim();
       const params = new URLSearchParams({ media: mediaTabFilter(), q: needle,
-        offset: String(mediaOffset), limit: size === 'all' ? '0' : size });
+        offset: String(mediaOffset), limit: MEDIA_PAGE, sort: mediaSort() });
       const listEl = document.getElementById('media-list');
       const moreEl = document.getElementById('media-more');
       let data;
@@ -2312,15 +2564,15 @@
       if (folder) return initMediaDetail(folder);
       store.set(MEDIA_STATE, JSON.stringify({ url: mediaUrl(), open: [], y: 0 }));
       setTitle(t('tab_media'));
-      initMediaPageSize();
+      initMediaSort();
       document.getElementById('media-list').innerHTML = `<div class="status-line" style="padding:2em;">${esc(t('loading'))}</div>`;
       loadMediaPage(true);
     }
-    function initMediaPageSize() {
-      makeDropdown(document.getElementById('media-page-size'), {
-        options: MEDIA_PAGE_SIZES.map(v => ({ value: v, label: v === 'all' ? t('page_size_all') : t('page_size_n', { n: fmt(v) }) })),
-        value: mediaPageSize(), title: t('page_size_title'), icon: ICON_ROWS,
-        onChange: v => { store.set('mediaPageSize', v); initMediaPageSize(); loadMediaPage(true); },
+    function initMediaSort() {
+      makeDropdown(document.getElementById('media-sort'), {
+        options: MEDIA_SORTS.map(v => ({ value: v, label: mediaSortLabel(v) })),
+        value: mediaSort(), title: t('media_sort_title'), icon: ICON_ROWS,
+        onChange: v => { store.set('mediaSort', v); initMediaSort(); loadMediaPage(true); },
       });
     }
 
@@ -2424,7 +2676,7 @@
       if (formEl) formEl.hidden = mediaDetailMode !== 'content';
       if (quiet) return;
       if (mediaDetailMode === 'title') {
-        if (mediaDetailCtrl) mediaDetailCtrl.abort();
+        if (mediaDetailCtrl) { mediaDetailCtrl.abort(); cancelServerSearch(); }
         mediaDetailGen++;
         stopSearchEta();
         document.getElementById('main-loading').style.display = 'none';
@@ -2493,7 +2745,7 @@
     }
 
     function clearMediaDetailContentSearch() {
-      if (mediaDetailCtrl) mediaDetailCtrl.abort();
+      if (mediaDetailCtrl) { mediaDetailCtrl.abort(); cancelServerSearch(); }
       mediaDetailGen++;
       stopSearchEta();
       document.getElementById('main-loading').style.display = 'none';
@@ -2552,6 +2804,7 @@
         mediaDetailSentinelObs.disconnect();
         const next = new URLSearchParams(qs);
         next.set('offset', String(offset));
+        serverSearchInFlight++;
         try {
           const res = await fetch(apiSearchUrl(next.toString()), { signal: mediaDetailCtrl.signal });
           const data = await res.json();
@@ -2563,6 +2816,8 @@
           if (e.name !== 'AbortError' && gen === mediaDetailGen) {
             sentinel.innerHTML = `<div class="error-text" style="padding:1em;">${esc(t('error'))}</div>`;
           }
+        } finally {
+          serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
         }
       }, { rootMargin: '800px 0px 800px 0px' });
       mediaDetailSentinelObs.observe(sentinel);
@@ -2570,7 +2825,7 @@
 
     async function runMediaDetailContentSearch(q, exact) {
       if (mediaDetailSentinelObs) mediaDetailSentinelObs.disconnect();
-      if (mediaDetailCtrl) mediaDetailCtrl.abort();
+      if (mediaDetailCtrl) { mediaDetailCtrl.abort(); cancelServerSearch(0); }
       mediaDetailCtrl = new AbortController();
       const gen = ++mediaDetailGen;
       const resultsContainer = document.getElementById('results');
@@ -2585,7 +2840,8 @@
         offset: '0',
       });
       if (exact) qs.set('exact', 'on');
-      startSearchEta(qs.toString(), gen);
+      startSearchEta(qs.toString(), gen, () => mediaDetailGen);
+      serverSearchInFlight++;
       try {
         const res = await fetch(apiSearchUrl(qs.toString()), { signal: mediaDetailCtrl.signal });
         const data = await res.json();
@@ -2607,6 +2863,7 @@
           resultsContainer.innerHTML = `<div class="error-text" style="padding:1em;">${esc(t('error'))}</div>`;
         }
       } finally {
+        serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
         if (gen === mediaDetailGen) {
           stopSearchEta();
           document.getElementById('main-loading').style.display = 'none';
@@ -2696,7 +2953,7 @@
         results.forEach(r => {
             if (r.page && r.page !== page) {
                 page = r.page;
-                linesHtml += `<div class="page-mark">${esc(t('page_n', { n: fmt(page) }))}</div>`;
+                linesHtml += `<div class="page-mark">${pageLabel({...r, media_type: 'manga'})}</div>`;
             }
             const rId = lineId(r.line);
             const isSaved = savedSentences.some(s => s.id === rId);
@@ -2739,6 +2996,7 @@
     async function initLibraryTab() {
       setTitle(t('tab_library'));
       await refreshLibrary();
+      if (location.hash === '#lib-workers') document.getElementById('lib-workers').scrollIntoView({ block: 'start' });
       loadAnalysis();
     }
 
@@ -2755,6 +3013,7 @@
       renderMediaCard(lib);
       renderDbCard(lib);
       renderPortCard(lib);
+      renderSearchWorkersCard(lib.search_workers);
     }
 
     const MEDIA_DB = { subs: 'subs.db', books: 'epub.db', manga: 'manga.db' };
@@ -2777,10 +3036,11 @@
 `;
         const drop = size == null ? '' : `<button class="btn set-drop" onclick="askDrop('${which}')">${esc(t('set_drop', { size: fmtBytes(size) }))}</button>`;
         const buttons = `<div class="btns lib-view-btns">
-            ${on[which] ? `<button class="btn" onclick="openFolder('${which}')" ${path == null ? 'disabled' : ''}>${esc(t('lib_open'))}</button>
+            ${on[which] ? `<button class="btn" onclick="openFolder('${which}', this)" ${path == null ? 'disabled' : ''}>${esc(t('lib_open'))}</button>
             <button class="btn" onclick="changeFolder('${which}')">${esc(t('lib_change'))}</button>` : ''}
             ${drop}
           </div>
+          <div class="lib-open-msg facts" role="status"></div>
           <div class="set-drop-ask" hidden></div>`;
         return `<div class="set-media-row" id="set-media-${which}">
           <div class="btns set-media-head">
@@ -2851,8 +3111,10 @@
       scope.hidden = MEDIAS_ON.length < 2;
       scope.querySelectorAll('option[value]').forEach(o => { if (o.value) o.hidden = !MEDIA_ON[o.value]; });
       if (scope.hidden || (scope.value && !MEDIA_ON[scope.value])) scope.value = '';
+      syncCheckScope();
       libLast = lib;
-      if (lib.counting) pollFigures();
+      renderWorkersCard(lib.workers);
+      if (lib.counting) { pollFigures(); pollActivity(); }
       folderPicker = !!lib.folder_picker;
       renderOutdated(lib);
       renderIndexStatus(lib.index);
@@ -2881,29 +3143,38 @@
         ${path == null ? '' : `<span class="path">${esc(path)}</span>`}
         <div class="facts lib-facts">${folderFacts(which, path, disk, indexed, counting)}</div>
         <div class="btns lib-view-btns">
-          <button class="btn" onclick="openFolder('${which}')" ${disk ? '' : 'disabled'}>${esc(t('lib_open'))}</button>
+          <button class="btn" onclick="openFolder('${which}', this)" ${disk ? '' : 'disabled'}>${esc(t('lib_open'))}</button>
         </div>
+        <div class="lib-open-msg facts" role="status"></div>
       </div>`;
     }
 
+    function outdatedMedia(lib) {
+      return [['subs', lib.subs_outdated], ['epub', lib.books_outdated], ['manga', lib.manga_outdated]]
+        .filter(([kind, count]) => MEDIA_ON[kind] && count > 0);
+    }
+    function outdatedSummary(outdated) {
+      return outdated.map(([kind, count]) => `${t('lib_stage_' + kind)} ${fmt(count)}`).join(' · ');
+    }
     function renderOutdated(lib) {
       const box = document.getElementById('lib-outdated');
-      const subs = MEDIA_ON.subs ? lib.subs_outdated || 0 : 0, books = MEDIA_ON.epub ? lib.books_outdated || 0 : 0;
-      const tables = [['subs', lib.subs_tables, subs], ['epub', lib.books_tables, books], ['manga', lib.manga_tables, 0]]
+      const outdated = outdatedMedia(lib);
+      const old = Object.fromEntries(outdated);
+      const tables = [['subs', lib.subs_tables, old.subs], ['epub', lib.books_tables, old.epub], ['manga', lib.manga_tables, old.manga]]
         .filter(([k, missing, old]) => MEDIA_ON[k] && (missing || []).length && !old).map(([k]) => k);
-      box.hidden = !(subs + books + tables.length) || (lib.index && lib.index.running);
+      box.hidden = !(outdated.length + tables.length) || (lib.index && lib.index.running);
       if (box.hidden) return;
       const btns = (call, label) => `<div class="btns" style="display:flex; gap:0.5em; margin-top:0.6em;">
           <button class="btn primary" onclick="${call}">${esc(t(label))}</button></div>`;
       let html = '';
-      if (subs + books) {
-        const only = subs && books ? '' : (subs ? 'subs' : 'epub');
-        html += `<div>${esc(t('lib_outdated', { subs: fmt(subs), books: fmt(books) }))}</div>`
+      if (outdated.length) {
+        const only = outdated.length === 1 ? outdated[0][0] : '';
+        html += `<div>${esc(t('lib_outdated', { which: outdatedSummary(outdated) }))}</div>`
           + btns(`startIndex('${only}', true)`, 'lib_outdated_run');
       }
       if (tables.length) {
         const only = tables.length === 1 ? tables[0] : '';
-        html += `<div${subs + books ? ' style="margin-top:1em;"' : ''}>${esc(t('lib_tables',
+        html += `<div${outdated.length ? ' style="margin-top:1em;"' : ''}>${esc(t('lib_tables',
           { which: tables.map(k => t('lib_stage_' + k)).join(' · ') }))}</div>`
           + btns(`startIndex('${only}', false, true)`, 'lib_tables_run');
       }
@@ -2983,10 +3254,11 @@
           </div>
         </div>
         <div class="btns lib-view-btns">
-          <button class="btn" onclick="openFolder('data')">${esc(t('lib_open'))}</button>
+          <button class="btn" onclick="openFolder('data', this)">${esc(t('lib_open'))}</button>
           <button class="btn" onclick="changeDbFolder()">${esc(t('lib_change'))}</button>
           ${lib.db_is_default ? '' : `<button class="btn" onclick="moveDatabases('default')">${esc(t('lib_db_default'))}</button>`}
         </div>
+        <div class="lib-open-msg facts" role="status"></div>
         <div class="lib-msg facts" style="margin:0.5em 0 0;"></div>`;
       renderCacheCard(lib.search_cache);
     }
@@ -3036,13 +3308,29 @@
         card.querySelectorAll('button').forEach(b => b.disabled = false);
         const key = { busy: 'lib_db_err_busy', same: 'lib_db_err_same', exists: 'lib_db_err_exists',
                       not_found: 'lib_err_notfound', not_writable: 'lib_db_err_notwritable' }[res.error] || 'lib_db_err_failed';
-        msg.innerHTML = `<span class="warn">${esc(t(key))}</span>`;
+        msg.innerHTML = `<span class="warn">${esc(t(key, { files: (res.files || []).join(', ') }))}</span>`;
         return;
+      }
+      let st = {};
+      for (;;) {
+        await new Promise(r => setTimeout(r, 500));
+        st = await fetch('/api/library/move').then(r => r.json()).catch(() => ({ running: true }));
+        if (!st.running) break;
+        const box = document.getElementById('lib-data');
+        const m = box && box.querySelector('.lib-msg');
+        if (!m || !st.total || !st.done) continue;
+        const left = st.elapsed >= 1 ? st.elapsed * (st.total - st.done) / st.done : null;
+        m.textContent = t('lib_db_progress', { done: fmtBytes(st.done), total: fmtBytes(st.total),
+                                               eta: left == null ? '' : fmtEta(left) });
       }
       await refreshSettings();
       const done = document.getElementById('lib-data').querySelector('.lib-msg');
-      done.innerHTML = res.old_kept && res.old_kept.length
-        ? `<span class="warn">${esc(t('lib_db_old_kept', { files: res.old_kept.join(', ') }))}</span>`
+      if (st.error) {
+        done.innerHTML = `<span class="warn">${esc(t('lib_db_err_failed'))}</span>`;
+        return;
+      }
+      done.innerHTML = st.old_kept && st.old_kept.length
+        ? `<span class="warn">${esc(t('lib_db_old_kept', { files: st.old_kept.join(', ') }))}</span>`
         : esc(t('lib_db_moved'));
     }
 
@@ -3114,6 +3402,124 @@
       else note.hidden = true;
     }
 
+    let workersFacts = null;
+    function renderWorkersCard(w) {
+      if (!w) return;
+      workersFacts = w;
+      document.getElementById('workers-lead').textContent = t('workers_lead', { cpus: fmt(w.cpus), rec: fmt(w.recommended) });
+      const input = document.getElementById('workers-input');
+      input.max = w.max;
+      input.value = w.saved || w.effective;
+      const off = w.env || !w.parallel;
+      document.querySelectorAll('#lib-workers input, #lib-workers button').forEach(el => { el.disabled = off; });
+      const note = document.getElementById('workers-note');
+      note.className = 'notice';
+      if (w.env) { note.textContent = t('workers_env'); note.hidden = false; }
+      else if (!w.parallel) { note.textContent = t('workers_single'); note.hidden = false; }
+      else if (!w.saved) { note.textContent = t('workers_is_auto'); note.hidden = false; }
+      else workersHint();
+    }
+
+    function workersHint() {
+      const w = workersFacts;
+      const note = document.getElementById('workers-note');
+      const n = Number(document.getElementById('workers-input').value);
+      note.className = 'notice';
+      if (w && n > w.recommended) { note.textContent = t('workers_over', { rec: fmt(w.recommended) }); note.hidden = false; }
+      else note.hidden = true;
+    }
+
+    async function saveWorkers(value) {
+      const note = document.getElementById('workers-note');
+      const v = value || document.getElementById('workers-input').value.trim();
+      const res = await apiPost('/api/library', { index_workers: v }).catch(() => ({ error: 'network' }));
+      if (res.error) {
+        note.textContent = t('workers_bad', { max: workersFacts ? fmt(workersFacts.max) : '' });
+        note.className = 'notice warn'; note.hidden = false; return;
+      }
+      await refreshSettings();
+      if (value !== 'auto') { note.textContent = t('workers_saved'); note.className = 'notice ok'; note.hidden = false; }
+    }
+
+    let searchWorkersFacts = null;
+    function renderSearchWorkersCard(w) {
+      if (!w) return;
+      searchWorkersFacts = w;
+      document.getElementById('search-workers-lead').textContent = t('search_workers_lead', { cpus: fmt(w.cpus), rec: fmt(w.recommended) });
+      const count = document.getElementById('search-workers-input');
+      count.max = w.cpus;
+      count.value = w.workers;
+      document.getElementById('search-delay-input').value = w.delay;
+      searchWorkersHint();
+    }
+    function clampSearchWorkersInputs(final = false) {
+      const maxW = searchWorkersFacts ? searchWorkersFacts.cpus : 1;
+      const countEl = document.getElementById('search-workers-input');
+      const delayEl = document.getElementById('search-delay-input');
+      if (countEl) {
+        const value = countEl.value.trim();
+        if (!value || !Number.isFinite(Number(value))) {
+          if (final) countEl.value = String(searchWorkersFacts ? searchWorkersFacts.workers : 1);
+          else countEl.value = '';
+        } else {
+          const n = Math.min(maxW, Math.max(1, Math.trunc(Number(value))));
+          countEl.value = String(n);
+        }
+      }
+      if (delayEl) {
+        const value = delayEl.value.trim();
+        if (!value || !Number.isFinite(Number(value))) {
+          if (final) delayEl.value = String(searchWorkersFacts ? searchWorkersFacts.delay : 10);
+          else delayEl.value = '';
+        } else {
+          const n = Math.min(60, Math.max(0, Math.trunc(Number(value))));
+          delayEl.value = String(n);
+        }
+      }
+    }
+    function searchWorkersHint(final = false) {
+      clampSearchWorkersInputs(final);
+      const countEl = document.getElementById('search-workers-input');
+      document.getElementById('search-delay-input').disabled = countEl.value.trim() === '1';
+      const w = searchWorkersFacts;
+      const note = document.getElementById('search-workers-note');
+      const n = Number(countEl.value);
+      note.className = 'notice';
+      if (w && n > w.recommended) {
+        note.textContent = t('search_workers_over', { rec: fmt(w.recommended) });
+        note.hidden = false;
+      } else {
+        note.hidden = true;
+      }
+    }
+    async function saveSearchWorkers(auto = false) {
+      clampSearchWorkersInputs(true);
+      searchWorkersHint();
+      const note = document.getElementById('search-workers-note');
+      const count = document.getElementById('search-workers-input').value.trim();
+      const delay = document.getElementById('search-delay-input').value.trim();
+      const res = await apiPost('/api/library', { search_workers: auto ? 'auto' : count, search_worker_delay: delay })
+        .catch(() => ({ error: 'network' }));
+      if (res.error) {
+        note.textContent = t('error'); note.className = 'notice warn'; note.hidden = false;
+        return;
+      }
+      await refreshSettings();
+      const w = searchWorkersFacts;
+      const n = Number(document.getElementById('search-workers-input').value);
+      const over = w && n > w.recommended ? ' ' + t('search_workers_over', { rec: fmt(w.recommended) }) : '';
+      note.textContent = t('search_workers_saved') + over;
+      note.className = 'notice ok';
+      note.hidden = false;
+    }
+
+    function closeWorkersAsk(go) {
+      document.getElementById('workers-modal').classList.remove('open');
+      document.documentElement.style.overflow = '';
+      if (go) { window.location.href = '/?tab=library#lib-workers'; return; }
+      runIndex();
+    }
+
     async function savePort() {
       const value = document.getElementById('port-input').value.trim();
       const note = document.getElementById('port-note');
@@ -3145,9 +3551,41 @@
       el.textContent = text; el.className = warn ? 'notice warn' : 'notice'; el.hidden = false;
     }
 
-    function openFolder(which) { apiPost('/api/library/open', { which }).catch(() => {}); }
+    function pageLabel(r) {
+      const label = esc(t('page_n', { n: fmt(r.page) }));
+      if (r.media_type !== 'manga' || !r.rowid) return label;
+      return `<a class="page-link" href="/manga/page/${Number(r.rowid)}" target="aobana-manga-page" title="${esc(t('page_open'))}">${label}</a>`;
+    }
+
+    async function openFolder(which, button) {
+      const card = button.closest('.set-media-row, .lib-card');
+      const msg = card.querySelector('.lib-open-msg');
+      msg.textContent = '';
+      const res = await apiPost('/api/library/open', { which }).catch(() => ({ error: 'network' }));
+      if (res.error) {
+        msg.classList.add('warn');
+        msg.textContent = res.error === 'not_found' ? t('lib_err_notfound') : t('lib_error', { e: res.error });
+      }
+    }
 
     async function runIndex() {
+      if (!MEDIA_BOOT.workers_asked) {
+        MEDIA_BOOT.workers_asked = true;
+        apiPost('/api/library/workers-asked', {}).catch(() => {});
+        const w = MEDIA_BOOT.workers || {};
+        if (w.parallel && !w.env) {
+          document.getElementById('workers-ask-body').textContent = t('workers_ask_body', { n: fmt(w.effective), cpus: fmt(w.cpus) });
+          document.getElementById('workers-modal').classList.add('open');
+          document.documentElement.style.overflow = 'hidden';
+          return;
+        }
+      }
+      const only = libScope();
+      if (only === 'manga') {
+        document.getElementById('lib-note').hidden = true;
+        document.getElementById('lib-estimate').innerHTML = '';
+        return startIndex(only);
+      }
       if (!MEDIA_BOOT.check_asked) {
         MEDIA_BOOT.check_asked = true;
         apiPost('/api/library/check-asked', {}).catch(() => {});
@@ -3160,7 +3598,6 @@
         }
       }
       document.getElementById('lib-note').hidden = true;
-      const only = libScope();
       const box = document.getElementById('lib-estimate');
       const btn = document.getElementById('lib-run');
       btn.disabled = true;
@@ -3258,7 +3695,13 @@
     let anPoll = null;
     const AN_ORDER = ['bilingual', 'other_language', 'duplicate', 'encoding', 'unreadable'];
 
+    function syncCheckScope() {
+      const btn = document.getElementById('an-run');
+      if (btn) btn.disabled = libScope() === 'manga';
+    }
+
     async function runAnalysis() {
+      if (libScope() === 'manga') return;
       const only = libScope();
       const res = await apiPost('/api/library/analyse', only ? { only } : {}).catch(() => null);
       if (res) renderAnalysisStatus(res);
@@ -3287,7 +3730,7 @@
       const btn = document.getElementById('an-run');
       const box = document.getElementById('an-status');
       s = s || {};
-      btn.disabled = !!s.running;
+      btn.disabled = !!s.running || libScope() === 'manga';
       btn.querySelector('span').textContent = s.running ? t('an_running') : t('an_run');
       if (s.running) {
         const pct = s.total ? Math.round(100 * s.done / s.total) : 0;
@@ -3311,33 +3754,89 @@
       return t('an_why_lang', { lines: fmt(it.lines), ja: fmt(it.ja), zh: fmt(it.zh), en: fmt(it.en) });
     }
 
+    const AN_PAGE = 200;
+    const AN_FILTERABLE = ['bilingual', 'other_language', 'duplicate', 'duplicate_kept'];
+    let anItems = [];
+    let anSections = [];
+    let anPicked = new Set();
+    let anUnpicked = new Set();
+
     function anRow(it) {
-      const filterable = ['bilingual', 'other_language', 'duplicate', 'duplicate_kept'].includes(it.reason);
       const label = it.media === 'epub' && it.title ? `${it.title}${it.author ? ' / ' + it.author : ''} — ${it.path}` : it.path;
-      const box = filterable
-        ? `<input type="checkbox" class="an-pick" value="${it.id}" ${it.reason !== 'duplicate_kept' && !it.filtered ? 'checked' : ''} ${it.filtered ? 'disabled' : ''}>`
+      const box = AN_FILTERABLE.includes(it.reason)
+        ? `<input type="checkbox" class="an-pick" value="${it.id}" ${anPicked.has(Number(it.id)) ? 'checked' : ''} ${it.filtered ? 'disabled' : ''}>`
         : '<span></span>';
       return `<label class="an-row ${it.reason === 'duplicate_kept' ? 'kept' : ''} ${it.filtered ? 'filtered' : ''}">${box}
         <span class="name">${esc(label)}</span><span class="why">${esc(anWhy(it))}</span></label>`;
     }
 
+    function anFilteredRow(i) {
+      const f = anFiltered[i];
+      return `<label class="an-row"><input type="checkbox" class="an-unpick" value="${i}" ${anUnpicked.has(i) ? 'checked' : ''}>
+        <span class="name">${esc(t('an_stage_' + f.media))} · ${esc(f.name)}${f.exists ? '' : ' ' + esc(t('an_missing'))}</span>
+        <span class="why">${esc(t('an_reason_' + f.reason))}${f.keep ? ' · ' + esc(t('an_kept_is', { keep: f.keep.split(/[\\/]/).pop() })) : ''}</span></label>`;
+    }
+
+    function anSection(units, draw, size, summary, bar = '') {
+      const idx = anSections.push({ units, draw, size, shown: 0, left: units.reduce((n, u) => n + size(u), 0) }) - 1;
+      return `<details class="an-section" data-an="${idx}"><summary>${summary}</summary>${bar}<div class="an-list"></div></details>`;
+    }
+
+    function anDrawMore(details) {
+      const sec = anSections[Number(details.dataset.an)];
+      const list = details.querySelector('.an-list');
+      if (!sec || !list || sec.shown >= sec.units.length) return;
+      let html = '', rows = 0;
+      while (sec.shown < sec.units.length && rows < AN_PAGE) {
+        const u = sec.units[sec.shown++];
+        html += sec.draw(u);
+        rows += Array.isArray(u) ? u.length : 1;
+        sec.left -= sec.size(u);
+      }
+      list.querySelector('.an-more')?.remove();
+      list.insertAdjacentHTML('beforeend', html
+        + (sec.shown < sec.units.length ? `<div class="an-more sidebar-more">${esc(t('sidebar_more', { n: fmt(sec.left) }))}</div>` : ''));
+    }
+
+    function wireAnalysis(box) {
+      if (box.dataset.wired) return;
+      box.dataset.wired = '1';
+      box.addEventListener('toggle', e => {
+        const d = e.target;
+        if (d.matches('details.an-section[data-an]') && d.open && !d.querySelector('.an-list').children.length) anDrawMore(d);
+      }, true);
+      box.addEventListener('scroll', e => {
+        const s = e.target;
+        if (s.classList && s.classList.contains('an-list') && s.scrollTop + s.clientHeight > s.scrollHeight - 400) anDrawMore(s.closest('details'));
+      }, { capture: true, passive: true });
+      box.addEventListener('click', e => {
+        const more = e.target.closest('.an-more');
+        if (more) anDrawMore(more.closest('details'));
+      });
+      box.addEventListener('change', e => {
+        const cb = e.target;
+        if (cb.classList.contains('an-pick')) (cb.checked ? anPicked.add(Number(cb.value)) : anPicked.delete(Number(cb.value)));
+        else if (cb.classList.contains('an-unpick')) (cb.checked ? anUnpicked.add(Number(cb.value)) : anUnpicked.delete(Number(cb.value)));
+      });
+    }
+
     function renderFiltered(list) {
       if (!list || !list.length) return '';
-      const rows = list.map((f, i) => `<label class="an-row"><input type="checkbox" class="an-unpick" value="${i}">
-        <span class="name">${esc(t('an_stage_' + f.media))} · ${esc(f.name)}${f.exists ? '' : ' ' + esc(t('an_missing'))}</span>
-        <span class="why">${esc(t('an_reason_' + f.reason))}${f.keep ? ' · ' + esc(t('an_kept_is', { keep: f.keep.split(/[\\/]/).pop() })) : ''}</span></label>`).join('');
-      return `<details class="an-section">
-          <summary>${esc(t('an_filtered_title'))} (${fmt(list.length)})</summary>
-          <div class="an-list">${rows}</div></details>
-        <div class="btns an-after"><button class="btn" onclick="unfilterPicked()">${esc(t('an_unfilter'))}</button></div>`;
+      return anSection(list.map((f, i) => i), anFilteredRow, () => 1, `${esc(t('an_filtered_title'))} (${fmt(list.length)})`)
+        + `<div class="btns an-after"><button class="btn" onclick="unfilterPicked()">${esc(t('an_unfilter'))}</button></div>`;
     }
 
     let anFiltered = [];
 
     function renderAnalysis(d) {
       const box = document.getElementById('an-report');
+      wireAnalysis(box);
       const r = d && d.report;
+      anSections = [];
+      anUnpicked = new Set();
       anFiltered = (d && d.filtered) || [];
+      anItems = (r && r.items) || [];
+      anPicked = new Set(anItems.filter(it => AN_FILTERABLE.includes(it.reason) && it.reason !== 'duplicate_kept' && !it.filtered).map(it => Number(it.id)));
       const filtered = renderFiltered(anFiltered);
       if (!r) { box.innerHTML = filtered + '<div id="an-move-msg"></div>'; return; }
       let html = '';
@@ -3350,21 +3849,18 @@
         for (const reason of AN_ORDER) {
           let list = items.filter(i => i.reason === reason);
           if (!list.length) continue;
-          let rows;
+          const summary = `${esc(t('an_stage_' + media))} · ${esc(t('an_reason_' + reason))} (${fmt(list.length)})`;
           if (reason === 'duplicate') {
             const groups = {};
             items.filter(i => i.reason === 'duplicate' || i.reason === 'duplicate_kept')
               .forEach(i => (groups[i.keep] = groups[i.keep] || []).push(i));
-            rows = Object.values(groups).map(g => `<div class="an-group">${g.sort((a, b) => (a.reason === 'duplicate_kept' ? -1 : 0) - (b.reason === 'duplicate_kept' ? -1 : 0)).map(anRow).join('')}</div>`).join('');
+            const units = Object.values(groups).map(g => g.sort((a, b) => (a.reason === 'duplicate_kept' ? -1 : 0) - (b.reason === 'duplicate_kept' ? -1 : 0)));
+            const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`;
+            html += anSection(units, g => `<div class="an-group">${g.map(anRow).join('')}</div>`,
+              g => g.filter(i => i.reason === 'duplicate').length, summary, bar);
           } else {
-            rows = list.map(anRow).join('');
+            html += anSection(list, anRow, () => 1, summary);
           }
-          const bar = reason === 'duplicate'
-            ? `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`
-            : '';
-          html += `<details class="an-section">
-            <summary>${esc(t('an_stage_' + media))} · ${esc(t('an_reason_' + reason))} (${fmt(list.length)})</summary>
-            ${bar}<div class="an-list">${rows}</div></details>`;
         }
       }
       const head = `<div class="facts" style="margin-top:0.8em;">${esc(t('an_summary', { files: fmt(files), when: r.generated_at }))}</div>`;
@@ -3376,9 +3872,14 @@
     }
 
     function invertDuplicates(btn) {
-      const sec = btn.closest('.an-section');
+      const details = btn.closest('.an-section');
+      const sec = details && anSections[Number(details.dataset.an)];
       if (!sec) return;
-      sec.querySelectorAll('.an-pick:not(:disabled)').forEach(cb => { cb.checked = !cb.checked; });
+      sec.units.flat().filter(it => !it.filtered).forEach(it => {
+        const id = Number(it.id);
+        anPicked.has(id) ? anPicked.delete(id) : anPicked.add(id);
+      });
+      details.querySelectorAll('.an-pick').forEach(cb => { cb.checked = anPicked.has(Number(cb.value)); });
     }
 
     function anMessage(html) {
@@ -3387,7 +3888,7 @@
     }
 
     async function filterFlagged() {
-      const ids = [...document.querySelectorAll('#an-report .an-pick:checked:not(:disabled)')].map(c => Number(c.value));
+      const ids = anItems.filter(it => !it.filtered && anPicked.has(Number(it.id))).map(it => Number(it.id));
       if (!ids.length) return;
       const res = await apiPost('/api/library/filter', { ids }).catch(() => ({ error: 'network' }));
       if (res.error) {
@@ -3397,12 +3898,12 @@
       await loadAnalysis();
       await refreshLibrary();
       anMessage(`<div class="notice ok">${esc(t('an_filtered_done', { n: fmt(res.filtered.length) }))}</div>`
-        + (res.refused.length ? `<div class="notice warn">${esc(t('an_filter_failed'))}<ul>${res.refused.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''));
+        + (res.refused.length ? `<div class="notice warn">${esc(t('an_filter_failed'))}<ul>${capList(res.refused)}</ul></div>` : ''));
     }
 
     async function unfilterPicked() {
-      const entries = [...document.querySelectorAll('#an-report .an-unpick:checked')]
-        .map(c => anFiltered[Number(c.value)]).filter(Boolean).map(f => ({ media: f.media, name: f.name }));
+      const entries = [...anUnpicked]
+        .map(i => anFiltered[i]).filter(Boolean).map(f => ({ media: f.media, name: f.name }));
       if (!entries.length) return;
       const res = await apiPost('/api/library/unfilter', { entries }).catch(() => ({ error: 'network' }));
       if (res.error) {
@@ -3454,7 +3955,7 @@ function startPolling() {
         if (s.error) html += `<div class="notice err">${esc(t('lib_error', { e: s.error }))}</div>`;
         else if (s.stopped) html += `<div class="notice warn">${esc(t('lib_stopped'))}</div>`;
         else html += `<div class="notice ok">${esc(t('lib_done'))} <a href="/">${esc(t('lib_done_search'))} →</a></div>`;
-        const stages = ['subs', 'epub'].filter(k => results[k]);
+        const stages = ['subs', 'epub', 'manga'].filter(k => results[k]);
         if (stages.length) {
           html += `<table class="summary-table"><tr><th></th><th>${esc(t('lib_col_new'))}</th><th>${esc(t('lib_col_same'))}</th><th>${esc(t('lib_col_removed'))}</th></tr>`;
           stages.forEach(k => {
@@ -3471,10 +3972,10 @@ function startPolling() {
         html += `<div class="notice warn">${esc(t('lib_root_missing', { s: t('lib_stage_' + st) }))}</div>`;
       });
       if ((s.skipped_clash || []).length) {
-        html += `<div class="notice warn">${esc(t('lib_skipped_clash'))}<ul>${s.skipped_clash.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>`;
+        html += `<div class="notice warn">${esc(t('lib_skipped_clash'))}<ul>${capList(s.skipped_clash)}</ul></div>`;
       }
       if ((s.failed || []).length) {
-        html += `<div class="notice err">${esc(t('lib_failed'))}<ul>${s.failed.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>`;
+        html += `<div class="notice err">${esc(t('lib_failed'))}<ul>${capList(s.failed)}</ul></div>`;
       }
       if ((s.log || []).length) {
         const open = document.querySelector('#lib-status details.log[open]') ? 'open' : '';
@@ -3519,7 +4020,7 @@ function startPolling() {
 
         <h2>2. インデックスを作成する</h2>
         <p><a href="/?tab=library">ライブラリ</a>タブで「インデックス作成」を押すと、すべての文を解析して検索用のデータベースを作ります。初回は大きなライブラリで数分かかります。2回目以降は追加・変更・削除されたファイルだけを処理します。ファイルを入れ替えたら、もう一度押してください。</p>
-        <p>ボタンの横で、1つのメディアだけを選べます。ファイルが増えるときは、作成前にデータベースの大きさと所要時間の見積もりが出ます。データベースの合計が 10 GB を超えそうなときは、検索が遅くなるため、始める前に確認が表示されます。同じタブの「点検する」では、字幕と書籍から日本語以外のファイルや重複ファイルを探し、選んだものをインデックスから外せます（ファイルは移動も削除もしません）。二か国語の字幕は日本語の部分だけがインデックスされます。</p>
+        <p>ボタンの横で、1つのメディアだけを選べます。字幕か書籍が増えるときは、作成前にデータベースの大きさと所要時間の見積もりが出ます（漫画は見積もりなしですぐに始まります）。データベースの合計が 10 GB を超えそうなときは、検索が遅くなるため、始める前に確認が表示されます。同じタブの「点検する」では、字幕と書籍から日本語以外のファイルや重複ファイルを探し、選んだものをインデックスから外せます（ファイルは移動も削除もしません）。二か国語の字幕は日本語の部分だけがインデックスされます。</p>
 
         <h2>3. 検索する</h2>
         <ul>
@@ -3585,7 +4086,7 @@ Manga folder/
 
         <h2>2. Build the index</h2>
         <p>Press "Index library" in the <a href="/?tab=library">Library</a> tab. Every sentence is analyzed into a search database; the first run over a large library takes a few minutes. Later runs only process files that were added, changed or removed, so run it again whenever your files change.</p>
-        <p>Beside the button you can choose one media only. When files were added, you first see how large the databases will get and how long it will take; past 10 GB in total, Aobana asks before it starts, as searches get slower. "Check" in the same tab finds subtitles and books that are not Japanese, and duplicates, and leaves the ones you tick out of the index (nothing is moved or deleted). Bilingual subtitles are indexed with their Japanese part only.</p>
+        <p>Beside the button you can choose one media only. When subtitles or books were added, you first see how large the databases will get and how long it will take (manga starts at once, with no estimate); past 10 GB in total, Aobana asks before it starts, as searches get slower. "Check" in the same tab finds subtitles and books that are not Japanese, and duplicates, and leaves the ones you tick out of the index (nothing is moved or deleted). Bilingual subtitles are indexed with their Japanese part only.</p>
 
         <h2>3. Search</h2>
         <ul>
@@ -3626,13 +4127,28 @@ Manga folder/
     }
 
     let activityTimer = null;
+    let activityPolling = false;
+    let activityAgain = false;
+    let activityBusy = false;
+    const ACTIVITY_WAKE_KEY = 'aobana_activity_wake';
+    function wakeOtherTabs() {
+      try { localStorage.setItem(ACTIVITY_WAKE_KEY, `${Date.now()}:${Math.random()}`); } catch (e) {}
+    }
     async function pollActivity() {
+      if (activityPolling) { activityAgain = true; return; }
+      activityPolling = true;
       clearTimeout(activityTimer);
       let a = null;
       try { a = await fetch('/api/activity').then(r => r.json()); } catch (e) {}
       if (a) renderNotices(a.notices || []);
-      const busy = a && (a.index || a.check || a.figures);
-      activityTimer = setTimeout(pollActivity, busy ? 1000 : 5000);
+      if (a) {
+        const wasBusy = activityBusy;
+        activityBusy = !!(a.index || a.check || a.figures);
+        if (activityBusy && !wasBusy) wakeOtherTabs();
+      }
+      activityPolling = false;
+      if (activityBusy || activityAgain) activityTimer = setTimeout(pollActivity, 1000);
+      activityAgain = false;
     }
     function noticeText(n) {
       const state = n.error ? '_error' : (n.stopped ? '_stopped' : '');
@@ -3647,9 +4163,12 @@ Manga folder/
     }
     async function dismissNotice(id, btn) {
       btn.closest('.task-notice').remove();
-      await apiPost('/api/activity/dismiss', { id }).catch(() => {});
+      const result = await apiPost('/api/activity/dismiss', { id }).catch(() => null);
+      if (result) wakeOtherTabs();
     }
     document.addEventListener('DOMContentLoaded', pollActivity);
+    window.addEventListener('focus', pollActivity);
+    window.addEventListener('storage', e => { if (e.key === ACTIVITY_WAKE_KEY) pollActivity(); });
 
     function openWelcome() {
       const m = document.getElementById('welcome-modal');
@@ -3780,11 +4299,11 @@ Manga folder/
       if (store.get('reindex_told') === APP_VERSION) return checkForUpdate();
       let lib = null;
       try { lib = await fetch('/api/library/outdated').then(r => r.json()); } catch (e) {}
-      const subs = (lib && lib.subs_outdated) || 0, books = (lib && lib.books_outdated) || 0;
+      const outdated = lib ? outdatedMedia(lib) : [];
       store.set('reindex_told', APP_VERSION);
-      if (!lib || !(subs + books)) return checkForUpdate();
+      if (!outdated.length) return checkForUpdate();
       const m = document.getElementById('reindex-modal');
-      m.querySelector('#reindex-body').innerHTML = t('reindex_body', { subs: fmt(subs), books: fmt(books) });
+      m.querySelector('#reindex-body').innerHTML = t('reindex_body', { which: esc(outdatedSummary(outdated)) });
       m.classList.add('open');
       document.documentElement.style.overflow = 'hidden';
     }
@@ -4008,8 +4527,8 @@ Manga folder/
       if (!e.target.closest('.topbar')) setMenu(false);
     });
 
-    const LABEL_STAGES = ['c-lang', 'c-theme', 'c-guide', 'c-settings', 'c-library', 'c-media', 'c-saved', 'c-search'];
-    const TAB_ORDER = ['search', 'saved', 'media', 'library', 'settings', 'guide'];
+    const LABEL_STAGES = ['c-lang', 'c-theme', 'c-guide', 'c-settings', 'c-library', 'c-saved', 'c-media', 'c-search'];
+    const TAB_ORDER = ['search', 'media', 'saved', 'library', 'settings', 'guide'];
     const SETTINGS = ['shortcuts-btn', 'lang-dd', 'theme-dd'];
     const DRAWER_STAGE = LABEL_STAGES.length + 1;
     const TABS_STAGE = DRAWER_STAGE + 1;
@@ -4194,6 +4713,24 @@ Manga folder/
       const chip = document.getElementById('exact-chip');
       chip.classList.toggle('on', exact.checked);
       exact.addEventListener('change', () => chip.classList.toggle('on', exact.checked));
+      const multi = document.getElementById('multi-check');
+      const multiChip = document.getElementById('multi-chip');
+      multi.checked = multiPick;
+      multiChip.classList.toggle('on', multiPick);
+      multi.addEventListener('change', () => {
+        multiPick = multi.checked;
+        multiChip.classList.toggle('on', multiPick);
+        store.set('multiPick', multiPick ? 'on' : 'off');
+        clearPins();
+        pinFolders(currentFolders);
+        if (!multiPick && currentFolders.length > 1) applyFolders(currentFolders.slice(-1), true);
+        if (allResults.length === 0 && PARAMS.get('q')) setEmptyStateForFolders(currentFolders);
+        if (multiPick && pinnedFolders.length) sidebarShown = SIDEBAR_PAGE;
+        if (sidebarData) { drawSidebar(); revealChosen(); }
+        if (multiPick && pinnedFolders.length) { const side = document.querySelector('.sidebar'); if (side) side.scrollTop = 0; }
+        renderFilterNote();
+        document.querySelectorAll('.folder-hint').forEach(p => { p.textContent = t(multiPick ? 'folder_hint' : 'folder_hint_one'); });
+      });
       document.querySelectorAll('.furi-btn').forEach(b => b.classList.toggle('off', document.documentElement.classList.contains('no-furigana')));
     }
 
@@ -4204,7 +4741,7 @@ Manga folder/
       document.querySelectorAll('[data-tab-panel]').forEach(p => { p.hidden = p.dataset.tabPanel !== TAB; });
 
       if (TAB === 'search') {
-        if (PARAMS.get('q')) store.set('aobana_last_search', window.location.pathname + window.location.search);
+        store.set('aobana_last_search', window.location.pathname + window.location.search);
         renderSearchControls();
         initFetch();
         initSidebarTooltip();
@@ -4416,6 +4953,9 @@ Manga folder/
         currentFolders.forEach(f => p.append('folder', f));
         const searchUrl = '/?' + p.toString();
         store.set('aobana_last_search', searchUrl);
+      } else {
+        cancelServerSearch(1);
+        store.del('aobana_last_search');
       }
     }
 
@@ -4527,7 +5067,7 @@ Manga folder/
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" draggable="false" onclick="store.del('aobana_last_search'); store.del('aobana_last_media')">
+    <a class="brand" href="/" draggable="false" onclick="cancelServerSearch(1); clearPins(); store.del('aobana_last_search'); store.del('aobana_last_media')">
       <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
       <span class="brand-name"><ruby>露草<rt>あおばな</rt></ruby></span>
     </a>
@@ -4536,13 +5076,13 @@ Manga folder/
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <span data-i18n="tab_search">検索</span>
       </a>
-      <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-        <span data-i18n="tab_saved">お気に入り</span>
-      </a>
       <a class="nav-tab" data-tab="media" href="/?tab=media" draggable="false" onclick="handleMediaTabClick(event)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>
         <span data-i18n="tab_media">メディア</span>
+      </a>
+      <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+        <span data-i18n="tab_saved">お気に入り</span>
       </a>
       <a class="nav-tab" data-tab="library" href="/?tab=library" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5L12 16l2.5-2.5"/></svg>
@@ -4594,6 +5134,11 @@ Manga folder/
           </span>
         </div>
         <div class="search-options">
+          <label class="exact-chip" id="multi-chip" data-i18n-title="multi_title">
+            <input type="checkbox" id="multi-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            <span data-i18n="multi">絞り込み</span>
+          </label>
           <label class="exact-chip" id="exact-chip" data-i18n-title="exact_title">
             <input type="checkbox" name="exact" id="exact-check">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
@@ -4617,6 +5162,7 @@ Manga folder/
         <div class="spinner"></div>
         <span data-i18n="searching">データベースを検索中...</span>
         <span class="load-eta" id="search-eta"></span>
+        <span class="load-eta" id="search-workers-active" role="status"></span>
       </div>
       <div id="empty-state" data-i18n="no_results">一致する結果が見つかりませんでした。</div>
       <div id="results"></div>
@@ -4635,7 +5181,7 @@ Manga folder/
       <div class="media-toolbar-wrap">
         <div class="media-toolbar">
           <div class="seg" id="media-seg"></div>
-          <div class="page-dd" id="media-page-size"></div>
+          <div class="page-dd" id="media-sort"></div>
           <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
         </div>
       </div>
@@ -4669,7 +5215,7 @@ Manga folder/
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
           <span data-i18n="lib_run">インデックス作成</span>
         </button>
-        <select id="lib-scope" class="lib-select" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
+        <select id="lib-scope" class="lib-select" onchange="syncCheckScope()" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
           <option value="" data-i18n="lib_scope_all">すべてのメディア</option>
           <option value="subs" data-i18n="lib_scope_subs">字幕のみ</option>
           <option value="epub" data-i18n="lib_scope_epub">書籍のみ</option>
@@ -4678,6 +5224,16 @@ Manga folder/
       </div>
       <div id="lib-estimate"></div>
       <div id="lib-status"></div>
+      <div class="lib-card" id="lib-workers" style="margin-top:1em;">
+        <h3 data-i18n="workers_title">並列処理</h3>
+        <p class="muted" id="workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <input type="number" id="workers-input" min="1" oninput="workersHint()">
+          <button class="btn" onclick="saveWorkers()" data-i18n="workers_save">保存</button>
+          <button class="btn" onclick="saveWorkers('auto')" data-i18n="workers_auto">おすすめに戻す</button>
+        </div>
+        <div class="notice" id="workers-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
       <div class="lib-card" id="lib-analyse" style="margin-top:1.5em;">
         <h3 data-i18n="an_title">ライブラリの点検</h3>
         <div class="facts" data-i18n="an_lead"></div>
@@ -4695,8 +5251,21 @@ Manga folder/
       <h1 data-i18n="tab_settings">設定</h1>
       <div class="lib-card" id="set-media"></div>
       <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
+      <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
+        <h3 data-i18n="search_workers_title">検索の並列処理</h3>
+        <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
+          <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
+          <label for="search-delay-input" data-i18n="search_workers_delay">追加するまでの秒数</label>
+          <input type="number" id="search-delay-input" min="0" max="60" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
+          <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
+          <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
+        </div>
+        <div class="notice" id="search-workers-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
       <div class="lib-card" id="lib-cache" style="margin-top:1em;"></div>
-      <div class="lib-card" id="lib-favorites" style="margin-top:1.5em;">
+      <div class="lib-card" id="lib-favorites" style="margin-top:1em;">
         <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
         <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
         <div class="btns">
@@ -4790,6 +5359,18 @@ Manga folder/
       <div class="btns">
         <button class="btn" onclick="closeReindex(false)" data-i18n="reindex_later">あとで</button>
         <button class="btn primary" onclick="closeReindex(true)" data-i18n="reindex_go">ライブラリを開く</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="workers-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="workers_ask_title">インデックスの並列処理について</h2>
+      <p id="workers-ask-body"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeWorkersAsk(true)" data-i18n="workers_ask_go">設定を開く</button>
+        <button class="btn primary" onclick="closeWorkersAsk(false)" data-i18n="workers_ask_continue">続ける</button>
       </div>
     </div>
   </div>

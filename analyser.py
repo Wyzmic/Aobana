@@ -19,6 +19,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 SUB_EXTS = ('.srt', '.ass', '.ssa')
 VERSION = 2
+BOOK_VERSION = 3
 
 kind = line_kind
 
@@ -146,10 +147,11 @@ def _walk(root, media):
 
 
 def _measure(conn, media, root, files, workers):
+    version = BOOK_VERSION if media == 'epub' else VERSION
     cached = {r[0]: r for r in conn.execute(
         "SELECT relpath, size, mtime, version FROM files WHERE media = ?", (media,))}
     todo = [(p, name) for _, name, p, size, mtime in files
-            if cached.get(name, (None, None, None, None))[1:] != (size, mtime, VERSION)]
+            if cached.get(name, (None, None, None, None))[1:] != (size, mtime, version)]
     stat = {name: (size, mtime) for _, name, _, size, mtime in files}
     print(f"STAGE {media}", flush=True)
     if PROGRESS:
@@ -166,7 +168,7 @@ def _measure(conn, media, root, files, workers):
         row = row or {"sha": "", "n": 0, "ja": 0, "zh": 0, "mix": 0, "en": 0, "utf8": None,
                       "keys": b"", "distinct": 0, "title": "", "author": ""}
         conn.execute("INSERT OR REPLACE INTO files VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                     (media, name, size, mtime, VERSION, row["sha"], row["n"], row["ja"], row["zh"],
+                     (media, name, size, mtime, version, row["sha"], row["n"], row["ja"], row["zh"],
                       row["mix"], row["en"], None if row["utf8"] is None else int(row["utf8"]),
                       row["keys"], row["distinct"], row["title"], row["author"], error))
         if time.monotonic() - last > 2:

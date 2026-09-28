@@ -56,6 +56,43 @@ for f in $PHONE_FILES; do
     fi
 done
 mkdir -p "$AOBANA_DIR"
+mkdir -p "$AOBANA_DIR/data"
+for name in config.json logs; do
+    if [ -e "$AOBANA_DIR/$name" ] && [ ! -e "$AOBANA_DIR/data/$name" ]; then
+        mv "$AOBANA_DIR/$name" "$AOBANA_DIR/data/$name"
+    fi
+done
+CONFIG="$AOBANA_DIR/data/config.json"
+if [ ! -f "$CONFIG" ] || ! grep -q '"db_dir"[[:space:]]*:[[:space:]]*"[^"[:space:]]' "$CONFIG"; then
+    mkdir -p "$AOBANA_DIR/data/db"
+    for name in subs.db epub.db manga.db search_cache.db analysis.db; do
+        for suffix in '' -wal -shm -journal; do
+            for source in "$AOBANA_DIR" "$AOBANA_DIR/data"; do
+                from="$source/$name$suffix"
+                to="$AOBANA_DIR/data/db/$name$suffix"
+                if [ -f "$from" ] && [ ! -e "$to" ]; then mv "$from" "$to"; fi
+            done
+        done
+    done
+    for name in filtered.tsv analysis.json media_cache.json library_figures.json; do
+        for source in "$AOBANA_DIR" "$AOBANA_DIR/data"; do
+            if [ -f "$source/$name" ] && [ ! -e "$AOBANA_DIR/data/db/$name" ]; then
+                mv "$source/$name" "$AOBANA_DIR/data/db/$name"
+            fi
+        done
+    done
+fi
+for pair in '字幕:Subtitles:subs_dir' '書籍:Books:books_dir'; do
+    old_name="${pair%%:*}"
+    rest="${pair#*:}"
+    new_name="${rest%%:*}"
+    key="${rest#*:}"
+    if [ -d "$AOBANA_DIR/content/$old_name" ] && [ ! -e "$AOBANA_DIR/content/$new_name" ]; then
+        if [ ! -f "$CONFIG" ] || ! grep -q "\"$key\"[[:space:]]*:" "$CONFIG"; then
+            mv "$AOBANA_DIR/content/$old_name" "$AOBANA_DIR/content/$new_name"
+        fi
+    fi
+done
 if [ -d "$AOBANA_DIR/.git" ]; then
     for f in $OLD_CLONE_FILES; do rm -rf "${AOBANA_DIR:?}/$f"; done
     echo "removed the old full copy of the repository (your databases and media stay)"

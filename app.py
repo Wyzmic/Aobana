@@ -12,7 +12,7 @@ if sys.stderr is None:
     sys.stderr = open(os.devnull, 'w')
 
 import paths
-from flask import Flask, render_template, make_response, request, jsonify, g, abort
+from flask import Flask, render_template, make_response, request, jsonify, g, abort, send_file
 from engine import get_search_results, format_episode_title, format_book_title, get_formatted_title, warm_ruby_lexicon
 import engine
 import library
@@ -44,7 +44,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "1.4"
+VERSION = "1.5"
 RELEASES_URL = "https://github.com/Wyzmic/aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -124,6 +124,56 @@ def close_db(error):
 
 active_queries = {}
 queries_lock = threading.Lock()
+pending_cancels = {}
+
+
+def _client_key():
+    token = request.args.get("client", "")
+    return f"client:{token}" if token else f"ip:{request.remote_addr}"
+
+
+def _search_identity(q, sort, seed, media, exact, folder, file_param):
+    return (q, sort, seed if sort == "random" else None, media, exact, None if q else folder, file_param)
+
+
+def _interrupt(entries):
+    for _, flag, conns in entries:
+        flag[0] = True
+        for conn in conns:
+            if conn is not None:
+                try:
+                    conn.interrupt()
+                except Exception:
+                    pass
+
+
+def _cancel_client(client_key):
+    with queries_lock:
+        pending_cancels.pop(client_key, None)
+        running = list(active_queries.get(client_key, []))
+    _interrupt(running)
+
+
+def _keep_client(client_key):
+    with queries_lock:
+        timer = pending_cancels.pop(client_key, None)
+    if timer is not None:
+        timer.cancel()
+
+
+def _interrupt_all_searches(wait=5.0):
+    with queries_lock:
+        running = [r for rs in active_queries.values() for r in rs]
+    _interrupt(running)
+    end = time.monotonic() + wait
+    while time.monotonic() < end:
+        with queries_lock:
+            if not active_queries:
+                return
+        time.sleep(0.05)
+
+
+library.register_release(_interrupt_all_searches)
 
 @app.route("/", methods=["GET"])
 def index():
@@ -144,17 +194,20 @@ def _media_boot():
     return {"on": paths.media_state(), "setup": setup, "upgrade": not setup and not library.media_asked(),
             "defaults": {k: paths.default_media_folder(k) for k in paths.MEDIA_KINDS},
             "folders": {"subs": paths.subs_dir(), "books": paths.books_dir(), "manga": paths.manga_dir()},
-            "picker": folder_picker.available(), "check_asked": library.check_asked()}
+            "picker": folder_picker.available(), "check_asked": library.check_asked(),
+            "workers_asked": library.workers_asked(), "workers": library.workers_facts()}
 
 
 @app.route("/api/search", methods=["GET"])
 def api_search():
-    token = request.args.get("client", "")
-    client_key = f"client:{token}" if token else f"ip:{request.remote_addr}"
+    client_key = _client_key()
+    accepted_at = time.monotonic()
+    _keep_client(client_key)
     q = request.args.get("q", "")
     sort = request.args.get("sort", "recommended")
     folders = tuple(sorted(f for f in request.args.getlist("folder") if f))
     folder = folders[0] if len(folders) == 1 else (folders or None)
+    pins = tuple(f for f in request.args.getlist("pin") if f)
     exact = request.args.get("exact") == "on"
     limit = request.args.get("limit", 500, type=int)
     offset = request.args.get("offset", 0, type=int)
@@ -166,30 +219,27 @@ def api_search():
     db_manga = get_manga_db()
     if ((media == "epub" and db_epub is None) or (media == "subs" and db_subs is None)
             or (media == "manga" and db_manga is None)):
-        return jsonify({"results": [], "folder_counts": {}, "global_total": 0, "all_folders": [], "has_more": False})
+        return jsonify({
+            "results": [], "folder_counts": {}, "global_total": 0, "all_folders": [],
+            "has_more": False, "outside_media": list(dict.fromkeys([*folders, *pins]))
+        })
     abort_flag = [False]
-    search = (q, sort, seed if sort == "random" else None, media, exact, None if q else folder, file_param)
+    search = _search_identity(q, sort, seed, media, exact, folder, file_param)
     mine = (search, abort_flag, (db_subs, db_epub, db_manga))
 
     with queries_lock:
         running = active_queries.get(client_key, [])
-        for other_search, other_flag, other_conns in running:
-            if other_search == search:
-                continue
-            other_flag[0] = True
-            for conn in other_conns:
-                if conn is not None:
-                    try:
-                        conn.interrupt()
-                    except Exception:
-                        pass
+        _interrupt([r for r in running if r[0] != search])
         active_queries[client_key] = [r for r in running if r[0] == search] + [mine]
 
+    info = {}
     try:
         results, folder_counts, global_total, all_folders, has_more = get_search_results(
             db_subs, q, sort=sort, folder=folder, exact=exact, 
             abort_flag=abort_flag, limit=limit, offset=offset, file=file_param,
-            db_epub=db_epub, media=media, seed=seed, db_manga=db_manga
+            db_epub=db_epub, media=media, seed=seed, db_manga=db_manga, info=info,
+            search_workers=paths.search_workers(), search_delay=paths.search_worker_delay(),
+            search_started=accepted_at, pins=pins
         )
         if abort_flag[0]:
             return jsonify({"aborted": True}), 499
@@ -210,19 +260,118 @@ def api_search():
         "folder_counts": folder_counts,
         "global_total": global_total,
         "all_folders": all_folders,
-        "has_more": has_more
+        "has_more": has_more,
+        "scoped": bool(info.get("scoped")),
+        "outside_media": info.get("outside_media", []),
     })
+
+@app.route("/api/search/counts", methods=["GET"])
+def api_search_counts():
+    from engine import folder_match_counts
+    client_key = _client_key()
+    accepted_at = time.monotonic()
+    _keep_client(client_key)
+    q = request.args.get("q", "")
+    sort = request.args.get("sort", "recommended")
+    seed = request.args.get("seed", type=int)
+    media = request.args.get("media", "all")
+    exact = request.args.get("exact") == "on"
+    db_subs, db_epub = get_db()
+    db_manga = get_manga_db()
+    if ((media == "epub" and db_epub is None) or (media == "subs" and db_subs is None)
+            or (media == "manga" and db_manga is None)):
+        return jsonify({"folder_counts": {}, "all_folders": [], "global_total": 0})
+    abort_flag = [False]
+    mine = (_search_identity(q, sort, seed, media, exact, None, ""), abort_flag, (db_subs, db_epub, db_manga))
+    with queries_lock:
+        active_queries.setdefault(client_key, []).append(mine)
+    try:
+        got = folder_match_counts(
+            db_subs, q, exact=exact, db_epub=db_epub, media=media,
+            db_manga=db_manga, abort_flag=abort_flag,
+            search_workers=paths.search_workers(), search_delay=paths.search_worker_delay(),
+            search_started=accepted_at)
+        if abort_flag[0]:
+            return jsonify({"aborted": True}), 499
+    except sqlite3.OperationalError as e:
+        if "interrupted" in str(e):
+            return jsonify({"aborted": True}), 499
+        raise
+    finally:
+        with queries_lock:
+            left = [r for r in active_queries.get(client_key, []) if r is not mine]
+            if left:
+                active_queries[client_key] = left
+            else:
+                active_queries.pop(client_key, None)
+    if got is None:
+        return jsonify({"fallback": True})
+    counts, order, total = got
+    return jsonify({"folder_counts": counts, "all_folders": order, "global_total": total})
+
 
 @app.route("/api/search/progress", methods=["GET"])
 def api_search_progress():
     from engine import search_progress
+    client_key = _client_key()
+    _keep_client(client_key)
     db_subs, db_epub = get_db()
-    return jsonify(search_progress(
-        db_subs, db_epub, request.args.get("q", ""),
-        sort=request.args.get("sort", "recommended"), seed=request.args.get("seed", type=int),
-        media=request.args.get("media", "all"), exact=request.args.get("exact") == "on",
-        folder=request.args.get("folder") or None, file=request.args.get("file") or None,
-        db_manga=get_manga_db()))
+    db_manga = get_manga_db()
+    q = request.args.get("q", "")
+    sort = request.args.get("sort", "recommended")
+    seed = request.args.get("seed", type=int)
+    media = request.args.get("media", "all")
+    exact = request.args.get("exact") == "on"
+    folders = tuple(sorted(f for f in request.args.getlist("folder") if f))
+    folder = folders[0] if len(folders) == 1 else (folders or None)
+    file_param = request.args.get("file", "")
+    abort_flag = [False]
+    mine = (_search_identity(q, sort, seed, media, exact, folder, file_param), abort_flag,
+            (db_subs, db_epub, db_manga))
+    with queries_lock:
+        active_queries.setdefault(client_key, []).append(mine)
+    try:
+        return jsonify(search_progress(
+            db_subs, db_epub, q, sort=sort, seed=seed, media=media, exact=exact,
+            folder=folder, file=file_param or None, db_manga=db_manga,
+            status_only=request.args.get("status") == "1", abort_flag=abort_flag))
+    except sqlite3.OperationalError as e:
+        if "interrupted" in str(e):
+            return jsonify({"running": False, "aborted": True})
+        raise
+    finally:
+        with queries_lock:
+            left = [r for r in active_queries.get(client_key, []) if r is not mine]
+            if left:
+                active_queries[client_key] = left
+            else:
+                active_queries.pop(client_key, None)
+
+
+CANCEL_GRACE_MAX = 60
+
+
+@app.route("/api/search/cancel", methods=["POST"])
+def api_search_cancel():
+    _require_page()
+    client_key = _client_key()
+    body = request.get_json(silent=True) or {}
+    try:
+        grace = min(max(float(body.get("grace", 0)), 0), CANCEL_GRACE_MAX)
+    except (TypeError, ValueError):
+        grace = 0
+    if not grace:
+        _cancel_client(client_key)
+        return jsonify({"ok": True})
+    timer = threading.Timer(grace, _cancel_client, args=(client_key,))
+    timer.daemon = True
+    with queries_lock:
+        old = pending_cancels.pop(client_key, None)
+        pending_cancels[client_key] = timer
+    if old is not None:
+        old.cancel()
+    timer.start()
+    return jsonify({"ok": True, "grace": grace})
 
 @app.route("/api/episodes", methods=["GET"])
 def api_episodes():
@@ -562,7 +711,7 @@ def api_media():
                       needle=request.args.get("q", ""),
                       offset=max(0, request.args.get("offset", 0, type=int)),
                       limit=max(0, request.args.get("limit", 0, type=int)),
-                      folder=folder)
+                      folder=folder, sort=request.args.get("sort", "name"))
     page["ready"] = True
     return jsonify(page)
 
@@ -624,12 +773,16 @@ def api_library_set():
     _require_page()
     body = request.get_json(silent=True) or {}
     if "db_dir" in body:
-        error, old_kept = library.move_databases(body.get("db_dir"))
+        error, files = library.move_databases(body.get("db_dir"))
         if error:
-            return jsonify({"error": error}), 400
-        return jsonify({"ok": True, "old_kept": old_kept})
+            return jsonify({"error": error, "files": files}), 400
+        return jsonify({"ok": True, "started": True})
     if "media" in body:
         error = library.set_media(body.get("media") if isinstance(body.get("media"), dict) else {})
+    elif "index_workers" in body:
+        error = library.set_workers(body.get("index_workers"))
+    elif "search_workers" in body:
+        error = library.set_search_workers(body.get("search_workers"), body.get("search_worker_delay"))
     elif "port" in body:
         error = library.set_port(body.get("port"))
         if not error and not os.environ.get("AOBANA_PORT"):
@@ -639,6 +792,11 @@ def api_library_set():
     if error:
         return jsonify({"error": error}), 400
     return jsonify({"ok": True})
+
+
+@app.route("/api/library/move", methods=["GET"])
+def api_library_move():
+    return jsonify(library.move_status())
 
 
 @app.route("/api/setup", methods=["POST"])
@@ -682,6 +840,27 @@ def api_profile_handoff():
     return jsonify({"ok": True})
 
 
+_MANGA_PAGE_MISSING = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>露草</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;
+background:#f6f5f2;color:#3a3a3a}@media (prefers-color-scheme:dark){body{background:#16181c;color:#c9ccd2}}
+p{margin:.4em 1em;text-align:center}</style></head><body><div>
+<p>このページの画像が見つかりません。</p><p lang="en">The image of this page was not found.</p>
+</div></body></html>"""
+
+
+@app.route("/manga/page/<int:rowid>", methods=["GET"])
+def manga_page_image(rowid):
+    image = library.manga_page_image_path(get_manga_db(), rowid)
+    if not image:
+        return make_response(_MANGA_PAGE_MISSING, 404, {"Content-Type": "text/html; charset=utf-8",
+                                                        "Cache-Control": "no-store"})
+    response = send_file(image, conditional=True, max_age=0)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @app.route("/api/library/open", methods=["POST"])
 def api_library_open():
     _require_page()
@@ -710,6 +889,13 @@ def api_library_pick():
 def api_library_check_asked():
     _require_page()
     library.mark_check_asked()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/library/workers-asked", methods=["POST"])
+def api_library_workers_asked():
+    _require_page()
+    library.mark_workers_asked()
     return jsonify({"ok": True})
 
 
@@ -869,6 +1055,14 @@ PORT = paths.server_port()
 app.config['TEMPLATES_AUTO_RELOAD'] = DEBUG
 
 if __name__ == "__main__":
+    from werkzeug.serving import WSGIRequestHandler
+
+    class _QuietRequestHandler(WSGIRequestHandler):
+        def log_request(self, code="-", size="-"):
+            if str(code) == "200" and self.path.split("?", 1)[0] in ("/api/activity", "/api/search/progress"):
+                return
+            super().log_request(code, size)
+
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         if sys.platform == "win32":
             try:
@@ -880,4 +1074,4 @@ if __name__ == "__main__":
         print("Termux を閉じるとサーバーが止まります。 / Close Termux to stop the server." if TERMUX else
               "このウィンドウを閉じるとサーバーが止まります。 / Close this window to stop the server.")
     paths.make_source_folders()
-    app.run(host='127.0.0.1', port=PORT, debug=DEBUG)
+    app.run(host='127.0.0.1', port=PORT, debug=DEBUG, request_handler=_QuietRequestHandler)

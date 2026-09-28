@@ -841,8 +841,8 @@ def extract_epub_content(epub_path):
             full_path = href if (href in zf.namelist()) else (posixpath.join(content_dir, href) if content_dir else href)
             try:
                 raw_xhtml = zf.read(full_path).decode('utf-8', errors='ignore')
-            except Exception:
-                continue
+            except (zipfile.BadZipFile, EOFError, OSError, RuntimeError, KeyError) as exc:
+                raise zipfile.BadZipFile(f"Unreadable EPUB chapter {full_path}: {exc}") from exc
 
             soup = BeautifulSoup(raw_xhtml, 'html.parser')
             page_dir = posixpath.dirname(full_path)
@@ -1100,6 +1100,14 @@ def run_epub_indexer(force=False, outdated=False):
         cur = conn.execute("SELECT id, relpath, file_hash, index_format FROM sources")
         existing_files = {row['relpath']: {'id': row['id'], 'hash': None if outdated and is_outdated('epub', row['relpath'], row['index_format']) else row['file_hash']}
                           for row in cur}
+        conn.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+        recheck_empty = conn.execute("SELECT v FROM meta WHERE k = 'epub_spine_checked'").fetchone() is None
+        if recheck_empty:
+            empty_ids = {row[0] for row in conn.execute(
+                "SELECT id FROM sources EXCEPT SELECT source_id FROM chapters")}
+            for old in existing_files.values():
+                if old['id'] in empty_ids:
+                    old['hash'] = None
         deleted_rows = inserted_rows = 0
         if outdated:
             n_old = sum(1 for v in existing_files.values() if v['hash'] is None)
@@ -1241,6 +1249,8 @@ def run_epub_indexer(force=False, outdated=False):
                   f"({ident['dictionary_format']}), SudachiPy {ident['sudachipy_version']}, "
                   f"system.dic {ident['system_dic_sha256'][:12]}")
 
+        if recheck_empty and not stopped:
+            conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('epub_spine_checked', '1')")
         conn.commit()
         if stopped:
             print("STOPPED", flush=True)

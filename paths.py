@@ -215,6 +215,30 @@ def debug_mode():
     return load_config().get("debug") is True
 
 
+def usable_cpus():
+    if hasattr(os, "process_cpu_count"):
+        return os.process_cpu_count() or 1
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0)) or 1
+    return os.cpu_count() or 1
+
+
+def recommended_workers():
+    return max(1, usable_cpus() // 2)
+
+
+def search_workers():
+    value = load_config().get("search_workers")
+    if type(value) is int and 1 <= value <= usable_cpus():
+        return value
+    return recommended_workers()
+
+
+def search_worker_delay():
+    value = load_config().get("search_worker_delay")
+    return value if type(value) is int and 0 <= value <= 60 else 10
+
+
 def index_workers():
     for value in (os.environ.get("AOBANA_INDEX_WORKERS"), load_config().get("index_workers")):
         try:
@@ -222,7 +246,7 @@ def index_workers():
                 return max(1, int(value))
         except (TypeError, ValueError):
             pass
-    return max(1, min(8, (os.cpu_count() or 2) - 1))
+    return recommended_workers()
 
 
 def db_dir():
@@ -233,6 +257,10 @@ DB_FOLDER = "db"
 
 
 def default_db_dir():
+    if INSTALLED:
+        chosen = _read_json(MARKER_PATH).get("db_dir")
+        if isinstance(chosen, str) and chosen.strip():
+            return chosen
     return os.path.join(STORE_DIR, DB_FOLDER)
 
 

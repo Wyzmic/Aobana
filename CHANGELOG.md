@@ -1,147 +1,103 @@
 # Changelog
 
-## 1.4 — Manga, `.ass` furigana, a Settings tab, setup in the app
+## 1.5: Filtered search, faster chosen-title search, CPU workers, manga page images
 
-- **Manga**: `.mokuro` files, which mokuro writes when it runs OCR on manga pages, are searched as a
-  third media beside subtitles and books, with their own folder (one folder per series), switch,
-  database (`manga.db`) and Media list; a hit shows its page. The text is the OCR as the file holds
-  it: Aobana does not re-read the images, so a misread word or a missed bubble shows as mokuro read
-  it. Aobana puts each page's text in reading order (the right page of a spread first), keeps a
-  bubble read twice only once, and restores ellipses and dashes the OCR turns into other characters.
-- **`.ass` furigana**: the small furigana lines of an `.ass` file are placed over their kanji instead
-  of being left out. Tested on 502 `.ass` files with furigana (43,009 readings), about 99.5% sit on
-  the right characters. The first **Index library** after updating re-reads `.ass` and `.ssa` files
-  only; `.srt` files and books are not re-read.
-- **Settings tab**: media, folders, the databases folder, the search cache, favorites, the port and
-  the reset move out of the Library tab. Each media can be turned off (hidden everywhere, its
-  database kept) and its database removed with **Delete database**, which asks first.
-- **Setup in the app**: the installer asks for no folders. A new install's first start asks which
-  media are used and where their folders go; an update from 1.3 or earlier shows the same window
-  once, after the release notes, filled in with the folders set now. **Reset all settings to
-  default** brings it back.
-- **The furigana lookups live in the index**: an index from 1.3 or earlier gets a table built once
-  (the Library tab's **Update**, or any index run), reading no file. Before, every furigana line was
-  read into memory, which on a 122 GB library held up the end of a run and the opening of a book
-  for about 20 minutes.
-- **Check library**: a book in the books folder itself is kept over its copy in a subfolder, a
-  subtitle file in a show folder over a loose copy; each duplicate list has **Invert selection**.
-  The size and time estimate is kept until the files change, and the check question comes back
-  after a reinstall.
-- **Windows**: installing over a running Aobana closes it first instead of stopping at **Preparing
-  to Install**; the setup run as administrator over a per-user install updates it; the uninstaller
-  ticks nothing by default.
-- **Fixes**: a search for one media that is off or has no database no longer answers with the
-  other; the search sidebar lists all titles again when the chosen ones have no hit.
+### Enhancements
 
-## 1.3 — Faster search on big libraries, search inside a title
+- **Filtered search and pinned titles.** The **Filtered** switch next to **Exact** controls how title clicks work. It starts off: a click searches one title and scrolls to it. Turn it on to search several titles together. Titles you have chosen stay above a divider until you remove them with their × buttons, click the Aobana logo, or close the browser tab. **All** clears the current choice while keeping those pins.
+- **Faster searches within chosen titles.** Aobana reads only the chosen books, subtitle shows, or manga series, then counts matches in the other titles in the background. On the measured large test libraries, a chosen-title search that previously scanned the whole library for minutes returned in under a second. A choice with no matching lines says so immediately.
+- **CPU workers for search and indexing.** Separate Settings cards control each worker count. Automatic uses half the usable CPU threads. Long searches can start extra workers after a configurable delay (10 seconds by default, or zero to start them immediately); the remaining search and other-title counting then run across those workers.
+- **Manga page images.** A manga result's page number in Search, Favorites, or the Media reader opens its image in a reusable browser tab when the image is available beside the `.mokuro` file.
+- **Media and search navigation.** Media sits next to Search in the top bar. Its titles can be sorted by name, episode/chapter/volume count, or line count in either direction. The Media list and search sidebar load 500 titles at a time, and the search options wrap one by one on narrow windows.
+- **Moving databases and reading large reports.** Moving the database folder in Settings includes its companion files and shows bytes and time remaining. Check library draws long reports as you scroll and keeps selections across the full report.
+- **Long-task notices.** Another Aobana tab wakes when indexing or a library check starts, and notices can be dismissed across tabs. Future manga re-index notices include manga as well.
 
-- **Faster search**: common words are found in up to half the time, with half the memory. The
-  first **Index library** after this update adds a table to the index, once: it stores how long
-  each line is when shown (about 10 bytes a line), so a search no longer works that out for every
-  match. Together with the other search changes, searches for common words take about 45% less
-  time.
-- **Search cache** (optional, off by default): turned on in its own box in the Library tab, a
-  search that took a while is kept on disk (up to 1 GB, the oldest dropped first), so it shows at
-  once, even after a restart. The box shows the space it uses and clears it at any time;
-  turning it off keeps what was saved.
-- **Search inside a title**: an opened show or book in the Media tab has a search bar, for its
-  episode and chapter names or for the text of its lines; matches are listed under their episode
-  or chapter, in order, a page at a time.
-- **Several titles at once**: clicking a title in the search sidebar adds it to the filter or takes
-  it out; **All** clears it. Each chosen title has its own ✕ above the results.
-- **The Library tab** shows its folder figures at once, from the last count, and updates them in
-  the background. When indexing, **Check library** or a first count took more than a minute, a
-  notice says so on every tab until it is closed.
-- **The Guide** shows the version and has a **Changelog** button.
-- **A `db` folder**: the databases and what is kept beside them move into a folder of their own
-  inside Aobana's data folder, at the first start after updating; config and logs stay where they
-  are. A databases folder you chose yourself is not moved. On Android, the settings, the logs and
-  the databases move into the `data` folder inside Aobana, the databases into `data/db`.
-- **Big book libraries**: chapter lists and the Media tab's counts read a chapter table that the
-  first index run after updating builds once.
-- **Check library** counts steadily through a large library, and **Stop** stops it within a second.
-- **Chapter names**: a chapter named only by a file number shows its place in the book.
-- **Fixes**: a book with an extremely long paragraph no longer breaks the results page; showing the
-  context of a book line no longer hangs on a large library.
+### Bug Fixes
 
-## 1.2 — One-click updates, folder pickers, settings that follow the port
+- Leaving a search tab or starting a new search cancels the old server search, so it does not keep using CPU in the background.
+- A chosen title with no results, or one outside the selected media category, no longer starts a whole-library search. Opening a very large library no longer briefly says **Your library is empty** while its first title list is loading.
+- **Manga only** indexing starts without a subtitle/book estimate; Check library is disabled for that scope, and the completed run lists manga in its summary.
+- An EPUB with an unreadable chapter is listed as failed with the file and reason, and Check library reports it. Older books indexed with no chapters are checked once on the next index run.
+- Open folder in Library and Settings now reports a failure instead of appearing to do nothing. On Windows, it opens Explorer directly and brings the folder window above the browser.
+- Search worker guidance no longer claims a fixed slowdown above 16 workers; the benefit and memory use depend on the machine and query.
+- A direct Termux update from 1.0–1.3 moves the earlier settings and database layout into `data/` and `data/db/` while keeping media files and custom folder choices.
 
-- **Update automatically**: the new-version window can download the release, check it, install it
-  and start Aobana again, on Windows (the installer, per user or for all users), macOS and Linux
-  (the AppImage and the `.tar.gz` install). If the install does not go through, the old version
-  starts again and says so. Android keeps its own **Update now**.
-- **What's new**: the first start of a new version shows that release's notable changes.
-- **Folder pickers**: the **Change** buttons in the Library tab open the system's folder dialog on
-  Windows, macOS and Linux; the text field stays for typing a path, and on Android.
-- **Changing the port** keeps your settings (language, theme, favorites and the rest), which the
-  browser keeps per address. **Reset all settings to default**, at the end of the Library tab, puts
-  every setting back; the library and the index are kept.
-- **The top bar** stays pinned on every tab, the search tab included.
-- **Wording**: the Japanese and English interface, the installer and the READMEs are reworded to be
-  clearer and consistent; English counts read "1 show" and "1 book".
-- **Screen readers**: buttons that show only an icon (★, ⋯, the shortcuts, search and scope
-  controls) are named.
-- **Windows**: the welcome and what's-new windows are wider; every window keeps one text size on
-  any screen, and its icon can no longer be dragged out.
-- **Searching a lone auxiliary** such as `だ`, `です` or `ない` finds that word as written: `だ` no
-  longer finds lines that only have `な`, `で` or `じゃ`.
+## 1.4: Manga, `.ass` furigana, Settings, in-app setup
 
-## 1.1 — macOS, Linux, `.ass` subtitles and the Library check
+### Enhancements
 
-- **macOS (Apple Silicon)**: a `.dmg` with Aobana inside, Python included. It opens at
-  `http://127.0.0.1:5005/`, since macOS's AirPlay Receiver uses 5000. **Linux (x86-64)**: a
-  `.tar.gz` with an installer, and an AppImage. Both are built and tested automatically but not yet
-  confirmed at a real desktop.
-- **`.ass` and `.ssa` subtitles** are read: the Japanese dialogue only. Chinese and English lines,
-  signs, furigana lines and drawings are left out.
-- **Check library**, in the Library tab: finds subtitles that are not in Japanese, other rips of
-  the same episode, sets of SubPlz outputs and the same book in two files. The files you tick are
-  left out of the index, not moved or deleted, and can be put back. The first Index library offers
-  to run it first, once.
-- **Bilingual subtitles** are indexed with their Japanese only.
-- **Indexing** uses several processes on a machine with more than two cores, can do subtitles or
-  books alone, and shows an estimate of the index size and the time before a run that adds files,
-  with a warning above 10 GB. A file that cannot be read is reported and the rest is indexed. A
-  subtitle file placed directly in the subtitles folder is indexed as a show of its own.
-- **Stop**: indexing and the library check can be stopped, after asking. What was saved before a
-  stop, a crash or a closed window stays in the index, and the next run carries on from there.
-- **Subtitle text**: invisible direction marks and HTML codes written out as text are removed.
-- **Titles**: episode titles drop release, codec and resolution tags and read the episode number
-  from more naming styles (`S02EP01`, `1x01`, `第12話`); book titles keep their volume number and
-  drop publisher tags.
-- **Book chapters** follow the reading order; the contents page is not cut into chapters; a book
-  that has only one chapter in its table of contents is split at its numbered headings; a section
-  shows the chapter it belongs to.
-- **Re-indexing a 1.0 library**: files indexed by 1.0 are re-read with one click in the Library
-  tab, which the first start of 1.1 mentions once. Favorites are kept.
-- **Big libraries**: the Media list and the search sidebar load a page at a time, and a long search
-  shows the time left.
-- **Furigana over a short word** is centered over it.
-- **The default folders are named `Subtitles` and `Books`.** An update renames 1.0's default
-  folders once; folders you chose yourself are left as they are. On Android, the install makes
-  empty `content/Subtitles` and `content/Books` folders.
-- **Searching**: a random sort keeps its order when you switch tabs, and a cancelled search stops
-  at once.
-- **Updates**: the update window can skip a version. On Android, **Update now** installs the new
-  version and reloads the page.
+- **Manga.** Aobana searches `.mokuro` OCR text as a third media type, with a folder per series, its own switch, database (`manga.db`), and Media list. Results include page numbers. Aobana uses the text saved by mokuro and puts pages of a spread in reading order.
+- **`.ass` furigana.** Small furigana lines are placed over their kanji. The first index run after updating re-reads `.ass` and `.ssa` files; `.srt` files and books stay as they are.
+- **Settings tab.** Media, folders, databases, search cache, favorites, port, and reset controls moved out of Library. Each media can be hidden while its index is kept, or its database deleted after a confirmation.
+- **Setup in the app.** New installs choose media and folders at first start. Updates from 1.3 or earlier show that setup once with existing folder choices filled in. Reset all settings to default brings it back.
+- **Furigana lookups in the index.** An older index builds its lookup table once through Update or an index run. On a measured 122 GB library, this avoided a roughly 20-minute delay when opening a book.
+- **Check library.** Files directly in a media folder take priority over copies in subfolders. Duplicate lists have **Invert selection**, and the estimate remains until files change.
 
-## 1.0 — the first public release
+### Bug Fixes
 
-- **Search** over your own Japanese subtitles (`.srt`) and e-books (`.epub`), offline. A word also
-  finds its other forms (`食べる` finds 食べた and 食べて), a reading in kana works too, and there
-  are exact matches and `-` to exclude a word.
-- **Furigana** on every sentence, from the book's own ruby where it has one; a reading written in
-  parentheses after a word is drawn as furigana when a dictionary confirms it. One click hides it.
-- **Context**: the lines around any result, and whole episodes and chapters in order in the Media
-  tab.
-- **Favorites, sorting and filters**: saved sentences; recommended, chronological, longest,
-  shortest or random order; subtitles, books, both, or one title.
-- **Japanese and English interface**, four themes, keyboard shortcuts, and a layout that fits a
-  phone screen.
-- **Windows installer** (English and Japanese) with Python and every package included, so it works
-  offline with nothing installed first. It installs for one user or for all users and sets up the
-  media folders and the folder for the index; running it again changes them. The uninstaller asks
-  what to delete besides the program, and never deletes folders you chose yourself.
-- **Android** through Termux, with one install command.
-- **Update check** at start: if GitHub has a newer release, a window links to it. Offline, nothing
-  is shown.
+- Windows setup can update a running Aobana and can update a per-user install when launched as administrator. Uninstall leaves optional data removal unticked.
+- Searching a media type that is off or has no database no longer returns results from another type.
+- The sidebar lists all titles again when the chosen titles have no match.
+
+## 1.3: Faster large-library search and search inside a title
+
+### Enhancements
+
+- **Faster searches.** A one-time index table stores displayed line lengths, about 10 bytes per line. Together with the search changes, common-word searches took about 45% less time in the measured library.
+- **Optional search cache.** Searches that take a while can be kept on disk, up to 1 GB, to appear at once after a restart. The cache starts off and can be cleared without removing the index.
+- **Search inside a title.** An open show or book in Media has a search bar for episode/chapter names and sentence text, with results grouped in reading order.
+- **Several titles at once.** Sidebar clicks add or remove titles from the search filter; **All** clears the choice.
+- Library shows saved folder counts immediately and updates them in the background. Long indexing and library checks show a notice on every tab. The Guide shows the version and a Changelog button.
+- Databases and their companion files moved into `db` inside Aobana's data folder at first start. A custom database folder stayed where it was. Large book libraries gained a chapter table built by the next index run.
+- Check library counts steadily and Stop responds promptly; chapters named only by file number show their place in the book.
+
+### Bug Fixes
+
+- Very long EPUB paragraphs no longer break the results page.
+- Opening the context around a book line no longer hangs on a large library.
+
+## 1.2: Automatic updates, folder pickers, and settings across ports
+
+### Enhancements
+
+- **Update automatically.** The update window can download, verify, install, and restart Aobana on Windows, macOS, and Linux. Android uses **Update now**. An unsuccessful desktop install starts the old version again.
+- The first start after an update shows the release's notable changes.
+- **Change folder** opens the system folder dialog on Windows, macOS, and Linux. The text field remains available, including on Android.
+- Changing the port keeps browser settings, language, theme, and favorites. **Reset all settings to default** keeps the library and its index.
+- The top bar stays visible on every tab. Japanese and English wording was revised, and icon-only controls gained screen-reader labels.
+
+### Bug Fixes
+
+- A search for a lone auxiliary such as `は` finds that form rather than unrelated forms.
+- The Windows welcome and what's-new windows keep a consistent text size, and their icon can no longer be dragged away.
+
+## 1.1: macOS, Linux, `.ass` subtitles, and Check library
+
+### Enhancements
+
+- Added an Apple Silicon `.dmg`, a Linux tarball installer, and an AppImage. macOS uses port 5005 because AirPlay Receiver can use 5000.
+- `.ass` and `.ssa` Japanese dialogue can be indexed, including bilingual subtitle files; signs, drawings, and other-language lines are left out.
+- **Check library** finds non-Japanese subtitles, alternate episode rips, SubPlz output sets, and duplicate books. Ticked files are excluded from the index without being deleted and can be put back.
+- Indexing can use several processes, run one media type at a time, estimate size and duration, and warn before adding more than 10 GB. Unreadable files are reported while the rest continue.
+- Indexing and Check library can be stopped after a confirmation; completed work is kept so the next run resumes.
+- Subtitle titles lose release tags and recognize more episode number formats. Book titles keep volume numbers; chapters follow reading order, including numbered headings in one-chapter books.
+- Media and search sidebars load in pages, long searches show time remaining, and short-word furigana is centered.
+- Default folders became `Subtitles` and `Books`; a 1.0 update renamed the original defaults once. Android installation creates those folders. Android's update window can skip a version.
+
+### Bug Fixes
+
+- Invisible direction marks and written-out HTML codes are removed from subtitle text.
+- Random sorting keeps its order across tab changes, and a cancelled search stops promptly.
+- The 1.0 index can be re-read from Library without losing Favorites.
+
+## 1.0: First public release
+
+### Enhancements
+
+- Offline search over your own Japanese `.srt` subtitles and `.epub` books, including conjugations, kana readings, exact matches, and excluded words.
+- Furigana on sentences, using book ruby when available, with a one-click visibility switch.
+- Context around results and full episodes and chapters in Media.
+- Favorites, recommended/chronological/length/random sorting, and media and title filters.
+- Japanese and English interface, four themes, keyboard shortcuts, and a phone-sized layout.
+- An English/Japanese Windows installer including Python and required packages, with per-user or all-user installation.
+- Android installation through Termux and a release check at startup.

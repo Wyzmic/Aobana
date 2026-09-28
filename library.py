@@ -216,6 +216,7 @@ def _add_notice(kind, seconds, **extra):
 def activity():
     with _LOCK:
         return {"index": bool(_STATE.get("running")), "check": bool(_ASTATE.get("running")),
+                "move": bool(_MOVE.get("running")),
                 "figures": bool(_FSTATE.get("running")), "notices": [dict(n) for n in _NOTICES]}
 
 
@@ -236,11 +237,13 @@ def describe(db_subs, db_epub, db_manga=None):
         "books_dir": books,
         "manga_dir": paths.manga_dir(),
         "data_dir": paths.db_dir(),
-        "db_default": os.path.join(paths.STORE_DIR, paths.DB_FOLDER),
+        "db_default": paths.default_db_dir(),
         "db_is_default": _same_folder(paths.db_dir(), paths.default_db_dir()),
         "db_sizes": _db_sizes(paths.db_dir()),
         "port": paths.server_port(),
         "port_env": bool(os.environ.get("AOBANA_PORT")),
+        "workers": workers_facts(),
+        "search_workers": search_workers_facts(),
         "subs_disk": fig["subs_disk"],
         "books_disk": fig["books_disk"],
         "manga_disk": fig["manga_disk"],
@@ -327,6 +330,7 @@ def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, fresh=Tru
         for key in paths.MEDIA_DIR_KEYS.values():
             cfg.setdefault(key, "")
         cfg.pop("check_asked", None)
+        cfg.pop("workers_asked", None)
     cfg["media_asked"] = True
     paths.save_config(cfg)
     err = set_media(media)
@@ -361,8 +365,11 @@ def mark_check_asked():
 def _forget_last_run():
     with _LOCK:
         if not _STATE.get("running"):
+            moving = _STATE.get("moving")
             _STATE.clear()
             _STATE["running"] = False
+            if moving:
+                _STATE["moving"] = moving
 
 
 def _forget_check():
@@ -381,11 +388,14 @@ _DB_SIDECARS = ("", "-wal", "-shm", "-journal")
 _DB_OF_MEDIA = {"subs": "subs.db", "books": "epub.db", "manga": "manga.db"}
 
 
-_DB_COMPANIONS = ("filtered.tsv", "analysis.json", "analysis.db")
+_DB_COMPANION_DBS = ("search_cache.db", "analysis.db")
+_DB_COMPANIONS = ("filtered.tsv", "analysis.json", "estimate.json", "media_cache.json",
+                  "library_figures.json", ".index_run.json", ".index.stop", ".check.stop")
 
 
 def _db_files(folder):
-    return ([n + s for n in _DB_NAMES for s in _DB_SIDECARS if os.path.isfile(os.path.join(folder, n + s))]
+    return ([n + s for n in _DB_NAMES + _DB_COMPANION_DBS for s in _DB_SIDECARS
+             if os.path.isfile(os.path.join(folder, n + s))]
             + [n for n in _DB_COMPANIONS if os.path.isfile(os.path.join(folder, n))])
 
 
@@ -398,60 +408,143 @@ def _same_folder(a, b):
     return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 
 
+_MOVE = {"running": False}
+_COPY_CHUNK = 16 * 1024 * 1024
+
+_RELEASE_HOOKS = []
+
+
+def register_release(fn):
+    _RELEASE_HOOKS.append(fn)
+
+
+def _release_handles():
+    for fn in _RELEASE_HOOKS:
+        try:
+            fn()
+        except Exception:
+            pass
+    try:
+        from engine import release_db_handles
+        release_db_handles()
+    except Exception:
+        pass
+
+
 def move_databases(target):
     with _LOCK:
-        if _STATE.get("running") or _STATE.get("moving"):
+        if _STATE.get("running") or _STATE.get("moving") or _ASTATE.get("running"):
             return "busy", []
         _STATE["moving"] = True
+    started = False
     try:
-        return _move_databases(target)
-    finally:
+        error, plan = _move_plan(target)
+        if error:
+            return error, plan or []
         with _LOCK:
-            _STATE.pop("moving", None)
+            _MOVE.clear()
+            _MOVE.update(running=True, done=0, total=plan["total"], started_at=time.time(),
+                         dest=plan["dest"], error=None, old_kept=[])
+        threading.Thread(target=_move_worker, args=(plan,), daemon=True).start()
+        started = True
+        return None, []
+    finally:
+        if not started:
+            with _LOCK:
+                _STATE.pop("moving", None)
 
 
-def _move_databases(target):
+def move_status():
+    with _LOCK:
+        out = dict(_MOVE)
+    if out.get("started_at"):
+        out["elapsed"] = round((out.get("finished_at") or time.time()) - out["started_at"], 1)
+    return out
+
+
+def _move_plan(target):
     raw = str(target or "").strip().strip('"')
     default = raw in ("", "default")
-    dest = os.path.join(paths.STORE_DIR, paths.DB_FOLDER) if default else os.path.abspath(os.path.expanduser(raw))
+    dest = paths.default_db_dir() if default else os.path.abspath(os.path.expanduser(raw))
     if default:
-        os.makedirs(dest, exist_ok=True)
+        try:
+            os.makedirs(dest, exist_ok=True)
+        except OSError:
+            return "not_found", None
     src = paths.db_dir()
     if not os.path.isdir(dest):
-        return "not_found", []
+        return "not_found", None
     if _same_folder(src, dest):
-        return "same", []
-    if any(os.path.exists(os.path.join(dest, n)) for n in _DB_NAMES):
-        return "exists", []
-    files = _db_files(src)
+        return "same", None
+    there = _db_files(dest)
+    if there:
+        return "exists", there
     probe = os.path.join(dest, ".aobana-write-test")
     try:
         with open(probe, "w"):
             pass
         os.remove(probe)
     except OSError:
-        return "not_writable", []
+        return "not_writable", None
+    files = _db_files(src)
+    total = sum(os.path.getsize(os.path.join(src, n)) for n in files)
+    return None, {"src": src, "dest": dest, "default": default, "total": total}
+
+
+def _move_worker(plan):
+    error, old_kept = "failed", []
+    try:
+        error, old_kept = _move_files(plan)
+    except Exception:
+        error = "failed"
+    finally:
+        with _LOCK:
+            _MOVE.update(running=False, error=error, old_kept=old_kept, finished_at=time.time())
+            _STATE.pop("moving", None)
+
+
+def _copy_counting(s, d):
+    with open(s, "rb") as fi, open(d, "wb") as fo:
+        while True:
+            chunk = fi.read(_COPY_CHUNK)
+            if not chunk:
+                break
+            fo.write(chunk)
+            with _LOCK:
+                _MOVE["done"] += len(chunk)
+    shutil.copystat(s, d)
+
+
+def _move_files(plan):
+    src, dest = plan["src"], plan["dest"]
+    _release_handles()
     from engine import clear_disk_cache
     clear_disk_cache()
+    files = _db_files(src)
+    with _LOCK:
+        _MOVE["total"] = sum(os.path.getsize(os.path.join(src, n)) for n in files)
 
     renamed, copied = [], []
     try:
         for name in files:
             s, d = os.path.join(src, name), os.path.join(dest, name)
+            size = os.path.getsize(s)
             try:
                 os.replace(s, d)
                 renamed.append(name)
+                with _LOCK:
+                    _MOVE["done"] += size
                 continue
             except OSError:
                 pass
             tmp = d + ".moving"
-            shutil.copy2(s, tmp)
-            if os.path.getsize(tmp) != os.path.getsize(s):
+            _copy_counting(s, tmp)
+            if os.path.getsize(tmp) != size:
                 raise OSError(f"size mismatch copying {name}")
             os.replace(tmp, d)
             copied.append(name)
         cfg = paths.load_config()
-        if default:
+        if plan["default"]:
             cfg.pop("db_dir", None)
         else:
             cfg["db_dir"] = dest
@@ -472,9 +565,12 @@ def _move_databases(target):
                 os.remove(os.path.join(dest, name + ".moving"))
             except OSError:
                 pass
+        _after_db_change()
         return "failed", []
 
+    _release_handles()
     old_kept = [os.path.join(src, name) for name in copied if not _remove_retrying(os.path.join(src, name))]
+    _FIG_STALE["stale"] = True
     _after_db_change()
     return None, old_kept
 
@@ -505,6 +601,7 @@ def drop_index(kind):
         if not files:
             return "none", []
         from engine import clear_disk_cache
+        _release_handles()
         clear_disk_cache()
         _after_db_change(warm=False)
         kept = [f for f in files if not _remove_retrying(f)]
@@ -534,6 +631,83 @@ def set_search_cache(on):
     else:
         cfg.pop("search_cache", None)
     paths.save_config(cfg)
+
+
+usable_cpus = paths.usable_cpus
+recommended_workers = paths.recommended_workers
+
+
+def parallel_available():
+    try:
+        import multiprocessing.synchronize
+        return True
+    except ImportError:
+        return False
+
+
+def workers_facts():
+    saved = paths.load_config().get("index_workers")
+    return {"cpus": usable_cpus(), "recommended": recommended_workers(), "max": max(1, usable_cpus() - 1),
+            "saved": saved if isinstance(saved, int) and saved >= 1 else None,
+            "effective": paths.index_workers(), "env": bool(os.environ.get("AOBANA_INDEX_WORKERS")),
+            "parallel": parallel_available()}
+
+
+def set_workers(value):
+    cfg = paths.load_config()
+    if value == "auto":
+        cfg.pop("index_workers", None)
+    else:
+        try:
+            n = int(str(value).strip())
+        except (TypeError, ValueError):
+            return "bad_workers"
+        if not 1 <= n <= max(1, usable_cpus() - 1):
+            return "bad_workers"
+        cfg["index_workers"] = n
+    paths.save_config(cfg)
+    return None
+
+
+def search_workers_facts():
+    cfg = paths.load_config()
+    count = cfg.get("search_workers")
+    delay = cfg.get("search_worker_delay")
+    cpus = paths.usable_cpus()
+    rec = paths.recommended_workers()
+    return {"cpus": cpus, "recommended": rec, "workers": paths.search_workers(), "delay": paths.search_worker_delay(),
+            "saved_workers": count if type(count) is int else None,
+            "saved_delay": delay if type(delay) is int else None}
+
+
+def set_search_workers(count, delay):
+    cfg = paths.load_config()
+    if count == "auto":
+        cfg.pop("search_workers", None)
+        cfg.pop("search_worker_delay", None)
+    else:
+        if (not isinstance(count, (str, int)) or isinstance(count, bool)
+                or not str(count).strip().isdigit() or not isinstance(delay, (str, int))
+                or isinstance(delay, bool) or not str(delay).strip().isdigit()):
+            return "bad_search_workers"
+        count, delay = int(str(count).strip()), int(str(delay).strip())
+        if not 1 <= count <= paths.usable_cpus() or not 0 <= delay <= 60:
+            return "bad_search_workers"
+        cfg["search_workers"] = count
+        cfg["search_worker_delay"] = delay
+    paths.save_config(cfg)
+    return None
+
+
+def workers_asked():
+    return bool(paths.load_config().get("workers_asked"))
+
+
+def mark_workers_asked():
+    cfg = paths.load_config()
+    if not cfg.get("workers_asked"):
+        cfg["workers_asked"] = True
+        paths.save_config(cfg)
 
 
 def set_port(value):
@@ -619,9 +793,67 @@ def open_folder(which):
     path = target()
     if not path or not os.path.isdir(path):
         return "not_found"
+    return _os_open(path)
+
+
+def _windows_explorer_windows():
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.EnumWindows.argtypes = [ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM), wintypes.LPARAM]
+    user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    windows = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def visit(hwnd, _):
+        if user32.IsWindowVisible(hwnd):
+            kind = ctypes.create_unicode_buffer(128)
+            user32.GetClassNameW(hwnd, kind, len(kind))
+            if kind.value in ("CabinetWClass", "ExploreWClass"):
+                title = ctypes.create_unicode_buffer(512)
+                user32.GetWindowTextW(hwnd, title, len(title))
+                windows.append((hwnd, title.value))
+        return True
+
+    user32.EnumWindows(visit, 0)
+    return windows
+
+
+def _bring_windows_folder_forward(path, before):
+    import ctypes
+    import time
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                   ctypes.c_int, ctypes.c_int, wintypes.UINT]
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    name = os.path.basename(os.path.normpath(path)).casefold()
+    for _ in range(20):
+        windows = _windows_explorer_windows()
+        new = [hwnd for hwnd, _ in windows if hwnd not in before]
+        old_match = [hwnd for hwnd, title in windows if title.casefold() == name]
+        if new or (_ >= 9 and old_match):
+            hwnd = new[0] if new else old_match[0]
+            user32.ShowWindow(hwnd, 9)
+            user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x43)
+            user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, 0x03)
+            user32.SetForegroundWindow(hwnd)
+            return
+        time.sleep(0.1)
+
+
+def _os_open(path):
     try:
         if sys.platform == "win32":
-            os.startfile(path)
+            before = {hwnd for hwnd, _ in _windows_explorer_windows()}
+            explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
+            subprocess.Popen([explorer, path])
+            threading.Thread(target=_bring_windows_folder_forward, args=(path, before), daemon=True).start()
         elif sys.platform == "darwin":
             subprocess.Popen(["open", path])
         else:
@@ -630,6 +862,46 @@ def open_folder(which):
     except Exception as e:
         return f"failed:{e}"
     return None
+
+
+def _inside(path, base):
+    try:
+        return os.path.commonpath([path, base]) == base
+    except ValueError:
+        return False
+
+
+def manga_page_image_path(db_manga, rowid):
+    root = paths.manga_dir()
+    if db_manga is None or not root:
+        return None
+    try:
+        rowid = int(rowid)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    got = db_manga.execute(
+        "SELECT s.relpath, p.page FROM manga m JOIN sources s ON s.id = m.source_id "
+        "JOIN manga_pages p ON p.rowid = m.rowid WHERE m.rowid = ?", (int(rowid),)).fetchone()
+    if not got:
+        return None
+    relpath, page = got[0], got[1]
+    mokuro = os.path.realpath(os.path.join(root, *re.split(r"[\\/]", relpath)))
+    base = os.path.realpath(root)
+    if not _inside(mokuro, base) or not os.path.isfile(mokuro):
+        return None
+    try:
+        with open(mokuro, encoding="utf-8") as fh:
+            pages = json.load(fh).get("pages") or []
+        img = pages[page - 1].get("img_path") if 1 <= page <= len(pages) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not img:
+        return None
+    folder = mokuro[:-len(".mokuro")] if mokuro.lower().endswith(".mokuro") else mokuro
+    image = os.path.realpath(os.path.join(folder, img))
+    if not _inside(image, base) or not os.path.isfile(image):
+        return None
+    return image
 
 
 def index_status():
@@ -795,6 +1067,8 @@ def analysis_status():
 
 
 def start_analysis(only=None):
+    if only == "manga":
+        return False
     only = only if only in ("subs", "epub") else None
     with _LOCK:
         if _ASTATE.get("running") or _STATE.get("running") or _STATE.get("moving"):
@@ -957,7 +1231,7 @@ def unfilter(entries):
 def estimate(only=None):
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     cmd = [sys.executable, os.path.join(paths.BASE_DIR, "analyser.py"), "--estimate"]
-    if only in ("subs", "epub"):
+    if only in ("subs", "epub", "manga"):
         cmd += ["--only", only]
     try:
         out = subprocess.run(cmd, cwd=paths.BASE_DIR, capture_output=True, encoding="utf-8",

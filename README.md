@@ -20,7 +20,7 @@ the subtitle files, e-books and manga you already own. Everything runs on your o
 nothing is sent to the internet: at start it only asks GitHub whether a newer version exists,
 and if one does, it offers the release page.
 
-![Aobana's search page: 会員, with furigana, in the Night theme](assets/search-night.en.png)
+![Aobana's search page: 会員, with furigana, in the Haze theme](assets/search-haze.en.png)
 
 ## Features
 - **Your own library:** subtitles (`.srt`, `.ass`, `.ssa`), e-books (`.epub`) and manga (`.mokuro`), each indexed from a folder you choose; turn off what you don't use. From an `.ass`, only the Japanese dialogue is read, with its furigana: Chinese and English lines, signs and drawings are left out. A `.mokuro` file is what [mokuro](https://github.com/kha-white/mokuro) writes when it runs OCR on manga pages; Aobana reads its text as mokuro saved it, and the images are not needed.
@@ -31,9 +31,9 @@ and if one does, it offers the release page.
 - **Japanese and English UI**, four themes, keyboard shortcuts.
 
 ## Screenshots
-Searching for 帰る across subtitles and books, in the Haze theme, with the context open.
+Searching for 帰る across subtitles, books and manga, in the Night theme:
 
-![Search results for 帰る, with the context of one result open](assets/search-haze.en.png)
+![Search results for 帰る, in the Night theme](assets/search-night.en.png)
 
 The Media tab, reading an episode in chronological order:
 
