@@ -243,7 +243,7 @@ def index_workers():
     for value in (os.environ.get("AOBANA_INDEX_WORKERS"), load_config().get("index_workers")):
         try:
             if value not in (None, ""):
-                return max(1, int(value))
+                return min(usable_cpus(), max(1, int(value)))
         except (TypeError, ValueError):
             pass
     return recommended_workers()

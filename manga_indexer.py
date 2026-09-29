@@ -210,7 +210,7 @@ def build_tables(conn, top):
         return
     if top and not has_ruby_lexicon(conn):
         print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
-    ensure_ruby_lexicon(conn, TABLE, "manga")
+    ensure_ruby_lexicon(conn, TABLE, "manga", paths.index_workers())
 
 
 def run_tables():

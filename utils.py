@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import shutil
+import tempfile
 import sqlite3
 import unicodedata
 from datetime import datetime
@@ -471,20 +472,102 @@ def ruby_lexicon_drift(conn, table, media):
     return len(want - have), len(have - want)
 
 
-def ensure_ruby_lexicon(conn, table, media) -> bool:
+def _table_ranges(top, workers):
+    if not top:
+        return []
+    chunk = min(LENGTHS_CHUNK_ROWS, max(10_000, (top + max(1, workers) - 1) // max(1, workers)))
+    return [(lo, min(top, lo + chunk - 1)) for lo in range(1, top + 1, chunk)]
+
+
+def _ruby_chunk(job):
+    db_path, table, media, lo, hi, out_path = job
+    src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    out = sqlite3.connect(out_path)
+    try:
+        out.execute("CREATE TABLE r (source_id INTEGER, folder TEXT, base TEXT, reading TEXT, "
+                    "PRIMARY KEY (source_id, folder, base, reading)) WITHOUT ROWID")
+        batch = set()
+        for sid, file, line in src.execute(
+                f"SELECT source_id, file, line FROM {table} WHERE rowid BETWEEN ? AND ? "
+                "AND instr(line, ?) > 0", (lo, hi, '(')):
+            folder = work_folder(file)
+            for base, reading in lexicon_entries(media, line):
+                batch.add((sid, folder, base, reading))
+            if len(batch) >= 1000:
+                out.executemany("INSERT OR IGNORE INTO r VALUES (?, ?, ?, ?)", batch)
+                batch.clear()
+        if batch:
+            out.executemany("INSERT OR IGNORE INTO r VALUES (?, ?, ?, ?)", batch)
+        out.commit()
+    finally:
+        out.close()
+        src.close()
+    return out_path
+
+
+def ensure_ruby_lexicon(conn, table, media, workers=1) -> bool:
     conn.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
     conn.commit()
     if has_ruby_lexicon(conn):
         return False
-    conn.execute("BEGIN")
-    conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
-    for sql in RUBY_LEXICON_SCHEMA:
-        conn.execute(sql)
-    rows = conn.execute(f"SELECT source_id, file, line FROM {table} WHERE instr(line, ?) > 0", ('(',))
-    write_ruby_lexicon(conn, media, rows)
-    conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('ruby_lexicon_version', ?)", (RUBY_LEXICON_VERSION,))
-    conn.commit()
-    return True
+    top = conn.execute(f"SELECT rowid FROM {table} ORDER BY rowid DESC LIMIT 1").fetchone()
+    db_path = next((row[2] for row in conn.execute("PRAGMA database_list") if row[1] == "main"), "")
+    ranges = _table_ranges(top[0], workers) if top else []
+    parallel = bool(db_path and len(ranges) > 1 and workers > 1)
+    work = None
+    parts = []
+    try:
+        if parallel:
+            work = tempfile.mkdtemp(prefix=f".ruby_lexicon-{table}-",
+                                    dir=os.path.dirname(os.path.abspath(db_path)))
+            jobs = [(db_path, table, media, lo, hi, os.path.join(work, f"{i:06d}.db"))
+                    for i, (lo, hi) in enumerate(ranges)]
+            actual = min(workers, len(jobs))
+            print(f"LEXICON Workers: {actual}", flush=True)
+            running = parallel_map(_ruby_chunk, jobs, actual, ordered=False, stop=stop_requested)
+            try:
+                for i, part in enumerate(running, 1):
+                    parts.append(part)
+                    if stop_requested():
+                        return False
+                    print(f"LEXICON {i}/{len(jobs)}", flush=True)
+            finally:
+                running.close()
+        if stop_requested():
+            return False
+        try:
+            conn.execute("BEGIN")
+            conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
+            for sql in RUBY_LEXICON_SCHEMA:
+                conn.execute(sql)
+            if parallel:
+                for part in parts:
+                    if stop_requested():
+                        raise InterruptedError
+                    src = sqlite3.connect(part)
+                    try:
+                        conn.executemany("INSERT OR IGNORE INTO ruby_lexicon VALUES (?, ?, ?, ?)",
+                                         src.execute("SELECT source_id, folder, base, reading FROM r"))
+                    finally:
+                        src.close()
+            else:
+                rows = conn.execute(f"SELECT source_id, file, line FROM {table} WHERE instr(line, ?) > 0", ('(',))
+                write_ruby_lexicon(conn, media, rows)
+            if stop_requested():
+                raise InterruptedError
+            conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('ruby_lexicon_version', ?)",
+                         (RUBY_LEXICON_VERSION,))
+            conn.commit()
+            return True
+        except InterruptedError:
+            conn.rollback()
+            return False
+        except Exception:
+            conn.rollback()
+            raise
+    finally:
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def split_spaced_ruby(prev: str, base: str, reading: str, evidence):
@@ -596,7 +679,7 @@ def sub_relpath(path: str, root: str) -> str:
     return os.path.join(show, rel)
 
 
-FILTER_COLUMNS = ("media", "name", "reason", "keep", "date")
+FILTER_COLUMNS = ("media", "name", "reason", "keep", "date", "origin", "size", "mtime")
 
 
 def filtered_rows(path: str) -> list:
@@ -616,6 +699,54 @@ def filtered_rows(path: str) -> list:
 
 def filtered_names(path: str, media: str) -> set:
     return {r["name"] for r in filtered_rows(path) if r["media"] == media}
+
+
+def refresh_auto_filtered(path: str, media: str, disk: dict) -> list:
+    rows = filtered_rows(path)
+    kept = []
+    for row in rows:
+        if row["media"] != media or row.get("origin") != "auto":
+            kept.append(row)
+            continue
+        file_path = disk.get(row["name"])
+        try:
+            st = os.stat(file_path) if file_path else None
+        except OSError:
+            st = None
+        if (st is not None and str(st.st_size) == row.get("size")
+                and str(st.st_mtime_ns) == row.get("mtime")):
+            kept.append(row)
+    if len(kept) != len(rows):
+        write_filtered_rows(path, kept)
+    return kept
+
+
+def write_filtered_rows(path: str, rows: list):
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\t".join(FILTER_COLUMNS) + "\n")
+        for r in rows:
+            fh.write("\t".join(str(r.get(c, "")).replace("\t", " ").replace("\n", " ")
+                               for c in FILTER_COLUMNS) + "\n")
+    os.replace(tmp, path)
+
+
+def append_filtered_rows(path: str, new_rows: list) -> int:
+    if not new_rows:
+        return 0
+    rows = filtered_rows(path)
+    have = {(r["media"], r["name"]) for r in rows}
+    added = 0
+    for r in new_rows:
+        key = (r.get("media", ""), r.get("name", ""))
+        if key[0] and key[1] and key not in have:
+            rows.append(r)
+            have.add(key)
+            added += 1
+    if added:
+        write_filtered_rows(path, rows)
+    return added
 
 
 _KANA = re.compile(r"[ぁ-ゖァ-ヺー]")
@@ -922,9 +1053,11 @@ def ensure_line_lengths(conn, db_path, table, media, workers=1) -> bool:
     parts = []
     if top:
         os.makedirs(work, exist_ok=True)
-        jobs = [(db_path, table, media, lo, lo + LENGTHS_CHUNK_ROWS - 1, os.path.join(work, f"{i:06d}.db"))
-                for i, lo in enumerate(range(1, top[0] + 1, LENGTHS_CHUNK_ROWS))]
-        for i, part in enumerate(parallel_map(_lengths_chunk, jobs, workers, ordered=False,
+        jobs = [(db_path, table, media, lo, hi, os.path.join(work, f"{i:06d}.db"))
+                for i, (lo, hi) in enumerate(_table_ranges(top[0], workers))]
+        actual = min(workers, len(jobs))
+        print(f"LENGTHS Workers: {actual}", flush=True)
+        for i, part in enumerate(parallel_map(_lengths_chunk, jobs, actual, ordered=False,
                                               stop=stop_requested), 1):
             parts.append(part)
             if stop_requested():

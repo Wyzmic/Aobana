@@ -11,7 +11,7 @@ import zlib
 from collections import Counter, defaultdict
 
 import paths
-from utils import norm_relpath, sub_relpath, parallel_map, line_kind, filtered_rows, stop_requested
+from utils import norm_relpath, sub_relpath, parallel_map, line_kind, filtered_rows, write_filtered_rows, refresh_auto_filtered, stop_requested
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -19,7 +19,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 SUB_EXTS = ('.srt', '.ass', '.ssa')
 VERSION = 2
-BOOK_VERSION = 3
+BOOK_VERSION = 5
 
 kind = line_kind
 
@@ -27,6 +27,7 @@ kind = line_kind
 MIN_LINES = 50
 BILINGUAL_SHARE = 0.02
 JAPANESE_SHARE = 0.5
+EPUB_JAPANESE_REVIEW_SHARE = 0.3
 
 
 def language(n, ja, zh, mix, utf8, media="subs", en=0):
@@ -36,7 +37,10 @@ def language(n, ja, zh, mix, utf8, media="subs", en=0):
         named = ja + zh + mix + en
         if named < MIN_LINES:
             return None
-        return "other_language" if ja / named < JAPANESE_SHARE else None
+        share = ja / named
+        if share < EPUB_JAPANESE_REVIEW_SHARE:
+            return "other_language"
+        return "language_review" if share < JAPANESE_SHARE else None
     if (zh + mix) / n >= BILINGUAL_SHARE:
         return "bilingual"
     if ja / n < JAPANESE_SHARE:
@@ -146,12 +150,18 @@ def _walk(root, media):
     return out
 
 
-def _measure(conn, media, root, files, workers):
+def _measure(conn, media, root, files, workers, skip=()):
     version = BOOK_VERSION if media == 'epub' else VERSION
+    if media == "epub":
+        conn.execute(
+            "UPDATE files SET version = 5 WHERE media = 'epub' AND version IN (2, 3, 4) "
+            "AND n > 200 AND (error IS NULL OR error = '')"
+        )
+        conn.commit()
     cached = {r[0]: r for r in conn.execute(
         "SELECT relpath, size, mtime, version FROM files WHERE media = ?", (media,))}
     todo = [(p, name) for _, name, p, size, mtime in files
-            if cached.get(name, (None, None, None, None))[1:] != (size, mtime, version)]
+            if name not in skip and cached.get(name, (None, None, None, None))[1:] != (size, mtime, version)]
     stat = {name: (size, mtime) for _, name, _, size, mtime in files}
     print(f"STAGE {media}", flush=True)
     if PROGRESS:
@@ -184,7 +194,7 @@ def _measure(conn, media, root, files, workers):
     rows = {}
     for r in conn.execute("SELECT relpath, sha, n, ja, zh, mix, en, utf8, keys, distinct_keys, title, author, error "
                           "FROM files WHERE media = ?", (media,)):
-        if r[0] in names:
+        if r[0] in names and r[0] not in skip:
             rows[r[0]] = dict(zip(("name", "sha", "n", "ja", "zh", "mix", "en", "utf8", "keys",
                                    "distinct", "title", "author", "error"), r))
     return rows
@@ -378,8 +388,31 @@ def run(only=None):
             continue
         files = _walk(root, media)
         disk = {name: rel for rel, name, _, _, _ in files}
+        if media == "epub":
+            listed = refresh_auto_filtered(paths.filtered_list(), media,
+                                           {name: path for _, name, path, _, _ in files})
+            cached = {r[0]: r for r in conn.execute(
+                "SELECT relpath, n, ja, zh, mix, en FROM files WHERE media = 'epub' "
+                "AND (error IS NULL OR error = '')")}
+            file_paths = {name: path for _, name, path, _, _ in files}
+            rescue = set()
+            for entry in listed:
+                name = entry["name"]
+                if entry["media"] != "epub" or entry["reason"] != "other_language" or name not in file_paths:
+                    continue
+                old = cached.get(name)
+                if not old or not old[1] or language(old[1], old[2], old[3], old[4], None, "epub", old[5]) == "other_language":
+                    continue
+                _, fresh, error = _measure_book((file_paths[name], name))
+                if not error and fresh["n"] and language(fresh["n"], fresh["ja"], fresh["zh"],
+                                                           fresh["mix"], None, "epub", fresh["en"]) != "other_language":
+                    rescue.add(name)
+            if rescue:
+                listed = [r for r in listed if not (r["media"] == "epub" and r["reason"] == "other_language"
+                                                     and r["name"] in rescue)]
+                write_filtered_rows(paths.filtered_list(), listed)
         skip = {r["name"] for r in listed if r["media"] == media}
-        rows = {n: r for n, r in _measure(conn, media, root, files, workers).items() if n not in skip}
+        rows = _measure(conn, media, root, files, workers, skip)
         if stop_requested():
             conn.close()
             print("STOPPED", flush=True)
@@ -395,6 +428,10 @@ def run(only=None):
             r = rows[name]
             if r["error"]:
                 add(name, "unreadable", error=r["error"])
+                flagged.add(name)
+                continue
+            if media == "epub" and r["n"] == 0:
+                add(name, "image_only")
                 flagged.add(name)
                 continue
             lang = language(r["n"], r["ja"], r["zh"], r["mix"],

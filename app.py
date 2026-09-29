@@ -18,7 +18,7 @@ import engine
 import library
 import folder_picker
 import updater
-from utils import outdated_sources, missing_tables
+from utils import outdated_sources
 
 app = Flask(__name__, template_folder='.', static_folder='static')
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
@@ -44,7 +44,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "1.5"
+VERSION = "1.6"
 RELEASES_URL = "https://github.com/Wyzmic/aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -194,8 +194,7 @@ def _media_boot():
     return {"on": paths.media_state(), "setup": setup, "upgrade": not setup and not library.media_asked(),
             "defaults": {k: paths.default_media_folder(k) for k in paths.MEDIA_KINDS},
             "folders": {"subs": paths.subs_dir(), "books": paths.books_dir(), "manga": paths.manga_dir()},
-            "picker": folder_picker.available(), "check_asked": library.check_asked(),
-            "workers_asked": library.workers_asked(), "workers": library.workers_facts()}
+            "picker": folder_picker.available(), "check_asked": library.check_asked()}
 
 
 @app.route("/api/search", methods=["GET"])
@@ -719,8 +718,27 @@ def api_media():
 @app.route("/api/library", methods=["GET"])
 def api_library():
     db_subs, db_epub = get_db()
-    return jsonify({**library.describe(db_subs, db_epub, get_manga_db()), "folder_picker": folder_picker.available(),
-                    "search_cache": _search_cache_facts()})
+    data = {**library.describe(db_subs, db_epub, get_manga_db()),
+            "folder_picker": folder_picker.available(), "search_cache": _search_cache_facts()}
+    library.save_settings_snapshot(data)
+    return jsonify(data)
+
+
+def _settings_payload():
+    return {**library.settings_view_data(), "folder_picker": folder_picker.available(),
+            "search_cache": _search_cache_facts()}
+
+
+@app.route("/api/library/settings", methods=["GET"])
+def api_library_settings():
+    data = _settings_payload()
+    library.save_settings_snapshot(data)
+    return jsonify(data)
+
+
+@app.route("/api/library/settings-snapshot", methods=["GET"])
+def api_library_settings_snapshot():
+    return jsonify({"settings": library.load_settings_snapshot()})
 
 
 def _search_cache_facts():
@@ -731,13 +749,16 @@ def _search_cache_facts():
 def api_search_cache_set():
     _require_page()
     library.set_search_cache((request.get_json(silent=True) or {}).get("on") is True)
+    library.save_settings_snapshot(_settings_payload())
     return jsonify({"ok": True, "search_cache": _search_cache_facts()})
 
 
 @app.route("/api/search-cache/clear", methods=["POST"])
 def api_search_cache_clear():
     _require_page()
-    return jsonify({"ok": engine.clear_disk_cache(), "search_cache": _search_cache_facts()})
+    ok = engine.clear_disk_cache()
+    library.save_settings_snapshot(_settings_payload())
+    return jsonify({"ok": ok, "search_cache": _search_cache_facts()})
 
 
 @app.route("/api/library/figures", methods=["GET"])
@@ -760,12 +781,15 @@ def api_activity_dismiss():
 def api_library_outdated():
     db_subs, db_epub = get_db()
     db_manga = get_manga_db()
-    return jsonify({"subs_outdated": outdated_sources(db_subs, "subs"),
+    needs = library.table_needs()
+    has_database = any(os.path.isfile(p) and os.path.getsize(p) > 0
+                       for p in (paths.subs_db(), paths.epub_db(), paths.manga_db()))
+    return jsonify({"has_database": has_database,
+                    "subs_outdated": outdated_sources(db_subs, "subs"),
                     "books_outdated": outdated_sources(db_epub, "epub"),
                     "manga_outdated": outdated_sources(db_manga, "manga"),
-                    "subs_tables": missing_tables(db_subs, "subs"),
-                    "books_tables": missing_tables(db_epub, "epub"),
-                    "manga_tables": missing_tables(db_manga, "manga")})
+                    "subs_tables": needs["subs"], "books_tables": needs["epub"],
+                    "manga_tables": needs["manga"]})
 
 
 @app.route("/api/library", methods=["POST"])
@@ -791,6 +815,7 @@ def api_library_set():
         error = library.set_folders(body.get("subs_dir"), body.get("books_dir"), body.get("manga_dir"))
     if error:
         return jsonify({"error": error}), 400
+    library.save_settings_snapshot(_settings_payload())
     return jsonify({"ok": True})
 
 
@@ -824,6 +849,7 @@ def api_library_drop():
     error, kept = library.drop_index((request.get_json(silent=True) or {}).get("which"))
     if error:
         return jsonify({"error": error}), 400
+    library.save_settings_snapshot(_settings_payload())
     return jsonify({"ok": True, "kept": kept})
 
 
@@ -889,13 +915,6 @@ def api_library_pick():
 def api_library_check_asked():
     _require_page()
     library.mark_check_asked()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/library/workers-asked", methods=["POST"])
-def api_library_workers_asked():
-    _require_page()
-    library.mark_workers_asked()
     return jsonify({"ok": True})
 
 

@@ -1036,12 +1036,14 @@
         lib_indexed_manga: 'インデックス済み: {files} 巻 · {rows} 行',
         lib_outdated: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、再インデックスしてください。',
         lib_outdated_run: '再インデックスする',
-        lib_tables: 'インデックスの一度だけの更新がまだです（{which}）。更新するまでは、大きなライブラリでは検索や書籍を開くのに時間がかかります。ファイルは読み直しません。',
-        lib_tables_run: '更新する',
+        lib_tables: '「最適化する」を押して、{which} の検索用データを一度だけ更新してください。検索や書籍の表示が速くなります。ファイルは読み直しません。',
+        lib_tables_run: '最適化する', lib_tables_ready: '表の最適化が終わりました。', lib_tables_done_short: '完了',
         lib_phase_chapters: '章の表を作成中…', lib_phase_lengths: '行の長さの表を作成中…', lib_phase_lexicon: 'ふりがなの表を作成中…',
         reindex_title: '再インデックスをおすすめします',
         reindex_body: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、<b>ライブラリ</b>タブから再インデックスしてください。',
         reindex_later: 'あとで', reindex_go: 'ライブラリを開く',
+        recheck16_title: '1.6 の書籍を点検してください',
+        recheck16_body: 'Aobana 1.6 では、一部の .epub から読み込めなかった本文を取り出せるようになりました。既存のライブラリに反映するには、「ライブラリの点検」で「点検する」を押し、結果を確認してから「インデックス作成」を押してください。短い本の一部は読み込み直します。',
         checkfirst_title: 'インデックスの前に、ライブラリを点検しますか？',
         checkfirst_body: '点検すると、日本語以外のファイルと重複（同じ本の別ファイル、同じエピソードの別リッピング）を一覧にします。どれを外すかは一覧から選べます。点検しない場合は、フォルダ内のファイルがすべてインデックスされます。この確認は今回だけです。',
         checkfirst_check: '先に点検する', checkfirst_index: '点検せずに作成',
@@ -1111,12 +1113,12 @@
         an_run: '点検する', an_running: '点検中…',
         an_stage_subs: '字幕', an_stage_epub: '書籍',
         an_none: '問題は見つかりませんでした。',
-        an_reason_bilingual: '二か国語（中国語が残る）', an_reason_other_language: '日本語以外', an_reason_duplicate: '重複',
+        an_reason_bilingual: '二か国語（中国語が残る）', an_reason_other_language: '日本語以外', an_reason_language_review: '言語を確認', an_reason_image_only: '画像のみ（テキストなし）', an_reason_duplicate: '重複',
         an_reason_encoding: '文字コード（UTF-8 で保存し直してください）', an_reason_unreadable: '読み込めないファイル',
-        an_why_lang: '{lines} 行のうち日本語 {ja}・中国語 {zh}・英語 {en}',
+        an_why_lang: '{lines} 行のうち日本語 {ja}・中国語 {zh}・英語 {en}', an_why_image_only: '0 文',
         an_why_dup: '{keep} と {pct}% 同じ内容', an_why_bytes: '{keep} と同一ファイル', an_why_subplz: 'SubPlz の組 · {keep} を残す',
         an_kept: 'この組で残すファイル', an_summary: '{files} ファイルを点検 · {when}',
-        an_invert: '選択を反転',
+        an_select_all: 'すべて選択', an_invert: '選択を反転',
         an_filter: 'チェックしたファイルをインデックスしない',
         an_filtered_done: '{n} 件をインデックスから外す対象にしました（ファイルはそのままです）。次にインデックスを作成すると検索から外れます。',
         an_filter_failed: '外せなかったファイル（点検のあとでフォルダが変わりました）:',
@@ -1136,17 +1138,14 @@
         port_restart: '保存しました。Aobana を閉じて起動し直すと http://127.0.0.1:{port}/ で開きます。',
         port_env: '環境変数 AOBANA_PORT が設定されているため、ここでの設定は使われません。',
         workers_title: '並列処理',
-        workers_lead: "インデックス作成とライブラリの点検で、同時に処理するファイル数を設定します。数を増やすと速くなる場合がありますが、メモリの使用量も増えます。このパソコンには CPU スレッドが {cpus} 個あり、推奨値は {rec} です。",
+        workers_lead: 'インデックス作成とライブラリの点検で、同時に処理するファイルの数を設定します。数を増やすと CPU 使用率と全ワーカーのメモリ使用量が増えます。このパソコンには CPU スレッドが {cpus} 個あり、おすすめは {rec} です。',
         workers_save: '保存', workers_auto: 'おすすめに戻す',
         workers_is_auto: '自動（おすすめの数）',
         workers_bad: '1〜{max} の数字を入力してください。',
         workers_saved: '保存しました。次のインデックスから使われます。',
-        workers_over: "推奨値の {rec} を超えると、速くならないままメモリの使用量が増える場合があります。",
+        workers_over: "おすすめの {rec} を超えると、CPU と全ワーカーのメモリ使用量が増える場合があります。速くなるとは限りません。",
         workers_env: '環境変数 AOBANA_INDEX_WORKERS が設定されているため、ここでの設定は使われません。',
         workers_single: 'この環境では、ファイルを 1 つずつ処理します。',
-        workers_ask_title: 'インデックスの並列処理について',
-        workers_ask_body: "Aobana はインデックス作成とライブラリの点検で、同時に最大 {n} 個のファイルを処理します。このパソコンには CPU スレッドが {cpus} 個あります。数を増やすと速くなる場合がありますが、メモリの使用量も増えます。「設定」でいつでも変更できます。",
-        workers_ask_go: "設定を開く", workers_ask_continue: '続ける',
         search_workers_title: '検索の並列処理',
         search_workers_lead: "検索はまず 1 つの処理で始まり、設定した時間を過ぎても続いていれば並列処理を追加します。0 秒ならすぐに追加します。このパソコンには CPU スレッドが {cpus} 個あり、推奨値は {rec} です。数を増やしすぎると、速くならないままメモリの使用量が増える場合があります。",
         search_workers_count: '検索で使う処理の数', search_workers_delay: '追加するまでの秒数',
@@ -1246,12 +1245,14 @@
         lib_indexed_manga: 'Indexed: {files} {files|volume|volumes} · {rows} {rows|line|lines}',
         lib_outdated: 'Some files were indexed using earlier reading rules ({which}). Re-index them to use the current reading rules.',
         lib_outdated_run: 'Re-index them',
-        lib_tables: 'Your index needs a one-time update ({which}). Until then, searching and opening a book can be slow on a large library. No files are read again.',
-        lib_tables_run: 'Update',
+        lib_tables: 'Click "Optimize tables" to update the tables for {which}. This can speed up search and book opening. Your files are not read again.',
+        lib_tables_run: 'Optimize tables', lib_tables_ready: 'Table optimization finished.', lib_tables_done_short: 'Done',
         lib_phase_chapters: 'Building the chapter table...', lib_phase_lengths: 'Building the line-length table...', lib_phase_lexicon: 'Building the furigana table...',
         reindex_title: 'Re-indexing recommended',
         reindex_body: 'Some files were indexed using earlier reading rules ({which}). Re-index them from the <b>Library</b> tab to use the current reading rules.',
         reindex_later: 'Later', reindex_go: 'Open Library',
+        recheck16_title: 'Check your books for 1.6',
+        recheck16_body: 'Aobana 1.6 can recover text missed in some .epub files. To update your existing library, press "Check" in Check library and review the results, then press "Index library". Some short books will be read again.',
         checkfirst_title: 'Check the library before indexing?',
         checkfirst_body: 'The check lists files that are not in Japanese and duplicates (one book in two files, other rips of one episode). You choose which to leave out. Without it, every file in the folders is indexed. You are only asked once.',
         checkfirst_check: 'Check first', checkfirst_index: 'Index now',
@@ -1321,12 +1322,12 @@
         an_run: 'Check', an_running: 'Checking...',
         an_stage_subs: 'Subtitles', an_stage_epub: 'Books',
         an_none: 'Nothing found.',
-        an_reason_bilingual: 'Bilingual (Chinese left over)', an_reason_other_language: 'Not Japanese', an_reason_duplicate: 'Duplicates',
+        an_reason_bilingual: 'Bilingual (Chinese left over)', an_reason_other_language: 'Not Japanese', an_reason_language_review: 'Review language', an_reason_image_only: 'Image-only (no text)', an_reason_duplicate: 'Duplicates',
         an_reason_encoding: 'Encoding (save it again as UTF-8)', an_reason_unreadable: 'Files that could not be read',
-        an_why_lang: '{lines} {lines|line|lines}: Japanese {ja} · Chinese {zh} · English {en}',
+        an_why_lang: '{lines} {lines|line|lines}: Japanese {ja} · Chinese {zh} · English {en}', an_why_image_only: '0 sentences',
         an_why_dup: '{pct}% the same as {keep}', an_why_bytes: 'the same file as {keep}', an_why_subplz: 'SubPlz set · {keep} kept',
         an_kept: 'the one kept from this group', an_summary: '{files} {files|file|files} checked · {when}',
-        an_invert: 'Invert selection',
+        an_select_all: 'Select all', an_invert: 'Invert selection',
         an_filter: "Don't index the ticked files",
         an_filtered_done: '{n} {n|file|files} will be left out of the index (the files stay where they are). They leave search at the next "Index library".',
         an_filter_failed: 'Files that could not be left out (the folder changed after the check):',
@@ -1346,17 +1347,14 @@
         port_restart: 'Saved. Close Aobana and start it again, and it opens at http://127.0.0.1:{port}/.',
         port_env: 'The AOBANA_PORT environment variable is set, so this setting is not used.',
         workers_title: 'Workers',
-        workers_lead: "Set how many files indexing and the library check process at once. More workers can speed up larger jobs, but use more memory. This computer has {cpus} CPU threads; the recommended count is {rec}.",
+        workers_lead: "Set how many files indexing and the library check process at once. More workers can raise CPU use and total memory across processes. This computer has {cpus} CPU threads; the recommended count is {rec}.",
         workers_save: 'Save', workers_auto: 'Use recommended',
         workers_is_auto: 'Automatic (the recommended number)',
         workers_bad: 'Enter a number from 1 to {max}.',
         workers_saved: 'Saved. The next index run uses it.',
-        workers_over: "Above the recommended {rec}, memory use may rise without making indexing faster.",
+        workers_over: "Above the recommended {rec}, CPU use and total worker memory may rise. Indexing may not finish faster.",
         workers_env: 'The AOBANA_INDEX_WORKERS environment variable is set, so this setting is not used.',
         workers_single: 'On this system, files are processed one at a time.',
-        workers_ask_title: 'About indexing speed',
-        workers_ask_body: "Aobana indexes and checks up to {n} files at once. This computer has {cpus} CPU threads. More workers can speed up larger jobs, but use more memory. You can change the count in Settings at any time.",
-        workers_ask_go: "Open Settings", workers_ask_continue: 'Continue',
         search_workers_title: 'Search workers',
         search_workers_lead: "Search starts with one worker and adds more if it is still running after the chosen delay. At 0 seconds, it adds them immediately. This computer has {cpus} CPU threads; the recommended count is {rec}. Higher counts can use more memory without speeding up a search.",
         search_workers_count: 'Workers for search', search_workers_delay: 'Start after (seconds)',
@@ -2974,6 +2972,8 @@
     let libPoll = null;
     let libWasRunning = false;
     let libLast = null;
+    let tableRunStartedHere = false;
+    let optimizeDoneThisVisit = false;
     let figPoll = null;
 
     function pollFigures() {
@@ -3000,20 +3000,33 @@
       loadAnalysis();
     }
 
-    async function initSettingsTab() {
-      setTitle(t('tab_settings'));
-      await refreshSettings();
-    }
-
-    async function refreshSettings() {
-      let lib;
-      try { lib = await fetch('/api/library').then(r => r.json()); }
-      catch (e) { document.getElementById('lib-data').innerHTML = `<div class="error-text">${esc(t('load_failed'))}</div>`; return; }
+    let settingsShown = false;
+    function renderSettings(lib) {
       folderPicker = !!lib.folder_picker;
       renderMediaCard(lib);
       renderDbCard(lib);
       renderPortCard(lib);
       renderSearchWorkersCard(lib.search_workers);
+      settingsShown = true;
+    }
+
+    async function initSettingsTab() {
+      setTitle(t('tab_settings'));
+      try {
+        const cached = await fetch('/api/library/settings-snapshot').then(r => r.json());
+        if (cached.settings) renderSettings(cached.settings);
+      } catch (e) {}
+      await refreshSettings();
+    }
+
+    async function refreshSettings() {
+      let lib;
+      try { lib = await fetch('/api/library/settings').then(r => r.json()); }
+      catch (e) {
+        if (!settingsShown) document.getElementById('lib-data').innerHTML = `<div class="error-text">${esc(t('load_failed'))}</div>`;
+        return;
+      }
+      renderSettings(lib);
     }
 
     const MEDIA_DB = { subs: 'subs.db', books: 'epub.db', manga: 'manga.db' };
@@ -3158,27 +3171,27 @@
     }
     function renderOutdated(lib) {
       const box = document.getElementById('lib-outdated');
+      const button = document.getElementById('lib-optimize');
       const outdated = outdatedMedia(lib);
-      const old = Object.fromEntries(outdated);
-      const tables = [['subs', lib.subs_tables, old.subs], ['epub', lib.books_tables, old.epub], ['manga', lib.manga_tables, old.manga]]
-        .filter(([k, missing, old]) => MEDIA_ON[k] && (missing || []).length && !old).map(([k]) => k);
-      box.hidden = !(outdated.length + tables.length) || (lib.index && lib.index.running);
-      if (box.hidden) return;
-      const btns = (call, label) => `<div class="btns" style="display:flex; gap:0.5em; margin-top:0.6em;">
-          <button class="btn primary" onclick="${call}">${esc(t(label))}</button></div>`;
+      const tables = [['subs', lib.subs_tables], ['epub', lib.books_tables], ['manga', lib.manga_tables]]
+        .filter(([, missing]) => (missing || []).length).map(([kind]) => kind);
+      button.hidden = !(tables.length || optimizeDoneThisVisit);
+      button.disabled = !!(lib.index && lib.index.running) || optimizeDoneThisVisit;
+      button.querySelector('span').textContent = t(optimizeDoneThisVisit ? 'lib_tables_done_short' : 'lib_tables_run');
       let html = '';
       if (outdated.length) {
         const only = outdated.length === 1 ? outdated[0][0] : '';
-        html += `<div>${esc(t('lib_outdated', { which: outdatedSummary(outdated) }))}</div>`
-          + btns(`startIndex('${only}', true)`, 'lib_outdated_run');
+        html += `<div>${esc(t('lib_outdated', { which: outdatedSummary(outdated) }))}</div>
+          <div class="btns" style="display:flex; gap:0.5em; margin-top:0.6em;">
+            <button class="btn primary" onclick="startIndex('${only}', true)">${esc(t('lib_outdated_run'))}</button></div>`;
       }
-      if (tables.length) {
-        const only = tables.length === 1 ? tables[0] : '';
-        html += `<div${outdated.length ? ' style="margin-top:1em;"' : ''}>${esc(t('lib_tables',
-          { which: tables.map(k => t('lib_stage_' + k)).join(' · ') }))}</div>`
-          + btns(`startIndex('${only}', false, true)`, 'lib_tables_run');
+      if (tables.length || optimizeDoneThisVisit) {
+        const message = optimizeDoneThisVisit ? t('lib_tables_ready')
+          : t('lib_tables', { which: tables.map(k => t('lib_stage_' + k)).join(LANG === 'ja' ? '・' : ' · ') });
+        html += `<div${outdated.length ? ' style="margin-top:1em;"' : ''}>${esc(message)}</div>`;
       }
       box.innerHTML = html;
+      box.hidden = !html;
     }
 
     let folderPicker = false;
@@ -3513,13 +3526,6 @@
       note.hidden = false;
     }
 
-    function closeWorkersAsk(go) {
-      document.getElementById('workers-modal').classList.remove('open');
-      document.documentElement.style.overflow = '';
-      if (go) { window.location.href = '/?tab=library#lib-workers'; return; }
-      runIndex();
-    }
-
     async function savePort() {
       const value = document.getElementById('port-input').value.trim();
       const note = document.getElementById('port-note');
@@ -3569,17 +3575,6 @@
     }
 
     async function runIndex() {
-      if (!MEDIA_BOOT.workers_asked) {
-        MEDIA_BOOT.workers_asked = true;
-        apiPost('/api/library/workers-asked', {}).catch(() => {});
-        const w = MEDIA_BOOT.workers || {};
-        if (w.parallel && !w.env) {
-          document.getElementById('workers-ask-body').textContent = t('workers_ask_body', { n: fmt(w.effective), cpus: fmt(w.cpus) });
-          document.getElementById('workers-modal').classList.add('open');
-          document.documentElement.style.overflow = 'hidden';
-          return;
-        }
-      }
       const only = libScope();
       if (only === 'manga') {
         document.getElementById('lib-note').hidden = true;
@@ -3677,23 +3672,29 @@
 
     async function startIndex(only, outdated, tables) {
       document.getElementById('lib-estimate').innerHTML = '';
-      document.getElementById('lib-outdated').hidden = true;
+      if (tables) {
+        tableRunStartedHere = true;
+        document.getElementById('lib-optimize').disabled = true;
+      } else document.getElementById('lib-outdated').hidden = true;
       const body = only ? { only } : {};
       if (outdated) body.outdated = true;
       if (tables) body.tables = true;
       const res = await apiPost('/api/index', body).catch(() => null);
       if (res && res.nothing) {
+        tableRunStartedHere = false;
         const note = document.getElementById('lib-note');
         note.textContent = t('lib_nothing'); note.className = 'notice warn'; note.hidden = false;
+        refreshLibrary();
         return;
       }
+      if (!res || !res.started) { tableRunStartedHere = false; refreshLibrary(); return; }
       if (res) renderIndexStatus(res);
       startPolling();
       pollActivity();
     }
 
     let anPoll = null;
-    const AN_ORDER = ['bilingual', 'other_language', 'duplicate', 'encoding', 'unreadable'];
+    const AN_ORDER = ['bilingual', 'other_language', 'language_review', 'image_only', 'duplicate', 'encoding', 'unreadable'];
 
     function syncCheckScope() {
       const btn = document.getElementById('an-run');
@@ -3751,11 +3752,12 @@
         return it.how === 'same_bytes' ? t('an_why_bytes', { keep }) : t('an_why_dup', { keep, pct: Math.round(100 * it.share) });
       }
       if (it.reason === 'unreadable') return it.error || '';
+      if (it.reason === 'image_only') return t('an_why_image_only');
       return t('an_why_lang', { lines: fmt(it.lines), ja: fmt(it.ja), zh: fmt(it.zh), en: fmt(it.en) });
     }
 
     const AN_PAGE = 200;
-    const AN_FILTERABLE = ['bilingual', 'other_language', 'duplicate', 'duplicate_kept'];
+    const AN_FILTERABLE = ['bilingual', 'other_language', 'language_review', 'image_only', 'duplicate', 'duplicate_kept'];
     let anItems = [];
     let anSections = [];
     let anPicked = new Set();
@@ -3822,8 +3824,19 @@
 
     function renderFiltered(list) {
       if (!list || !list.length) return '';
-      return anSection(list.map((f, i) => i), anFilteredRow, () => 1, `${esc(t('an_filtered_title'))} (${fmt(list.length)})`)
-        + `<div class="btns an-after"><button class="btn" onclick="unfilterPicked()">${esc(t('an_unfilter'))}</button></div>`;
+      const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this, true)">${esc(t('an_select_all'))}</button></div>`;
+      let html = `<div class="facts" style="margin-top:1.2em; margin-bottom:0.2em;">${esc(t('an_filtered_title'))} (${fmt(list.length)})</div>`;
+      for (const media of ['subs', 'epub']) {
+        const reasons = [...AN_ORDER, ...new Set(list.filter(f => f.media === media && !AN_ORDER.includes(f.reason)).map(f => f.reason))];
+        for (const reason of reasons) {
+          const units = [];
+          list.forEach((f, i) => { if (f.media === media && f.reason === reason) units.push(i); });
+          if (!units.length) continue;
+          const summary = `${esc(t('an_stage_' + media))} · ${esc(t('an_reason_' + reason))} (${fmt(units.length)})`;
+          html += anSection(units, anFilteredRow, () => 1, summary, bar);
+        }
+      }
+      return html + `<div class="btns an-after"><button class="btn" onclick="unfilterPicked()">${esc(t('an_unfilter'))}</button></div>`;
     }
 
     let anFiltered = [];
@@ -3835,8 +3848,10 @@
       anSections = [];
       anUnpicked = new Set();
       anFiltered = (d && d.filtered) || [];
-      anItems = (r && r.items) || [];
-      anPicked = new Set(anItems.filter(it => AN_FILTERABLE.includes(it.reason) && it.reason !== 'duplicate_kept' && !it.filtered).map(it => Number(it.id)));
+      const filteredSet = new Set(anFiltered.map(f => `${f.media}\t${f.name}`));
+      anItems = ((r && r.items) || []).map(it => filteredSet.has(`${it.media}\t${it.name}`) ? { ...it, filtered: true } : it);
+      anPicked = new Set(anItems.filter(it => AN_FILTERABLE.includes(it.reason)
+        && it.reason !== 'duplicate_kept' && it.reason !== 'language_review' && !it.filtered).map(it => Number(it.id)));
       const filtered = renderFiltered(anFiltered);
       if (!r) { box.innerHTML = filtered + '<div id="an-move-msg"></div>'; return; }
       let html = '';
@@ -3845,7 +3860,7 @@
         const sm = r.summary[media];
         if (!sm) continue;
         files += sm.files || 0;
-        const items = r.items.filter(i => i.media === media);
+        const items = anItems.filter(i => i.media === media);
         for (const reason of AN_ORDER) {
           let list = items.filter(i => i.reason === reason);
           if (!list.length) continue;
@@ -3855,11 +3870,14 @@
             items.filter(i => i.reason === 'duplicate' || i.reason === 'duplicate_kept')
               .forEach(i => (groups[i.keep] = groups[i.keep] || []).push(i));
             const units = Object.values(groups).map(g => g.sort((a, b) => (a.reason === 'duplicate_kept' ? -1 : 0) - (b.reason === 'duplicate_kept' ? -1 : 0)));
-            const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`;
+            const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`;
             html += anSection(units, g => `<div class="an-group">${g.map(anRow).join('')}</div>`,
               g => g.filter(i => i.reason === 'duplicate').length, summary, bar);
           } else {
-            html += anSection(list, anRow, () => 1, summary);
+            const bar = AN_FILTERABLE.includes(reason)
+              ? `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button></div>`
+              : '';
+            html += anSection(list, anRow, () => 1, summary, bar);
           }
         }
       }
@@ -3869,6 +3887,19 @@
             <button class="btn primary" onclick="filterFlagged()">${esc(t('an_filter'))}</button></div>`
         : `<div class="notice ok">${esc(t('an_none'))}</div>`;
       box.innerHTML = head + found + filtered + '<div id="an-move-msg"></div>';
+    }
+
+    function selectAllSection(btn, isFiltered = false) {
+      const details = btn.closest('.an-section');
+      const sec = details && anSections[Number(details.dataset.an)];
+      if (!sec) return;
+      if (isFiltered) {
+        sec.units.forEach(i => anUnpicked.add(Number(i)));
+        details.querySelectorAll('.an-unpick').forEach(cb => { cb.checked = true; });
+      } else {
+        sec.units.flat().filter(it => it && !it.filtered).forEach(it => anPicked.add(Number(it.id)));
+        details.querySelectorAll('.an-pick:not(:disabled)').forEach(cb => { cb.checked = true; });
+      }
     }
 
     function invertDuplicates(btn) {
@@ -3927,6 +3958,7 @@ function startPolling() {
           clearInterval(libPoll); libPoll = null;
           pollActivity();
           refreshLibrary();
+          loadAnalysis();
         }
       }, 500);
     }
@@ -3935,6 +3967,11 @@ function startPolling() {
       const btn = document.getElementById('lib-run');
       const box = document.getElementById('lib-status');
       s = s || {};
+      if (tableRunStartedHere && s.started_at && !s.running) {
+        optimizeDoneThisVisit = !!(s.tables && !s.error && !s.stopped);
+        tableRunStartedHere = false;
+        if (libLast) renderOutdated(libLast);
+      }
       btn.disabled = !!s.running;
       btn.querySelector('span').textContent = s.running ? t('lib_running') : t('lib_run');
       if (!s.started_at) {
@@ -3954,6 +3991,7 @@ function startPolling() {
         const results = s.results || {};
         if (s.error) html += `<div class="notice err">${esc(t('lib_error', { e: s.error }))}</div>`;
         else if (s.stopped) html += `<div class="notice warn">${esc(t('lib_stopped'))}</div>`;
+        else if (s.tables) html += `<div class="notice ok">${esc(t('lib_tables_ready'))}</div>`;
         else html += `<div class="notice ok">${esc(t('lib_done'))} <a href="/">${esc(t('lib_done_search'))} →</a></div>`;
         const stages = ['subs', 'epub', 'manga'].filter(k => results[k]);
         if (stages.length) {
@@ -4280,6 +4318,7 @@ Manga folder/
       }
       store.set('welcomed', '1');
       store.set('reindex_told', APP_VERSION);
+      store.set('recheck_16_told', '1');
       store.set('seen_version', APP_VERSION);
       store.del('setup_again');
       window.location.href = goGuide ? '/?tab=guide' : '/?tab=library';
@@ -4287,6 +4326,7 @@ Manga folder/
     function closeWelcome(goGuide) {
       store.set('welcomed', '1');
       store.set('reindex_told', APP_VERSION);
+      store.set('recheck_16_told', '1');
       store.set('seen_version', APP_VERSION);
       if (MEDIA_BOOT.upgrade) apiPost('/api/setup/seen', {}).catch(() => {});
       document.getElementById('welcome-modal').classList.remove('open');
@@ -4296,9 +4336,19 @@ Manga folder/
     }
 
     async function checkReindex() {
-      if (store.get('reindex_told') === APP_VERSION) return checkForUpdate();
+      if ((APP_VERSION !== '1.6' || store.get('recheck_16_told') === '1')
+          && store.get('reindex_told') === APP_VERSION) return checkForUpdate();
       let lib = null;
       try { lib = await fetch('/api/library/outdated').then(r => r.json()); } catch (e) {}
+      if (APP_VERSION === '1.6' && store.get('recheck_16_told') !== '1' && lib) {
+        store.set('recheck_16_told', '1');
+        if (lib.has_database) {
+          document.getElementById('recheck16-modal').classList.add('open');
+          document.documentElement.style.overflow = 'hidden';
+          return;
+        }
+      }
+      if (store.get('reindex_told') === APP_VERSION) return checkForUpdate();
       const outdated = lib ? outdatedMedia(lib) : [];
       store.set('reindex_told', APP_VERSION);
       if (!outdated.length) return checkForUpdate();
@@ -4312,6 +4362,12 @@ Manga folder/
       document.documentElement.style.overflow = '';
       if (goLibrary) window.location.href = '/?tab=library';
       else checkForUpdate();
+    }
+    function closeRecheck16(goLibrary) {
+      document.getElementById('recheck16-modal').classList.remove('open');
+      document.documentElement.style.overflow = '';
+      if (goLibrary) window.location.href = '/?tab=library';
+      else checkReindex();
     }
 
     async function checkForUpdate() {
@@ -5209,11 +5265,14 @@ Manga folder/
       </div>
       <div class="lib-grid" id="lib-folders"></div>
       <div class="notice" id="lib-note" hidden></div>
-      <div class="notice" id="lib-outdated" hidden></div>
       <div class="lib-run-row">
         <button class="btn primary" id="lib-run" onclick="runIndex()" style="height:42px; padding:0 22px; font-size:1em;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
           <span data-i18n="lib_run">インデックス作成</span>
+        </button>
+        <button class="btn primary" id="lib-optimize" onclick="startIndex('', false, true)" hidden style="height:42px; padding:0 22px; font-size:1em;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg>
+          <span data-i18n="lib_tables_run">最適化する</span>
         </button>
         <select id="lib-scope" class="lib-select" onchange="syncCheckScope()" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
           <option value="" data-i18n="lib_scope_all">すべてのメディア</option>
@@ -5222,6 +5281,7 @@ Manga folder/
           <option value="manga" data-i18n="lib_scope_manga">漫画のみ</option>
         </select>
       </div>
+      <div class="notice" id="lib-outdated" hidden style="margin-top:0.8em;"></div>
       <div id="lib-estimate"></div>
       <div id="lib-status"></div>
       <div class="lib-card" id="lib-workers" style="margin-top:1em;">
@@ -5362,15 +5422,14 @@ Manga folder/
       </div>
     </div>
   </div>
-
-  <div class="modal-overlay" id="workers-modal">
+  <div class="modal-overlay" id="recheck16-modal">
     <div class="modal-card welcome">
       <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="workers_ask_title">インデックスの並列処理について</h2>
-      <p id="workers-ask-body"></p>
+      <h2 data-i18n="recheck16_title">1.6 の書籍を点検してください</h2>
+      <p data-i18n="recheck16_body"></p>
       <div class="btns">
-        <button class="btn" onclick="closeWorkersAsk(true)" data-i18n="workers_ask_go">設定を開く</button>
-        <button class="btn primary" onclick="closeWorkersAsk(false)" data-i18n="workers_ask_continue">続ける</button>
+        <button class="btn" onclick="closeRecheck16(false)" data-i18n="reindex_later">あとで</button>
+        <button class="btn primary" onclick="closeRecheck16(true)" data-i18n="reindex_go">ライブラリを開く</button>
       </div>
     </div>
   </div>

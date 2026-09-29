@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6: One-time table optimization, image-only book filtering, and faster Settings
+
+### Enhancements
+
+- **Optimize tables** appears beside **Index library** only when an existing subtitle, book, or manga database needs its display-length or furigana lookup table. It includes databases for media turned off in Settings and reads the existing index without rereading files. New libraries and indexes with complete tables do not show the button.
+- **Image-only books.** **Check library** lists `.epub` files with no extractable text under **Image-only (no text)** so they can be excluded from the index. **Index library** automatically excludes zero-sentence files and checks them again if they change. Previously short books are read again once to recover chapters missed by older EPUB reading rules; established long books keep their index and library-check cache.
+- **Updating an existing library.** After the normal What's New screen, returning users with a database see a one-time reminder to run **Check library**, review its findings, and then run **Index library**. Books with 30% to 50% Japanese among language-bearing lines appear under **Review language** and are left unticked for a decision. **Left out of the index** groups excluded files by the same categories as the check above, and each section has **Select all**.
+- The table build uses the chosen indexing worker count, up to all detected CPU threads. The first-use indexing speed popup has been removed; the worker control remains below the Library buttons.
+- Settings shows its saved values immediately from a snapshot beside the databases, then refreshes them from the live app.
+
+### Bug Fixes
+
+- The EPUB reader recovers previously short books whose prose sits directly inside `<body>` or in `<span>` and `<br>` runs, and resolves chapter or table-of-contents paths with `..` relative segments (recovering 91 previously empty books — 348,997 sentences across 1,119 chapters — in a measured test library).
+- Generic image labels are no longer counted as book sentences. Files already left out of the index remain excluded until restored in Library.
+- Table optimization uses the current indexer code when Aobana is started with packaged Python, so it no longer stops after building display lengths because an older furigana helper was loaded.
+
 ## 1.5: Filtered search, faster chosen-title search, CPU workers, manga page images
 
 ### Enhancements

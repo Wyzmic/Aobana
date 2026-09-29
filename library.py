@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -94,6 +95,24 @@ def _indexed(conn, table):
                 "rows": count_rows(conn, table)}
     except Exception:
         return {"files": 0, "rows": 0}
+
+
+def table_needs():
+    out = {}
+    for stage, _ in _STAGES:
+        db = _stage_inputs(stage)[3]
+        out[stage] = []
+        if not os.path.isfile(db):
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            try:
+                out[stage] = missing_tables(conn, stage)
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            pass
+    return out
 
 
 _FSTATE = {"running": False}
@@ -228,6 +247,7 @@ def dismiss_notice(notice_id):
 def describe(db_subs, db_epub, db_manga=None):
     subs, books = paths.subs_dir(), paths.books_dir()
     fig = figures()
+    needs = table_needs()
     return {
         "installed": paths.INSTALLED,
         "media": paths.media_state(),
@@ -254,11 +274,61 @@ def describe(db_subs, db_epub, db_manga=None):
         "subs_outdated": outdated_sources(db_subs, "subs"),
         "books_outdated": outdated_sources(db_epub, "epub"),
         "manga_outdated": outdated_sources(db_manga, "manga"),
-        "subs_tables": missing_tables(db_subs, "subs"),
-        "books_tables": missing_tables(db_epub, "epub"),
-        "manga_tables": missing_tables(db_manga, "manga"),
+        "subs_tables": needs["subs"],
+        "books_tables": needs["epub"],
+        "manga_tables": needs["manga"],
         "index": index_status(),
     }
+
+
+_SETTINGS_SNAPSHOT_VERSION = 1
+_SETTINGS_FIELDS = ("media", "subs_dir", "books_dir", "manga_dir", "data_dir",
+                    "db_is_default", "db_sizes", "port", "port_env", "search_workers",
+                    "search_cache", "folder_picker")
+
+
+def settings_view_data():
+    db = paths.db_dir()
+    return {"media": paths.media_state(), "subs_dir": paths.subs_dir(),
+            "books_dir": paths.books_dir(), "manga_dir": paths.manga_dir(),
+            "data_dir": db, "db_is_default": _same_folder(db, paths.default_db_dir()),
+            "db_sizes": _db_sizes(db), "port": paths.server_port(),
+            "port_env": bool(os.environ.get("AOBANA_PORT")),
+            "search_workers": search_workers_facts()}
+
+
+def _settings_snapshot_path():
+    return _beside_db("settings_snapshot.json")
+
+
+def load_settings_snapshot():
+    try:
+        with open(_settings_snapshot_path(), encoding="utf-8") as fh:
+            doc = json.load(fh)
+        if (not isinstance(doc, dict) or doc.get("version") != _SETTINGS_SNAPSHOT_VERSION
+                or not _same_folder(doc.get("data_dir", ""), paths.db_dir())):
+            return None
+        data = doc.get("settings")
+        return data if isinstance(data, dict) and all(k in data for k in _SETTINGS_FIELDS) else None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def save_settings_snapshot(data):
+    if not isinstance(data, dict) or not all(k in data for k in _SETTINGS_FIELDS):
+        return
+    path = _settings_snapshot_path()
+    tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"version": _SETTINGS_SNAPSHOT_VERSION, "data_dir": paths.db_dir(),
+                       "settings": {k: data[k] for k in _SETTINGS_FIELDS}}, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def set_folders(subs_dir, books_dir, manga_dir=None):
@@ -330,7 +400,6 @@ def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, fresh=Tru
         for key in paths.MEDIA_DIR_KEYS.values():
             cfg.setdefault(key, "")
         cfg.pop("check_asked", None)
-        cfg.pop("workers_asked", None)
     cfg["media_asked"] = True
     paths.save_config(cfg)
     err = set_media(media)
@@ -390,7 +459,8 @@ _DB_OF_MEDIA = {"subs": "subs.db", "books": "epub.db", "manga": "manga.db"}
 
 _DB_COMPANION_DBS = ("search_cache.db", "analysis.db")
 _DB_COMPANIONS = ("filtered.tsv", "analysis.json", "estimate.json", "media_cache.json",
-                  "library_figures.json", ".index_run.json", ".index.stop", ".check.stop")
+                  "library_figures.json", "settings_snapshot.json", ".index_run.json",
+                  ".index.stop", ".check.stop")
 
 
 def _db_files(folder):
@@ -647,8 +717,8 @@ def parallel_available():
 
 def workers_facts():
     saved = paths.load_config().get("index_workers")
-    return {"cpus": usable_cpus(), "recommended": recommended_workers(), "max": max(1, usable_cpus() - 1),
-            "saved": saved if isinstance(saved, int) and saved >= 1 else None,
+    return {"cpus": usable_cpus(), "recommended": recommended_workers(), "max": usable_cpus(),
+            "saved": saved if type(saved) is int and 1 <= saved <= usable_cpus() else None,
             "effective": paths.index_workers(), "env": bool(os.environ.get("AOBANA_INDEX_WORKERS")),
             "parallel": parallel_available()}
 
@@ -662,7 +732,7 @@ def set_workers(value):
             n = int(str(value).strip())
         except (TypeError, ValueError):
             return "bad_workers"
-        if not 1 <= n <= max(1, usable_cpus() - 1):
+        if not 1 <= n <= usable_cpus():
             return "bad_workers"
         cfg["index_workers"] = n
     paths.save_config(cfg)
@@ -697,17 +767,6 @@ def set_search_workers(count, delay):
         cfg["search_worker_delay"] = delay
     paths.save_config(cfg)
     return None
-
-
-def workers_asked():
-    return bool(paths.load_config().get("workers_asked"))
-
-
-def mark_workers_asked():
-    cfg = paths.load_config()
-    if not cfg.get("workers_asked"):
-        cfg["workers_asked"] = True
-        paths.save_config(cfg)
 
 
 def set_port(value):
@@ -937,9 +996,13 @@ def stop_analysis():
 
 
 def start_indexing(only=None, outdated=False, tables=False):
-    media = paths.media_state()
-    stages = tuple(st for st in _STAGES if (only in (None, "", "all") or st[0] == only)
-                   and media[_STAGE_MEDIA[st[0]]])
+    if tables:
+        needed = table_needs()
+        stages = tuple(st for st in _STAGES if needed[st[0]])
+    else:
+        media = paths.media_state()
+        stages = tuple(st for st in _STAGES if (only in (None, "", "all") or st[0] == only)
+                       and media[_STAGE_MEDIA[st[0]]])
     def wanted(stage):
         root, ext, skip_dot, db = _stage_inputs(stage)
         return os.path.isfile(db) or (not tables and _has_files(root, ext, skip_dot))
@@ -981,8 +1044,12 @@ def _run(stages, outdated=False, tables=False):
     try:
         for stage, script in stages:
             _set(stage=stage, done=0, total=0, current="", phase="")
+            script_path = os.path.join(paths.BASE_DIR, script)
+            source_bootstrap = ("import runpy, sys; "
+                                f"sys.path.insert(0, {paths.BASE_DIR!r}); "
+                                f"runpy.run_path({script_path!r}, run_name='__main__')")
             proc = subprocess.Popen(
-                [sys.executable, os.path.join(paths.BASE_DIR, script)] + (["--tables"] if tables else ["--outdated"] if outdated else []),
+                [sys.executable, "-c", source_bootstrap] + (["--tables"] if tables else ["--outdated"] if outdated else []),
                 cwd=paths.BASE_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 encoding="utf-8", errors="replace", creationflags=flags)
             for line in proc.stdout:
@@ -1028,9 +1095,9 @@ def _read_line(stage, line):
             _STATE.update(total=int(line.split()[1]), phase="")
         elif line.startswith(("CHAPTERS building", "LENGTHS building", "LEXICON building")):
             _STATE.update(phase=line.split()[0].lower(), done=0, total=0, current="")
-        elif line.startswith("LENGTHS ") and "/" in line:
+        elif line.startswith(("LENGTHS ", "LEXICON ")) and "/" in line:
             done, _, total = line.split()[1].partition("/")
-            _STATE.update(done=int(done), total=int(total))
+            _STATE.update(phase=line.split()[0].lower(), done=int(done), total=int(total))
         elif line.startswith("PROGRESS "):
             head, _, rel = line[len("PROGRESS "):].partition(" ")
             done, _, total = head.partition("/")
@@ -1058,7 +1125,7 @@ def _read_line(stage, line):
 
 
 _ASTATE = {"running": False}
-FILTERABLE = ("bilingual", "other_language", "duplicate", "duplicate_kept")
+FILTERABLE = ("bilingual", "other_language", "language_review", "image_only", "duplicate", "duplicate_kept")
 
 
 def analysis_status():
@@ -1196,7 +1263,8 @@ def filter_flagged(ids):
             reason = "duplicate" if item["reason"] == "duplicate_kept" else item["reason"]
             if (media, item["name"]) not in have:
                 rows.append({"media": media, "name": item["name"], "reason": reason,
-                             "keep": item.get("keep", ""), "date": time.strftime("%Y-%m-%d %H:%M:%S")})
+                             "keep": item.get("keep", ""), "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+                             "origin": "manual"})
                 have.add((media, item["name"]))
             item["filtered"] = True
             added.append(item["id"])

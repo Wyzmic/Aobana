@@ -454,7 +454,7 @@ COMMIT_EVERY_SECONDS = 20
 def build_lexicon(conn, top):
     if top and not has_ruby_lexicon(conn):
         print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
-    ensure_ruby_lexicon(conn, "subtitles", "subs")
+    ensure_ruby_lexicon(conn, "subtitles", "subs", paths.index_workers())
 
 
 def build_tables():

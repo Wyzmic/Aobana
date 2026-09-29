@@ -5,12 +5,13 @@ import re
 import unicodedata
 import sqlite3
 import hashlib
+import json
 import time
 import zipfile
 import posixpath
 import xml.etree.ElementTree as ET
 import warnings
-from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+from bs4 import BeautifulSoup, NavigableString, Comment, Declaration, XMLParsedAsHTMLWarning
 warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
 
 if hasattr(sys.stdout, 'reconfigure'):
@@ -41,7 +42,7 @@ def get_tokenizer():
 from utils import (
     KANA_RE, KANJI_CHARS, KANJI_PATTERN,
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, BOOK_RUBY_RE,
-    norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, write_tokenizer_meta, ruby_index_extras, parallel_map, filtered_names,
+    norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, write_tokenizer_meta, ruby_index_extras, parallel_map, append_filtered_rows, refresh_auto_filtered,
 )
 
 TIMESTAMP_SCENE_RE = re.compile(
@@ -190,7 +191,8 @@ def _postprocess_sentence(text: str) -> str:
 
 GENERIC_EXACT_LOWER = {
     'image', 'img', 'figure', 'fig', 'picture', 'photo', 'illustration',
-    'イラスト', '写真', '挿絵', 'ロゴ', 'logo', 'icon', 'spacer', 'dummy', 'cover'
+    'イラスト', '写真', '挿絵', 'ロゴ', 'logo', 'icon', 'spacer', 'dummy', 'cover',
+    'comic book images',
 }
 
 def is_generic_alt(alt: str) -> bool:
@@ -266,6 +268,59 @@ def clean_html_ruby_and_tags(soup, image_size=None):
             ruby.replace_with(furi_text)
         else:
             ruby.decompose()
+
+
+_BODY_BLOCK_TAGS = {
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ul', 'ol', 'blockquote',
+    'li', 'dt', 'dd', 'table', 'tr', 'td', 'th', 'section', 'article', 'aside',
+    'header', 'footer', 'nav', 'figure', 'figcaption', 'pre', 'hr', 'form',
+    'fieldset', 'address', 'main',
+}
+
+
+def _wrap_body_inline_runs(soup):
+    body = soup.body
+    if not body:
+        return False
+    for sp in list(body.find_all(['span', 'font'])):
+        if sp.find('br') is not None:
+            sp.unwrap()
+    changed = False
+    for container in [body] + list(body.find_all('div')):
+        if container is not body and not container.find(_BODY_BLOCK_TAGS):
+            continue
+        has_inline_text = any(
+            (isinstance(ch, NavigableString) and not isinstance(ch, (Comment, Declaration)) and str(ch).strip())
+            or (getattr(ch, 'name', None) not in _BODY_BLOCK_TAGS and getattr(ch, 'name', None) != 'br'
+                and hasattr(ch, 'get_text') and ch.get_text(strip=True))
+            for ch in container.children
+        )
+        if not has_inline_text:
+            continue
+        runs, cur = [], []
+        for ch in list(container.children):
+            if getattr(ch, 'name', None) in _BODY_BLOCK_TAGS or getattr(ch, 'name', None) == 'br':
+                if cur:
+                    runs.append((ch, cur))
+                    cur = []
+            else:
+                cur.append(ch)
+        if cur:
+            runs.append((None, cur))
+        for anchor, nodes in runs:
+            txt = ''.join(n.get_text() if hasattr(n, 'get_text') else str(n) for n in nodes).strip()
+            if not txt:
+                continue
+            p_tag = soup.new_tag('p')
+            if anchor is not None:
+                anchor.insert_before(p_tag)
+            else:
+                container.append(p_tag)
+            for n in nodes:
+                p_tag.append(n.extract())
+            changed = True
+    return changed
+
 
 def split_japanese_sentences(text: str):
     sentences = []
@@ -543,7 +598,7 @@ def extract_toc_map(zf, opf, content_dir):
         try:
             candidate_paths = [mokuji_path]
             if content_dir and not mokuji_path.startswith(content_dir):
-                candidate_paths.append(posixpath.join(content_dir, mokuji_path))
+                candidate_paths.append(posixpath.normpath(posixpath.join(content_dir, mokuji_path)))
             for cp in candidate_paths:
                 if cp in zf.namelist():
                     _parse_mokuji_page(zf, cp, mokuji_dir or posixpath.dirname(cp), toc_map)
@@ -777,181 +832,201 @@ def extract_epub_content(epub_path):
             files = toc_label_files.get(re.sub(r'[\s　]+', '', ch_name))
             return bool(files) and here not in files
 
-        chapters_list = []
-        current_part = ""
-        current_chapter_title = title
-        current_origin = "title"
         pure_title = re.sub(r'[\s　]+', '', strip_ruby_markup(title))
         pure_author = re.sub(r'[\s　]+', '', strip_ruby_markup(author))
-        divider, divider_from, divider_parent = None, 0, None
-        last_toc_label, last_toc_title = None, None
 
-        def under_divider(label, name, merged):
-            nonlocal divider, divider_from, divider_parent
-            norm = normalize_cjk_spacing(label)
-            if IN_FILE_PART_RE.match(norm) or label in STANDALONE_NON_PART_SECTIONS or any(label.startswith(x) for x in STANDALONE_NON_PART_SECTIONS):
-                divider = divider_parent = None
-            elif CHAPTER_LEVEL_RE.match(norm):
-                divider, divider_from, divider_parent = name, len(chapters_list), None
-            elif divider and not merged:
-                if divider_parent is None:
-                    own = sum(len(c['sentences']) for c in chapters_list[divider_from:] if c['chapter_title'] == divider)
-                    divider_parent = divider if own <= DIVIDER_MAX_SENTENCES else ''
-                if divider_parent:
-                    return format_merged_chapter_name(divider_parent, label)
-            return name
+        def _read_spine(wrap_body=False):
+            chapters_list = []
+            current_part = ""
+            current_chapter_title = title
+            current_origin = "title"
+            divider, divider_from, divider_parent = None, 0, None
+            last_toc_label, last_toc_title = None, None
+            pass_excluded = []
 
-        for spine_idx, href in enumerate(spine_files):
-            if not href:
-                continue
+            def under_divider(label, name, merged):
+                nonlocal divider, divider_from, divider_parent
+                norm = normalize_cjk_spacing(label)
+                if IN_FILE_PART_RE.match(norm) or label in STANDALONE_NON_PART_SECTIONS or any(label.startswith(x) for x in STANDALONE_NON_PART_SECTIONS):
+                    divider = divider_parent = None
+                elif CHAPTER_LEVEL_RE.match(norm):
+                    divider, divider_from, divider_parent = name, len(chapters_list), None
+                elif divider and not merged:
+                    if divider_parent is None:
+                        own = sum(len(c['sentences']) for c in chapters_list[divider_from:] if c['chapter_title'] == divider)
+                        divider_parent = divider if own <= DIVIDER_MAX_SENTENCES else ''
+                    if divider_parent:
+                        return format_merged_chapter_name(divider_parent, label)
+                return name
 
-            matched_toc_label = None
-            here = None
-            if href in toc_map:
-                matched_toc_label = toc_map[href]
-                here = posixpath.normpath(href)
-            else:
-                full_h = posixpath.join(content_dir, href) if content_dir else href
-                here = posixpath.normpath(full_h)
-                if full_h in toc_map:
-                    matched_toc_label = toc_map[full_h]
+            for spine_idx, href in enumerate(spine_files):
+                if not href:
+                    continue
 
-            if matched_toc_label:
-                current_origin = "toc"
-                toc_label = clean_heading_label(matched_toc_label)
-                norm_toc = normalize_cjk_spacing(toc_label)
-                if IN_FILE_PART_RE.match(norm_toc):
-                    current_part = toc_label
-                    current_chapter_title = toc_label
+                matched_toc_label = None
+                here = None
+                if href in toc_map:
+                    matched_toc_label = toc_map[href]
+                    here = posixpath.normpath(href)
                 else:
-                    if current_part and not (toc_label in STANDALONE_NON_PART_SECTIONS or any(toc_label.startswith(s) for s in STANDALONE_NON_PART_SECTIONS)):
-                        current_chapter_title = format_merged_chapter_name(current_part, toc_label)
-                    else:
-                        if toc_label in STANDALONE_NON_PART_SECTIONS or any(toc_label.startswith(s) for s in STANDALONE_NON_PART_SECTIONS):
-                            current_part = ""
+                    full_h = posixpath.join(content_dir, href) if content_dir else href
+                    here = posixpath.normpath(full_h)
+                    if full_h in toc_map:
+                        matched_toc_label = toc_map[full_h]
+                    elif here in toc_map:
+                        matched_toc_label = toc_map[here]
+
+                if matched_toc_label:
+                    current_origin = "toc"
+                    toc_label = clean_heading_label(matched_toc_label)
+                    norm_toc = normalize_cjk_spacing(toc_label)
+                    if IN_FILE_PART_RE.match(norm_toc):
+                        current_part = toc_label
                         current_chapter_title = toc_label
-                if toc_label != last_toc_label:
-                    last_toc_label = toc_label
-                    current_chapter_title = under_divider(toc_label, current_chapter_title,
-                                                          '｜' in matched_toc_label or bool(current_part))
-                    last_toc_title = current_chapter_title
-                else:
-                    current_chapter_title = last_toc_title
+                    else:
+                        if current_part and not (toc_label in STANDALONE_NON_PART_SECTIONS or any(toc_label.startswith(s) for s in STANDALONE_NON_PART_SECTIONS)):
+                            current_chapter_title = format_merged_chapter_name(current_part, toc_label)
+                        else:
+                            if toc_label in STANDALONE_NON_PART_SECTIONS or any(toc_label.startswith(s) for s in STANDALONE_NON_PART_SECTIONS):
+                                current_part = ""
+                            current_chapter_title = toc_label
+                    if toc_label != last_toc_label:
+                        last_toc_label = toc_label
+                        current_chapter_title = under_divider(toc_label, current_chapter_title,
+                                                              '｜' in matched_toc_label or bool(current_part))
+                        last_toc_title = current_chapter_title
+                    else:
+                        current_chapter_title = last_toc_title
 
-            full_path = href if (href in zf.namelist()) else (posixpath.join(content_dir, href) if content_dir else href)
-            try:
-                raw_xhtml = zf.read(full_path).decode('utf-8', errors='ignore')
-            except (zipfile.BadZipFile, EOFError, OSError, RuntimeError, KeyError) as exc:
-                raise zipfile.BadZipFile(f"Unreadable EPUB chapter {full_path}: {exc}") from exc
-
-            soup = BeautifulSoup(raw_xhtml, 'html.parser')
-            page_dir = posixpath.dirname(full_path)
-            def image_size(src, page_dir=page_dir):
+                full_path = href if (href in zf.namelist()) else (posixpath.normpath(posixpath.join(content_dir, href)) if content_dir else href)
                 try:
-                    return zf.getinfo(posixpath.normpath(posixpath.join(page_dir, src))).file_size
-                except (KeyError, ValueError):
-                    return None
-            clean_html_ruby_and_tags(soup, image_size)
+                    raw_xhtml = zf.read(full_path).decode('utf-8', errors='ignore')
+                except (zipfile.BadZipFile, EOFError, OSError, RuntimeError, KeyError) as exc:
+                    raise zipfile.BadZipFile(f"Unreadable EPUB chapter {full_path}: {exc}") from exc
 
-            blocks = soup.find_all(lambda tag: tag.name in ('p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6') or (tag.name in ('li', 'dt', 'dd', 'blockquote', 'div') and not tag.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ul', 'ol', 'blockquote', 'li', 'dt', 'dd'])))
-            text_blocks = [b for b in blocks if b.get_text(strip=True)]
-            linked = sum(1 for b in text_blocks
-                         if b.find_parent('a', href=True)
-                         or sum(len(a.get_text(strip=True)) for a in b.find_all('a', href=True))
-                         >= 0.5 * len(b.get_text(strip=True)))
-            is_contents_page = bool(
-                (matched_toc_label and CONTENTS_LABEL_RE.search(clean_heading_label(matched_toc_label)))
-                or (len(text_blocks) >= 3 and linked >= 0.5 * len(text_blocks)))
-            if is_contents_page and not matched_toc_label:
-                current_part = ""
-                current_chapter_title = '目次'
-                current_origin = "contents"
-            lines = [b.get_text(strip=True) for b in blocks if b.get_text(strip=True)]
-            unique_lines = list(dict.fromkeys(lines))
-            total_chars = sum(len(l) for l in unique_lines)
+                soup = BeautifulSoup(raw_xhtml, 'html.parser')
+                page_dir = posixpath.dirname(full_path)
+                def image_size(src, page_dir=page_dir):
+                    try:
+                        return zf.getinfo(posixpath.normpath(posixpath.join(page_dir, src))).file_size
+                    except (KeyError, ValueError):
+                        return None
+                clean_html_ruby_and_tags(soup, image_size)
+                if wrap_body is True:
+                    _wrap_body_inline_runs(soup)
+                elif wrap_body == 'missing':
+                    native_blocks = soup.find_all(lambda tag: tag.name in ('p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6') or (tag.name in ('li', 'dt', 'dd', 'blockquote', 'div') and not tag.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ul', 'ol', 'blockquote', 'li', 'dt', 'dd'])))
+                    if not any(b.get_text(strip=True) for b in native_blocks):
+                        _wrap_body_inline_runs(soup)
 
-            if len(unique_lines) == 0:
-                continue
+                blocks = soup.find_all(lambda tag: tag.name in ('p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6') or (tag.name in ('li', 'dt', 'dd', 'blockquote', 'div') and not tag.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ul', 'ol', 'blockquote', 'li', 'dt', 'dd'])))
+                text_blocks = [b for b in blocks if b.get_text(strip=True)]
+                linked = sum(1 for b in text_blocks
+                             if b.find_parent('a', href=True)
+                             or sum(len(a.get_text(strip=True)) for a in b.find_all('a', href=True))
+                             >= 0.5 * len(b.get_text(strip=True)))
+                is_contents_page = bool(
+                    (matched_toc_label and CONTENTS_LABEL_RE.search(clean_heading_label(matched_toc_label)))
+                    or (len(text_blocks) >= 3 and linked >= 0.5 * len(text_blocks)))
+                if is_contents_page and not matched_toc_label:
+                    current_part = ""
+                    current_chapter_title = '目次'
+                    current_origin = "contents"
+                lines = [b.get_text(strip=True) for b in blocks if b.get_text(strip=True)]
+                unique_lines = list(dict.fromkeys(lines))
+                total_chars = sum(len(l) for l in unique_lines)
 
-            if len(unique_lines) <= 2 and total_chars <= 50:
-                clean_first = normalize_cjk_spacing(strip_ruby_markup(unique_lines[0]))
-                pure_first = re.sub(r'[\s　]+', '', clean_first)
-                if IN_FILE_PART_RE.match(clean_first):
-                    current_part = clean_heading_label(unique_lines[0])
+                if len(unique_lines) == 0:
                     continue
-                if pure_first in (pure_title, pure_author, f'{pure_author}{pure_title}', '表紙', '扉', '目次', 'Cover', 'Guide', 'Navigation', 'Start', 'Contents') or any(kw in clean_first for kw in ['刊行された', '発行所', '禁無断転載', '初出']):
-                    continue
 
-            for b in blocks:
-                block_text = b.get_text(strip=True)
-                if not block_text:
-                    continue
-
-                clean_b_text = normalize_cjk_spacing(strip_ruby_markup(block_text))
-
-                if not is_contents_page and is_valid_heading_block(b.name, block_text):
-                    if IN_FILE_PART_RE.match(clean_b_text):
-                        if not has_authoritative_toc:
-                            current_part = clean_heading_label(block_text)
+                if len(unique_lines) <= 2 and total_chars <= 50:
+                    clean_first = normalize_cjk_spacing(strip_ruby_markup(unique_lines[0]))
+                    pure_first = re.sub(r'[\s　]+', '', clean_first)
+                    if IN_FILE_PART_RE.match(clean_first):
+                        current_part = clean_heading_label(unique_lines[0])
                         continue
-                    elif IN_FILE_CHAPTER_RE.match(clean_b_text):
-                        ch_name = clean_heading_label(strip_ruby_markup(block_text))
-                        pure_ch = re.sub(r'[\s　]+', '', ch_name)
-                        if ch_name.upper() not in GENERIC_TOC_NAMES and pure_ch != pure_title:
-                            if has_authoritative_toc and (current_chapter_title == ch_name or current_chapter_title.endswith(f"｜{ch_name}") or current_chapter_title.startswith(ch_name)):
-                                pass
-                            elif has_authoritative_toc and names_toc_chapter_elsewhere(ch_name, here):
-                                pass
-                            else:
-                                current_origin = "infile"
-                                if current_part and not (ch_name in STANDALONE_NON_PART_SECTIONS or any(ch_name.startswith(s) for s in STANDALONE_NON_PART_SECTIONS)):
-                                    current_chapter_title = format_merged_chapter_name(current_part, ch_name)
+                    if pure_first in (pure_title, pure_author, f'{pure_author}{pure_title}', '表紙', '扉', '目次', 'Cover', 'Guide', 'Navigation', 'Start', 'Contents') or any(kw in clean_first for kw in ['刊行された', '発行所', '禁無断転載', '初出']):
+                        continue
+
+                for b in blocks:
+                    block_text = b.get_text(strip=True)
+                    if not block_text:
+                        continue
+
+                    clean_b_text = normalize_cjk_spacing(strip_ruby_markup(block_text))
+
+                    if not is_contents_page and is_valid_heading_block(b.name, block_text):
+                        if IN_FILE_PART_RE.match(clean_b_text):
+                            if not has_authoritative_toc:
+                                current_part = clean_heading_label(block_text)
+                            continue
+                        elif IN_FILE_CHAPTER_RE.match(clean_b_text):
+                            ch_name = clean_heading_label(strip_ruby_markup(block_text))
+                            pure_ch = re.sub(r'[\s　]+', '', ch_name)
+                            if ch_name.upper() not in GENERIC_TOC_NAMES and pure_ch != pure_title:
+                                if has_authoritative_toc and (current_chapter_title == ch_name or current_chapter_title.endswith(f"｜{ch_name}") or current_chapter_title.startswith(ch_name)):
+                                    pass
+                                elif has_authoritative_toc and names_toc_chapter_elsewhere(ch_name, here):
+                                    pass
                                 else:
-                                    if ch_name in STANDALONE_NON_PART_SECTIONS or any(ch_name.startswith(s) for s in STANDALONE_NON_PART_SECTIONS):
-                                        current_part = ""
-                                    current_chapter_title = ch_name
-                                current_chapter_title = under_divider(ch_name, current_chapter_title, bool(current_part))
-                                continue
+                                    current_origin = "infile"
+                                    if current_part and not (ch_name in STANDALONE_NON_PART_SECTIONS or any(ch_name.startswith(s) for s in STANDALONE_NON_PART_SECTIONS)):
+                                        current_chapter_title = format_merged_chapter_name(current_part, ch_name)
+                                    else:
+                                        if ch_name in STANDALONE_NON_PART_SECTIONS or any(ch_name.startswith(s) for s in STANDALONE_NON_PART_SECTIONS):
+                                            current_part = ""
+                                        current_chapter_title = ch_name
+                                    current_chapter_title = under_divider(ch_name, current_chapter_title, bool(current_part))
+                                    continue
 
-                for s in split_japanese_sentences(block_text):
-                    s_clean = _postprocess_sentence(s)
-                    if not s_clean:
-                        continue
-
-                    if TIMESTAMP_SCENE_RE.match(s_clean):
-                        _EXCLUDED_LOG.append((title, "TIMESTAMP_SCENE", s_clean))
-                        continue
-
-                    if ILLUSTRATION_PLACEHOLDER_RE.match(s_clean):
-                        _EXCLUDED_LOG.append((title, "ILLUSTRATION_PLACEHOLDER", s_clean))
-                        continue
-
-                    if not chapters_list or chapters_list[-1]['chapter_title'] != current_chapter_title:
-                        chapters_list.append({'chapter_title': current_chapter_title, 'sentences': [], 'sp': [],
-                                              'spine': [spine_idx, spine_idx], 'origin': current_origin})
-                    chapter = chapters_list[-1]
-                    chapter['spine'][1] = spine_idx
-                    s_list = chapter['sentences']
-
-                    if s_list:
-                        prev_clean = get_clean_text_for_mecab(s_list[-1])
-                        curr_clean = get_clean_text_for_mecab(s_clean)
-                        if prev_clean == curr_clean:
-                            if '｜' in s_clean and '｜' not in s_list[-1]:
-                                s_list[-1] = s_clean
+                    for s in split_japanese_sentences(block_text):
+                        s_clean = _postprocess_sentence(s)
+                        if not s_clean:
                             continue
 
-                    s_list.append(s_clean)
-                    chapter['sp'].append(spine_idx)
+                        if TIMESTAMP_SCENE_RE.match(s_clean):
+                            pass_excluded.append((title, "TIMESTAMP_SCENE", s_clean))
+                            continue
 
-        chapters_list = split_counting_headings(chapters_list, title)
-        kept = []
-        for chapter in chapters_list:
-            ch_name, s_list = chapter['chapter_title'], chapter['sentences']
-            if is_tautological_chapter(ch_name, s_list):
-                _EXCLUDED_LOG.append((title, "TAUTOLOGICAL_EMPTY_CHAPTER", ch_name))
-                continue
-            kept.append(chapter)
+                        if ILLUSTRATION_PLACEHOLDER_RE.match(s_clean):
+                            pass_excluded.append((title, "ILLUSTRATION_PLACEHOLDER", s_clean))
+                            continue
+
+                        if not chapters_list or chapters_list[-1]['chapter_title'] != current_chapter_title:
+                            chapters_list.append({'chapter_title': current_chapter_title, 'sentences': [], 'sp': [],
+                                                  'spine': [spine_idx, spine_idx], 'origin': current_origin})
+                        chapter = chapters_list[-1]
+                        chapter['spine'][1] = spine_idx
+                        s_list = chapter['sentences']
+
+                        if s_list:
+                            prev_clean = get_clean_text_for_mecab(s_list[-1])
+                            curr_clean = get_clean_text_for_mecab(s_clean)
+                            if prev_clean == curr_clean:
+                                if '｜' in s_clean and '｜' not in s_list[-1]:
+                                    s_list[-1] = s_clean
+                                continue
+
+                        s_list.append(s_clean)
+                        chapter['sp'].append(spine_idx)
+
+            chapters_list = split_counting_headings(chapters_list, title)
+            kept = []
+            for chapter in chapters_list:
+                ch_name, s_list = chapter['chapter_title'], chapter['sentences']
+                if is_tautological_chapter(ch_name, s_list):
+                    pass_excluded.append((title, "TAUTOLOGICAL_EMPTY_CHAPTER", ch_name))
+                    continue
+                kept.append(chapter)
+            return kept, pass_excluded
+
+        kept, pass_excluded = _read_spine(wrap_body=False)
+        first_count = sum(len(c['sentences']) for c in kept)
+        if first_count <= 200:
+            kept_wrap, excl_wrap = _read_spine(wrap_body=True if first_count <= 50 else 'missing')
+            if sum(len(c['sentences']) for c in kept_wrap) > sum(len(c['sentences']) for c in kept):
+                kept, pass_excluded = kept_wrap, excl_wrap
+        _EXCLUDED_LOG.extend(pass_excluded)
         if kept and kept[0]['origin'] == 'title' and len(kept[0]['sentences']) <= 50:
             kept[0]['chapter_title'] = '表紙'
             if len(kept) > 1 and kept[1]['chapter_title'] == '表紙':
@@ -1022,7 +1097,7 @@ def build_tables(conn, top):
         return
     if top and not has_ruby_lexicon(conn):
         print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
-    ensure_ruby_lexicon(conn, "epubs", "epub")
+    ensure_ruby_lexicon(conn, "epubs", "epub", paths.index_workers())
 
 
 def run_tables():
@@ -1036,6 +1111,46 @@ def run_tables():
         print("STOPPED", flush=True)
     else:
         print("Tables ready.")
+
+
+def _auto_filter_journal():
+    return paths.filtered_list() + ".epub-pending"
+
+
+def _write_auto_filter_journal(rows):
+    path = _auto_filter_journal()
+    tmp = path + ".tmp"
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(rows, fh, ensure_ascii=False)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def _recover_auto_filter_journal(conn):
+    path = _auto_filter_journal()
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        rows = json.load(fh)
+    if not isinstance(rows, list):
+        raise ValueError("Invalid pending EPUB filter journal")
+    committed = []
+    for row in rows:
+        name = row.get("name", "")
+        if (row.get("media") != "epub" or row.get("origin") != "auto"
+                or conn.execute("SELECT 1 FROM sources WHERE relpath = ?", (name,)).fetchone()):
+            continue
+        file_path = os.path.join(EPUB_ROOT_DIR, name)
+        try:
+            st = os.stat(file_path)
+        except OSError:
+            continue
+        if str(st.st_size) == row.get("size") and str(st.st_mtime_ns) == row.get("mtime"):
+            committed.append(row)
+    append_filtered_rows(paths.filtered_list(), committed)
+    os.remove(path)
 
 
 def run_epub_indexer(force=False, outdated=False):
@@ -1093,6 +1208,7 @@ def run_epub_indexer(force=False, outdated=False):
 
         ensure_format_column(conn)
         conn.commit()
+        _recover_auto_filter_journal(conn)
         top = conn.execute("SELECT rowid FROM epubs ORDER BY rowid DESC LIMIT 1").fetchone()
         build_tables(conn, top)
         lengths = has_line_lengths(conn)
@@ -1101,10 +1217,13 @@ def run_epub_indexer(force=False, outdated=False):
         existing_files = {row['relpath']: {'id': row['id'], 'hash': None if outdated and is_outdated('epub', row['relpath'], row['index_format']) else row['file_hash']}
                           for row in cur}
         conn.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
-        recheck_empty = conn.execute("SELECT v FROM meta WHERE k = 'epub_spine_checked'").fetchone() is None
+        row_checked = conn.execute("SELECT v FROM meta WHERE k = 'epub_spine_checked'").fetchone()
+        recheck_empty = (row_checked is None or row_checked[0] != '3')
         if recheck_empty:
             empty_ids = {row[0] for row in conn.execute(
-                "SELECT id FROM sources EXCEPT SELECT source_id FROM chapters")}
+                "SELECT id FROM sources EXCEPT SELECT source_id FROM chapters "
+                "UNION SELECT source_id FROM chapters GROUP BY source_id "
+                "HAVING SUM(last_rowid - first_rowid + 1) <= 200")}
             for old in existing_files.values():
                 if old['id'] in empty_ids:
                     old['hash'] = None
@@ -1116,6 +1235,7 @@ def run_epub_indexer(force=False, outdated=False):
         floor = top[0] if top else 0
         next_rowid = floor + 1
         replaced = []
+        auto_filtered = []
 
         def old_spans(source_id):
             spans = conn.execute("SELECT first_rowid, last_rowid FROM chapters WHERE source_id = ?",
@@ -1139,11 +1259,18 @@ def run_epub_indexer(force=False, outdated=False):
             for source_id, spans in replaced:
                 deleted_rows += delete_rows(source_id, spans)
             replaced.clear()
+            if auto_filtered:
+                _write_auto_filter_journal(auto_filtered)
             conn.commit()
+            if auto_filtered:
+                append_filtered_rows(paths.filtered_list(), auto_filtered)
+                os.remove(_auto_filter_journal())
+                auto_filtered.clear()
 
         current_disk_files = set()
         new_or_updated = 0
         skipped = 0
+        auto_removed = 0
 
         epub_files = []
         ignored = 0
@@ -1161,7 +1288,10 @@ def run_epub_indexer(force=False, outdated=False):
         if PROGRESS:
             print(f"TOTAL {len(epub_files)}", flush=True)
 
-        filtered = filtered_names(paths.filtered_list(), "epub")
+        epub_by_name = {norm_relpath(p, EPUB_ROOT_DIR): p for p in epub_files}
+        filtered = {r["name"] for r in refresh_auto_filtered(
+            paths.filtered_list(), "epub", epub_by_name
+        ) if r["media"] == "epub"}
         jobs, n_filtered = [], 0
         for epub_path in epub_files:
             relpath = norm_relpath(epub_path, EPUB_ROOT_DIR)
@@ -1198,6 +1328,35 @@ def run_epub_indexer(force=False, outdated=False):
                 continue
             title, author, n_chapters, rows, book_excluded = payload
             excluded.extend(book_excluded)
+            if not rows:
+                if old:
+                    deleted_rows += delete_rows(old['id'], old_spans(old['id']))
+                    conn.execute("DELETE FROM sources WHERE id = ?", (old['id'],))
+                    auto_removed += 1
+                try:
+                    file_stat = os.stat(epub_by_name[relpath])
+                except OSError:
+                    file_stat = None
+                if file_stat is not None:
+                    auto_filtered.append({
+                    "media": "epub",
+                    "name": relpath,
+                    "reason": "image_only",
+                    "keep": "",
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "origin": "auto",
+                    "size": str(file_stat.st_size),
+                    "mtime": str(file_stat.st_mtime_ns),
+                    })
+                filtered.add(relpath)
+                n_filtered += 1
+                print(f"Filtered image-only EPUB (0 sentences): {relpath}")
+                print(f"FILTERED {n_filtered}", flush=True)
+                pending += 1
+                if pending >= COMMIT_EVERY_BOOKS or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
+                    flush()
+                    pending, last_commit = 0, time.monotonic()
+                continue
             if not meta_written:
                 write_tokenizer_meta(conn, 1)
                 meta_written = True
@@ -1250,7 +1409,7 @@ def run_epub_indexer(force=False, outdated=False):
                   f"system.dic {ident['system_dic_sha256'][:12]}")
 
         if recheck_empty and not stopped:
-            conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('epub_spine_checked', '1')")
+            conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('epub_spine_checked', '3')")
         conn.commit()
         if stopped:
             print("STOPPED", flush=True)
@@ -1264,7 +1423,7 @@ def run_epub_indexer(force=False, outdated=False):
             for book, reason, text in excluded:
                 log_f.write(f"[{book}] [{reason}] {text}\n")
 
-    print(f"EPUB Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated books. Removed {len(deleted_files)} deleted."
+    print(f"EPUB Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated books. Removed {len(deleted_files) + auto_removed} deleted."
           + (f" Failed {failed}." if failed else ""))
 
 if __name__ == "__main__":

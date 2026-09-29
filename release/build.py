@@ -558,6 +558,8 @@ def bundle_python():
     site = os.path.join(py, "Lib", "site-packages")
     run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--no-index",
          "--find-links", WHEELS, "--only-binary=:all:", "--no-compile", "--target", site,
+         "--platform", "win_amd64", "--python-version", "3.14", "--implementation", "cp",
+         "--abi", "cp314",
          "-r", os.path.join(ROOT, "requirements.txt")])
     rmtree(os.path.join(site, "bin"))
     return py, site
