@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.7: Safer indexing, duplicate selection, and organized source code
+
+### Enhancements
+
+- **Aobana Reibun.** A new Anki add-on fills cards with example sentences and media from Aobana, Nadeshiko and Immersion Kit. The **Guide** tab's **Anki add-on: Aobana Reibun** section explains how to install it.
+- **Safer library indexing.** When more than half of a media library's indexed files are missing, Aobana pauses their removal and asks you to confirm. A file that is present but cannot be read keeps its existing index and is tried again on the next run.
+- **Duplicate selection.** **Select all** selects duplicate copies while keeping the chosen original. The button changes to **Deselect all** when every eligible file is selected.
+- Furigana rendering handles long sentences in linear time, with the same displayed text and readings.
+- Library progress uses structured events so filenames and titles containing line breaks do not interrupt progress reporting.
+- The source code is organized into an `aobana` package, with separate search, indexing, and server modules. Run from source with `python -m aobana`.
+- Page styles, translations, and scripts are separate files that the browser can cache.
+
+### Bug Fixes
+
+- **Remove anyway** retries only the media whose missing files were held for confirmation.
+- Parallel search workers leave the update check and library warm-up to the server.
+- Imported and stored Favorites keep supported fields and safe furigana markup.
+- Search treats `%` and `_` in excluded terms literally, and title filters match the selected folder exactly.
+- Concurrent Settings changes preserve each saved value, and resetting search caches clears title counts too.
+- Book titles stored with escaped characters such as `&#12354;` display as text, and image-only books whose pages are all labelled `page` are listed as image-only instead of indexed as text. To find them, **Check library** reads books of up to 200 sentences once more after the update; a 46,859-book test library held 6.
+- Request threads release furigana database connections and share a bounded tokenizer pool.
+- On Termux, folder paths remain visible while unsupported **Open folder** buttons are hidden.
+- Updating from 1.6 removes the earlier root program files. Windows, macOS, Linux, and Termux launchers use the package entry point.
+
 ## 1.6: One-time table optimization, image-only book filtering, and faster Settings
 
 ### Enhancements

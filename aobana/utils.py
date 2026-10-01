@@ -1,10 +1,12 @@
 import functools
 import hashlib
+import json
 import os
 import re
 import shutil
 import tempfile
 import sqlite3
+import sys
 import unicodedata
 from datetime import datetime
 
@@ -48,6 +50,26 @@ BOOK_RUBY_RE = re.compile(rf'(?:｜([^()｜\n\r\t]+?)|(?!)({RUBY_BASE_RE}))\(({K
 
 def ruby_re_for(media: str):
     return BOOK_RUBY_RE if media in ('epub', 'manga') else RUBY_RE
+
+
+MEDIA_NAMES = ('subs', 'epub', 'manga')
+
+
+def parse_media(value):
+    if not value or ',' not in value:
+        return value
+    names = [m for m in MEDIA_NAMES if m in {p.strip().lower() for p in value.split(',')}]
+    if not names:
+        return value
+    return 'all' if len(names) == len(MEDIA_NAMES) else ','.join(names)
+
+
+def media_has(media, name):
+    return media == 'all' or name in media.split(',')
+
+
+def media_wanted(media):
+    return tuple(m for m in MEDIA_NAMES if media_has(media, m))
 
 
 BOOK_DISPLAY_RUBY_RE = re.compile(
@@ -295,10 +317,22 @@ def _angle_tag(m, whole):
     return m.group(0)
 
 
+_NUMERIC_REF_RE = re.compile(r"&#(?:(\d{1,7})|[xX]([0-9a-fA-F]{1,6}));")
+
+
+def unescape_numeric_refs(s: str) -> str:
+    def _ch(m):
+        n = int(m.group(1)) if m.group(1) else int(m.group(2), 16)
+        if n > 0x10FFFF or 0xD800 <= n <= 0xDFFF or n < 0x20:
+            return m.group(0)
+        return " " if n == 0xA0 else chr(n)
+    return _NUMERIC_REF_RE.sub(_ch, s) if s and "&#" in s else s
+
+
 def clean_book_title(title: str) -> str:
     if not title:
         return ""
-    t = title.strip()
+    t = unescape_numeric_refs(title).strip()
     for sp in BOOK_SERIES_PREFIXES:
         t = re.sub(sp, "", t, flags=re.IGNORECASE)
     t_vol = BOOK_BRACKET_VOL_RE.sub(
@@ -362,7 +396,7 @@ def book_title_and_author(epub_path, opf_title, opf_author):
     else:
         file_title = fname_clean
 
-    author = opf_author.strip() if opf_author else ""
+    author = unescape_numeric_refs(opf_author).strip() if opf_author else ""
     if author in BOOK_UPLOADER_PLACEHOLDERS:
         if file_author and not BOOK_PROMO_BRACKET_RE.search(file_author) and fname not in BOOK_SWAPPED_TITLE_AUTHOR_FILES:
             author = file_author.replace("_", " ")
@@ -523,14 +557,14 @@ def ensure_ruby_lexicon(conn, table, media, workers=1) -> bool:
             jobs = [(db_path, table, media, lo, hi, os.path.join(work, f"{i:06d}.db"))
                     for i, (lo, hi) in enumerate(ranges)]
             actual = min(workers, len(jobs))
-            print(f"LEXICON Workers: {actual}", flush=True)
+            say(f"LEXICON Workers: {actual}")
             running = parallel_map(_ruby_chunk, jobs, actual, ordered=False, stop=stop_requested)
             try:
                 for i, part in enumerate(running, 1):
                     parts.append(part)
                     if stop_requested():
                         return False
-                    print(f"LEXICON {i}/{len(jobs)}", flush=True)
+                    emit("phase", f"LEXICON {i}/{len(jobs)}", phase="lexicon", done=i, total=len(jobs))
             finally:
                 running.close()
         if stop_requested():
@@ -699,6 +733,56 @@ def filtered_rows(path: str) -> list:
 
 def filtered_names(path: str, media: str) -> set:
     return {r["name"] for r in filtered_rows(path) if r["media"] == media}
+
+
+JSONL_FLAG = "--jsonl"
+_JSONL_ENV = "AOBANA_JSONL"
+_PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
+_OUTPUT_READY = False
+
+
+def start_output():
+    if JSONL_FLAG in sys.argv:
+        os.environ[_JSONL_ENV] = "1"
+    else:
+        os.environ.pop(_JSONL_ENV, None)
+    _ready_output()
+
+
+def _ready_output():
+    global _OUTPUT_READY
+    _OUTPUT_READY = True
+    try:
+        sys.stdout.reconfigure(encoding="utf-8" if os.environ.get(_JSONL_ENV) == "1" else None,
+                               errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+
+def emit(kind: str, text: str, quiet: bool = False, **fields):
+    if not _OUTPUT_READY:
+        _ready_output()
+    if os.environ.get(_JSONL_ENV) == "1":
+        print(json.dumps({"type": kind, "text": text, **fields}, ensure_ascii=False), flush=True)
+    elif not quiet or _PROGRESS:
+        print(text, flush=True)
+
+
+def say(text: str):
+    emit("log", text)
+
+
+REMOVAL_HOLD_SHARE = 0.5
+ALLOW_REMOVAL_FLAG = "--allow-removal"
+
+
+def held_removals(indexed: int, gone, filtered, allow: bool):
+    gone = list(gone)
+    missing = [r for r in gone if r not in filtered]
+    if allow or not missing or len(missing) <= indexed * REMOVAL_HOLD_SHARE:
+        return gone, []
+    emit("removal_held", f"REMOVAL_HELD {len(missing)}/{indexed}", gone=len(missing), indexed=indexed)
+    return [r for r in gone if r in filtered], missing
 
 
 def refresh_auto_filtered(path: str, media: str, disk: dict) -> list:
@@ -909,7 +993,7 @@ def compact_index(conn, table):
     conn.execute(f"INSERT INTO {table}({table}) VALUES('optimize')")
     conn.commit()
     conn.execute("VACUUM")
-    print(f"COMPACTED {table}")
+    say(f"COMPACTED {table}")
 
 
 CHAPTERS_SCHEMA = (
@@ -1056,13 +1140,13 @@ def ensure_line_lengths(conn, db_path, table, media, workers=1) -> bool:
         jobs = [(db_path, table, media, lo, hi, os.path.join(work, f"{i:06d}.db"))
                 for i, (lo, hi) in enumerate(_table_ranges(top[0], workers))]
         actual = min(workers, len(jobs))
-        print(f"LENGTHS Workers: {actual}", flush=True)
+        say(f"LENGTHS Workers: {actual}")
         for i, part in enumerate(parallel_map(_lengths_chunk, jobs, actual, ordered=False,
                                               stop=stop_requested), 1):
             parts.append(part)
             if stop_requested():
                 break
-            print(f"LENGTHS {i}/{len(jobs)}", flush=True)
+            emit("phase", f"LENGTHS {i}/{len(jobs)}", phase="lengths", done=i, total=len(jobs))
         if stop_requested():
             shutil.rmtree(work, ignore_errors=True)
             return False
@@ -1130,7 +1214,7 @@ def parallel_map(fn, items, workers, chunksize=1, ordered=True, stop=None):
             import multiprocessing
             pool = multiprocessing.get_context("spawn").Pool(workers)
         except (ImportError, OSError, NotImplementedError) as e:
-            print(f"PARALLEL_OFF {type(e).__name__}: {e}", flush=True)
+            say(f"PARALLEL_OFF {type(e).__name__}: {e}")
     if pool is None:
         yield from map(fn, items)
         return

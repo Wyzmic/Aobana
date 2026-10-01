@@ -1,7 +1,9 @@
 @echo off
-cd /d "%~dp0"
-if exist "%~dp0python\python.exe" (
-    "%~dp0python\python.exe" "%~dp0launcher.py"
+set "AOBANA_ROOT=%~dp0"
+if not exist "%AOBANA_ROOT%aobana\__main__.py" set "AOBANA_ROOT=%~dp0..\"
+cd /d "%AOBANA_ROOT%"
+if exist "%AOBANA_ROOT%python\python.exe" (
+    "%AOBANA_ROOT%python\python.exe" -m aobana
 ) else (
-    python "%~dp0launcher.py"
+    python -m aobana
 )

@@ -6,15 +6,14 @@ import time
 from sudachipy import tokenizer, dictionary
 from datetime import datetime
 
-import paths
+from aobana import paths
 BASE_DIR = paths.BASE_DIR
 ROOT_DIR = paths.subs_dir()
 DB_PATH = paths.subs_db()
-PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
-from utils import SUDACHI_MAX_BYTES
+from aobana.utils import SUDACHI_MAX_BYTES
 
 
 def get_tokenizer():
@@ -23,11 +22,12 @@ def get_tokenizer():
         _TOKENIZER = dictionary.Dictionary(dict="core").create()
     return _TOKENIZER
 
-from utils import (
+from aobana.utils import (
     KANA_RE, KANJI_CHARS, KANJI_PATTERN,
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, RUBY_RE,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, write_tokenizer_meta, ruby_index_extras, parallel_map,
-    strip_chinese_chunks, is_chinese_text, filtered_names,
+    strip_chinese_chunks, is_chinese_text, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
+    start_output, emit, say,
     ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths,
     ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon,
 )
@@ -46,7 +46,7 @@ _EXCLUDED_LOG = []
 _WAKATI_LOG = []
 _NOTES = []
 
-from utils import convert_hw_katakana, SUBS_STR_REPLACEMENTS, katakana_to_hiragana, ruby_table
+from aobana.utils import convert_hw_katakana, SUBS_STR_REPLACEMENTS, katakana_to_hiragana, ruby_table
 
 _RE_REPLACEMENTS = [
     (re.compile(r'＠ルビ.*?［(.+?)[｜|](.+?)］＠'), r'\1(\2)'),
@@ -144,7 +144,7 @@ def clean_line(line, relpath):
         elif skip == 0: result.append(char)
     cleaned_text = _postprocess_sentence(''.join(result).strip())
     if UNCLOSED_RUBY_RE.search(cleaned_text):
-        _NOTES.append(f"UNCLOSED_RUBY {relpath}: {cleaned_text}".encode('cp932', 'replace').decode('cp932'))
+        _NOTES.append(f"UNCLOSED_RUBY {relpath}: {cleaned_text}")
     return cleaned_text
 
 def is_music_only_line(line):
@@ -364,7 +364,7 @@ def parse_ass_events(content, stats=None):
 def ass_to_srt(content, stats=None, ev=None):
     events = parse_ass_events(content, stats)
     if any(ev['drop'] in ('ruby-small', 'ruby-style') for ev in events):
-        import ass_ruby
+        from aobana.indexing import ass_ruby
         ass_ruby.attach(events, content, ev=ev, stats=stats)
     groups = {}
     for e in events:
@@ -453,41 +453,41 @@ COMMIT_EVERY_SECONDS = 20
 
 def build_lexicon(conn, top):
     if top and not has_ruby_lexicon(conn):
-        print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
+        emit("phase", "LEXICON building the ruby lexicon table (once, reads the whole index)...", phase="lexicon")
     ensure_ruby_lexicon(conn, "subtitles", "subs", paths.index_workers())
 
 
 def build_tables():
-    print(f"Building the subtitle index's tables ({DB_PATH})...")
+    say(f"Building the subtitle index's tables ({DB_PATH})...")
     with sqlite3.connect(DB_PATH) as conn:
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'subtitles'").fetchone() is None:
-            print("Tables ready: no subtitle index yet.")
+            say("Tables ready: no subtitle index yet.")
             return
         top = conn.execute("SELECT rowid FROM subtitles ORDER BY rowid DESC LIMIT 1").fetchone()
         if top and not has_line_lengths(conn):
-            print("LENGTHS building the display-length table (once, reads the whole index)...", flush=True)
+            emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
         ensure_line_lengths(conn, DB_PATH, "subtitles", "subs", paths.index_workers())
         if stop_requested():
-            print("STOPPED", flush=True)
+            emit("stopped", "STOPPED")
             return
         build_lexicon(conn, top)
-    print("Tables ready.")
+    say("Tables ready.")
 
 
-def run_indexer(force=False, outdated=False):
-    print(f"Starting indexer on {ROOT_DIR} (force={force}, outdated={outdated})...")
+def run_indexer(force=False, outdated=False, allow_removal=False):
+    say(f"Starting indexer on {ROOT_DIR} (force={force}, outdated={outdated})...")
     _EXCLUDED_LOG.clear()
     _WAKATI_LOG.clear()
     if ROOT_DIR is None:
-        print("ROOT_NOT_SET subs")
-        print("No subtitle folder is set (Library tab). Nothing was changed.")
+        emit("root_not_set", "ROOT_NOT_SET subs", media="subs")
+        say("No subtitle folder is set (Library tab). Nothing was changed.")
         return
     if not paths.media_enabled("subs"):
-        print("Subtitles are off in Settings. Nothing was changed.")
+        say("Subtitles are off in Settings. Nothing was changed.")
         return
     if not os.path.isdir(ROOT_DIR):
-        print(f"ROOT_MISSING {ROOT_DIR}")
-        print("Indexing aborted: the subtitle folder does not exist. Nothing was changed.")
+        emit("root_missing", f"ROOT_MISSING {ROOT_DIR}", folder=ROOT_DIR)
+        say("Indexing aborted: the subtitle folder does not exist. Nothing was changed.")
         return
     os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     excluded, wakati = [], []
@@ -496,7 +496,7 @@ def run_indexer(force=False, outdated=False):
         conn.row_factory = sqlite3.Row
 
         if force:
-            print("Force rebuild requested. Dropping existing tables...")
+            say("Force rebuild requested. Dropping existing tables...")
             conn.execute("DROP TABLE IF EXISTS subtitles")
             conn.execute("DROP TABLE IF EXISTS line_lengths")
             conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
@@ -518,7 +518,7 @@ def run_indexer(force=False, outdated=False):
             if row and ("context" in row[0] or "file UNINDEXED" not in row[0]):
                 raise sqlite3.OperationalError("Old schema detected")
         except sqlite3.OperationalError:
-            print("Old database schema detected. Rebuilding FTS table...")
+            say("Old database schema detected. Rebuilding FTS table...")
             conn.execute("DROP TABLE IF EXISTS subtitles")
             conn.execute("DROP TABLE IF EXISTS line_lengths")
             conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
@@ -546,10 +546,10 @@ def run_indexer(force=False, outdated=False):
         if outdated:
             n_old = sum(1 for v in existing_files.values() if v['hash'] is None)
             if n_old:
-                print(f"OUTDATED {n_old}")
+                say(f"OUTDATED {n_old}")
         top = conn.execute("SELECT rowid FROM subtitles ORDER BY rowid DESC LIMIT 1").fetchone()
         if top and not has_line_lengths(conn):
-            print("LENGTHS building the display-length table (once, reads the whole index)...", flush=True)
+            emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
         ensure_line_lengths(conn, DB_PATH, "subtitles", "subs", paths.index_workers())
         lengths = has_line_lengths(conn)
         build_lexicon(conn, top)
@@ -581,9 +581,8 @@ def run_indexer(force=False, outdated=False):
                     continue
                 srt_paths.append((dirpath, fname))
         if ignored:
-            print(f"IGNORED_OTHER {ignored}")
-        if PROGRESS:
-            print(f"TOTAL {len(srt_paths)}", flush=True)
+            emit("ignored_other", f"IGNORED_OTHER {ignored}", count=ignored)
+        emit("total", f"TOTAL {len(srt_paths)}", quiet=True, total=len(srt_paths))
 
         filtered = filtered_names(paths.filtered_list(), "subs")
         jobs, n_filtered = [], 0
@@ -594,16 +593,16 @@ def run_indexer(force=False, outdated=False):
                 n_filtered += 1
                 continue
             if relpath in current_disk_files:
-                print(f"SKIPPED_CLASH {fname}")
+                emit("skipped_clash", f"SKIPPED_CLASH {fname}", file=fname)
                 continue
             current_disk_files.add(relpath)
             jobs.append((path, relpath, existing_files.get(relpath, {}).get('hash')))
         if n_filtered:
-            print(f"FILTERED {n_filtered}")
+            emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
         workers = paths.index_workers() if len(jobs) > 1 else 1
         if workers > 1:
-            print(f"Workers: {workers}")
+            say(f"Workers: {workers}")
         meta_written = False
         pending, last_commit = 0, time.monotonic()
         stopped = False
@@ -612,26 +611,22 @@ def run_indexer(force=False, outdated=False):
             if stop_requested():
                 stopped = True
                 break
-            if PROGRESS:
-                print(f"PROGRESS {n}/{len(jobs)} {relpath}", flush=True)
+            emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
             if kind == 'same':
                 skipped += 1
                 continue
             old = existing_files.get(relpath)
             if kind == 'error':
                 if old:
-                    deleted_rows += conn.execute("DELETE FROM subtitles WHERE source_id = ?", (old['id'],)).rowcount
-                    conn.execute("DELETE FROM sources WHERE id = ?", (old['id'],))
-                    if lexicon:
-                        drop_ruby_lexicon(conn, [old['id']])
+                    conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
                 failed += 1
-                print(f"FAILED {relpath}: {payload}")
+                emit("failed", f"FAILED {relpath}: {payload}", file=relpath, error=str(payload))
                 continue
             rows, file_excluded, file_wakati, notes = payload
             excluded.extend(file_excluded)
             wakati.extend(file_wakati)
             for note in notes:
-                print(note)
+                say(note)
             if not meta_written:
                 write_tokenizer_meta(conn, 1)
                 meta_written = True
@@ -656,34 +651,35 @@ def run_indexer(force=False, outdated=False):
             if lexicon:
                 write_ruby_lexicon(conn, "subs", ((source_id, relpath, r[0]) for r in rows))
             next_rowid += len(rows)
-            print(f"Indexed: {relpath.encode('cp932', 'replace').decode('cp932')}")
+            say(f"Indexed: {relpath}")
             pending += 1
             if pending >= COMMIT_EVERY_FILES or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
                 flush()
                 pending, last_commit = 0, time.monotonic()
         flush()
 
-        deleted_files = set(existing_files.keys()) - current_disk_files
+        deleted_files, _ = held_removals(len(existing_files), set(existing_files.keys()) - current_disk_files,
+                                         filtered, allow_removal)
         for relpath in deleted_files:
             source_id = existing_files[relpath]['id']
             deleted_rows += conn.execute("DELETE FROM subtitles WHERE source_id = ?", (source_id,)).rowcount
             conn.execute("DELETE FROM sources WHERE id = ?", (source_id,))
             if lexicon:
                 drop_ruby_lexicon(conn, [source_id])
-            print(f"Removed {'filtered' if relpath in filtered else 'deleted'} file: {relpath}")
+            say(f"Removed {'filtered' if relpath in filtered else 'deleted'} file: {relpath}")
 
         if deleted_rows and lengths:
             drop_orphan_lengths(conn, "subtitles")
 
         ident = write_tokenizer_meta(conn, 0)
         if new_or_updated:
-            print(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
+            say(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
                   f"({ident['dictionary_format']}), SudachiPy {ident['sudachipy_version']}, "
                   f"system.dic {ident['system_dic_sha256'][:12]}")
 
         conn.commit()
         if stopped:
-            print("STOPPED", flush=True)
+            emit("stopped", "STOPPED")
         else:
             compact_if_worth(conn, "subtitles", deleted_rows, inserted_rows)
     
@@ -701,19 +697,21 @@ def run_indexer(force=False, outdated=False):
             for relp, count, mean_c in wakati:
                 log_f.write(f"[{relp}] {count} lines normalized (mean chunk: {mean_c:.2f} chars)\n")
 
-    print(f"Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated files. Removed {len(deleted_files)} deleted files."
-          + (f" Failed {failed}." if failed else ""))
+    emit("summary", f"Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated files. Removed {len(deleted_files)} deleted files."
+         + (f" Failed {failed}." if failed else ""),
+         unchanged=skipped, indexed=new_or_updated, removed=len(deleted_files), failed=failed)
     if wakati:
         total_wakati_lines = sum(c for _, c, _ in wakati)
-        print(f"Wakati-Gaki Normalization: Encountered and normalized {len(wakati)} file(s) ({total_wakati_lines} lines).")
+        say(f"Wakati-Gaki Normalization: Encountered and normalized {len(wakati)} file(s) ({total_wakati_lines} lines).")
     else:
-        print("Wakati-Gaki Normalization: 0 wakati-spaced files encountered.")
+        say("Wakati-Gaki Normalization: 0 wakati-spaced files encountered.")
 
 if __name__ == "__main__":
     import sys
+    start_output()
     force_rebuild = "--force" in sys.argv
     if "--tables" in sys.argv:
         if os.path.exists(DB_PATH):
             build_tables()
         sys.exit(0)
-    run_indexer(force=force_rebuild, outdated="--outdated" in sys.argv)
+    run_indexer(force=force_rebuild, outdated="--outdated" in sys.argv, allow_removal=ALLOW_REMOVAL_FLAG in sys.argv)

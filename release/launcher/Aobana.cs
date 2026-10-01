@@ -11,7 +11,7 @@ static class Aobana
     {
         string dir = AppDomain.CurrentDomain.BaseDirectory;
         string python = Path.Combine(dir, @"python\pythonw.exe");
-        string launcher = Path.Combine(dir, "launcher.py");
+        string launcher = Path.Combine(dir, @"aobana\__main__.py");
         if (!File.Exists(python) || !File.Exists(launcher))
         {
             Fail("Aobanaのファイルが見つかりません。再インストールしてください。\n"
@@ -19,7 +19,7 @@ static class Aobana
                + (File.Exists(python) ? launcher : python));
             return 1;
         }
-        StringBuilder argv = new StringBuilder(Quote(launcher));
+        StringBuilder argv = new StringBuilder("-m aobana");
         foreach (string a in args) argv.Append(' ').Append(Quote(a));
         try
         {

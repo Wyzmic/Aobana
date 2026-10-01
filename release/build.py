@@ -27,7 +27,7 @@ import zipfile
 
 RELEASE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(RELEASE)
-with open(os.path.join(ROOT, "app.py"), encoding="utf-8") as _fh:
+with open(os.path.join(ROOT, "aobana", "server", "app.py"), encoding="utf-8") as _fh:
     VERSION = re.search(r'^VERSION = "([^"]+)"', _fh.read(), re.M).group(1)
 VENDOR = os.path.join(RELEASE, "vendor")
 WHEELS = os.path.join(VENDOR, "wheels")
@@ -42,15 +42,24 @@ CSC = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 ISCC = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Inno Setup 7", "ISCC.exe")
 
 APP_FILES = [
-    "app.py", "engine.py", "utils.py", "paths.py", "library.py", "analyser.py", "indexer.py", "epub_indexer.py",
-    "manga_indexer.py", "ass_ruby.py",
-    "folder_picker.py", "updater.py",
-    "index.html", "launcher.py", "Aobana.bat", "aobana.sh", "requirements.txt",
+    "aobana/__init__.py", "aobana/__main__.py", "aobana/paths.py", "aobana/utils.py",
+    "aobana/server/__init__.py", "aobana/server/app.py", "aobana/server/launcher.py",
+    "aobana/server/library.py", "aobana/server/updater.py", "aobana/server/folder_picker.py",
+    "aobana/server/index.html",
+    "aobana/search/__init__.py", "aobana/search/engine.py", "aobana/search/furigana.py",
+    "aobana/search/titles.py", "aobana/search/result_cache.py", "aobana/search/media_tab.py",
+    "aobana/indexing/__init__.py", "aobana/indexing/indexer.py", "aobana/indexing/epub_indexer.py",
+    "aobana/indexing/manga_indexer.py", "aobana/indexing/ass_ruby.py", "aobana/indexing/analyser.py",
+    "Aobana.bat", "aobana.sh", "requirements.txt",
     "data/ruby/ruby.tsv",
+    "static/app.css", "static/i18n.js", "static/app.js",
     "static/aobana.svg", "static/fonts/NotoSansJP.ttf", "static/fonts/OFL.txt",
 ]
 NOT_EXPORTED = {
     "data/ruby/ruby_splits.tsv": "a review list keyed by rowids of one index; the engine never reads it",
+    **{f"static/icons/{name}": "local launcher shortcut art; never part of the web app or release"
+       for name in ("aobana.ico", "aobana-build-1.6.ico", "aobana-latest.ico",
+                    "aobana-mattias.ico", "aobana-mattias-1.5.ico")},
 }
 TSV_COLUMNS = {"ruby.tsv": 5}
 PUBLIC_FILES = ["README.md", "README.ja.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md"]
@@ -90,16 +99,27 @@ def run(cmd, **kw):
     subprocess.run(cmd, check=True, **kw)
 
 
+def app_source(filename):
+    if filename == "Aobana.bat":
+        private = os.path.join(ROOT, "launchers", filename)
+        if os.path.isfile(private):
+            return private
+    return os.path.join(ROOT, filename)
+
+
 def check_whitelist():
-    missing = [f for f in APP_FILES + REPO_FILES if not os.path.isfile(os.path.join(ROOT, f))]
+    missing = [f for f in APP_FILES if not os.path.isfile(app_source(f))]
+    missing += [f for f in REPO_FILES if not os.path.isfile(os.path.join(ROOT, f))]
     if missing:
         sys.exit(f"build: whitelisted files missing from the dev tree: {missing}")
     unsized = [f for f in APP_FILES if f.endswith(".tsv") and os.path.basename(f) not in TSV_COLUMNS]
     if unsized:
         sys.exit(f"build: {unsized} not in TSV_COLUMNS - say how many columns the loader reads")
     listed = set(APP_FILES + REPO_FILES)
-    for folder, pattern in (("static", r".*"), ("data/ruby", r".*\.tsv$"), ("termux", r".*")):
-        for dirpath, _, files in os.walk(os.path.join(ROOT, folder)):
+    for folder, pattern in (("aobana", r".*\.(py|html)$"), ("static", r".*"), ("data/ruby", r".*\.tsv$"),
+                            ("termux", r".*")):
+        for dirpath, dirs, files in os.walk(os.path.join(ROOT, folder)):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
             for f in files:
                 rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace("\\", "/")
                 if re.match(pattern, f) and rel not in listed and rel not in NOT_EXPORTED:
@@ -119,24 +139,56 @@ def check_ruby_merged():
 
 
 def check_imports_shipped():
-    with open(os.path.join(ROOT, "termux", "install.sh"), encoding="utf-8") as fh:
-        m = re.search(r'^PHONE_FILES="([^"]*)"', fh.read(), re.M)
-    phone = set(m.group(1).split()) if m else set()
-    seen, todo = set(), ["app.py", "indexer.py", "epub_indexer.py", "manga_indexer.py", "analyser.py"]
+    lists = {}
+    for script in ("install.sh", "uninstall.sh"):
+        with open(os.path.join(ROOT, "termux", script), encoding="utf-8") as fh:
+            m = re.search(r'^PHONE_FILES="([^"]*)"', fh.read(), re.M)
+        lists[script] = set(m.group(1).split()) if m else set()
+    phone = lists["install.sh"]
+    if lists["uninstall.sh"] != phone:
+        sys.exit("build: termux/uninstall.sh's PHONE_FILES differs from install.sh's: "
+                 f"install only {sorted(phone - lists['uninstall.sh'])}, "
+                 f"uninstall only {sorted(lists['uninstall.sh'] - phone)}")
+    roots = ["aobana/__main__.py", "aobana/server/app.py", "aobana/indexing/indexer.py",
+             "aobana/indexing/epub_indexer.py", "aobana/indexing/manga_indexer.py",
+             "aobana/indexing/analyser.py"]
+    seen, todo = set(), list(roots)
     while todo:
         name = todo.pop()
         if name in seen:
             continue
         seen.add(name)
+        parts = name.split("/")
+        for i in range(1, len(parts)):
+            init = "/".join(parts[:i] + ["__init__.py"])
+            if init not in seen:
+                todo.append(init)
         with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
-            for mod in re.findall(r"^\s*(?:import|from)\s+(\w+)", fh.read(), re.M):
-                if os.path.isfile(os.path.join(ROOT, mod + ".py")):
-                    todo.append(mod + ".py")
+            text = fh.read()
+        mods = re.findall(r"^\s*import\s+(aobana(?:\.\w+)*)", text, re.M)
+        for pkg, paren, names in re.findall(
+                r"^[ \t]*from[ \t]+(aobana(?:\.\w+)*)[ \t]+import[ \t]+(?:\(([^)]*)\)|([\w \t,]+))", text, re.M):
+            names = paren or names
+            mods.append(pkg)
+            mods += [f"{pkg}.{n.split(' as ')[0].strip()}" for n in names.split(",") if n.strip()]
+        for mod in mods:
+            rel = mod.replace(".", "/")
+            for cand in (rel + ".py", rel + "/__init__.py"):
+                if os.path.isfile(os.path.join(ROOT, cand)):
+                    todo.append(cand)
+    if not {"aobana/search/engine.py", "aobana/utils.py", "aobana/paths.py"} <= seen:
+        sys.exit(f"build: check_imports_shipped followed only {sorted(seen)} - it no longer reads the imports")
+
+    def on_phone(f):
+        return any(f == p or f.startswith(p.rstrip("/") + "/") for p in phone)
     for name in sorted(seen):
         if name not in APP_FILES:
             sys.exit(f"build: the app needs {name}, which is not in APP_FILES")
-        if name not in phone:
+        if not on_phone(name):
             sys.exit(f"build: the app needs {name}, which termux/install.sh's PHONE_FILES does not download")
+    for name in APP_FILES:
+        if name.startswith(("aobana/", "static/")) and not on_phone(name):
+            sys.exit(f"build: {name} ships, but termux/install.sh's PHONE_FILES does not download it")
 
 
 KEEP_MODULE_DOC = ("build.py", "make_icon.py", "build_unix.py", "smoke.py")
@@ -357,6 +409,14 @@ def _strip_cs(text, name=""):
     return _cut(text, _js_comments(text, 0, len(text)))
 
 
+def _strip_js(text, name=""):
+    return _cut(text, _js_comments(text, 0, len(text)), keep="//:").replace("//:", "//")
+
+
+def _strip_css(text, name=""):
+    return _cut(text, _js_comments(text, 0, len(text), css=True))
+
+
 def _strip_tsv(text, name=""):
     n = TSV_COLUMNS[name]
     return "".join("\t".join(line.rstrip("\r\n").split("\t")[:n]) + _eol(line)
@@ -364,6 +424,7 @@ def _strip_tsv(text, name=""):
 
 
 STRIPPERS = {".py": _strip_py, ".html": _strip_html, ".svg": _strip_svg, ".cs": _strip_cs,
+             ".js": _strip_js, ".css": _strip_css,
              ".sh": _strip_hash, ".txt": _strip_hash, ".iss": _strip_iss, ".tsv": _strip_tsv,
              ".yml": _strip_hash,
              ".bat": lambda t, name="": _strip_hash(t, name, marker="REM", keep="REM:")}
@@ -387,8 +448,9 @@ def comments(src, text):
                     for i, line in enumerate(doc.splitlines()):
                         yield node.body[0].lineno + i, line
         return
-    if ext in (".html", ".cs"):
-        spans = _html_spans(text) if ext == ".html" else _js_comments(text, 0, len(text))
+    if ext in (".html", ".cs", ".js", ".css"):
+        spans = (_html_spans(text) if ext == ".html"
+                 else _js_comments(text, 0, len(text), css=ext == ".css"))
         for a, b in spans:
             yield text.count("\n", 0, a) + 1, text[a:b]
         return
@@ -447,7 +509,7 @@ def copy_checked(pairs):
 
 
 def program_pairs(dest, image=False):
-    pairs = [(os.path.join(ROOT, f), os.path.join(dest, f)) for f in APP_FILES
+    pairs = [(app_source(f), os.path.join(dest, f)) for f in APP_FILES
              if not (image and f in REPO_ONLY)]
     for f in PUBLIC_FILES:
         if image and f in REPO_ONLY:
@@ -491,7 +553,7 @@ def _kept_comments():
     workflows = [os.path.join("release", w) if os.path.isfile(os.path.join(RELEASE, w)) else d
                  for w, d in WORKFLOWS.items()]
     for f in APP_FILES + REPO_FILES + [os.path.join("release", b) for b in BUILD_FILES] + workflows:
-        p = os.path.join(ROOT, f)
+        p = app_source(f) if f in APP_FILES else os.path.join(ROOT, f)
         if STRIPPERS.get(os.path.splitext(p)[1]) is None:
             continue
         with open(p, encoding="utf-8") as fh:
@@ -504,6 +566,9 @@ def _kept_comments():
 
 def check_published(folder):
     kept, left = _kept_comments(), []
+    icons = os.path.join(folder, "static", "icons")
+    if os.path.isdir(icons) and any(os.scandir(icons)):
+        sys.exit("build: private launcher icons must not ship")
     for dirpath, dirs, files in os.walk(folder):
         dirs[:] = [d for d in dirs if d not in (".git", "python", "__pycache__", "assets")]
         for f in files:
@@ -612,10 +677,11 @@ def smoke(py, exe=None, image=IMAGE):
     if tok != "食べ られ なかっ た":
         sys.exit(f"build: Sudachi smoke test gave {tok!r}")
     print(f"  Sudachi: {tok}")
-    subprocess.run([exe, "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
-                    "import paths, utils, library, indexer, epub_indexer, manga_indexer, engine", image],
+    mods = ("aobana.paths, aobana.utils, aobana.server.library, aobana.indexing.indexer, "
+            "aobana.indexing.epub_indexer, aobana.indexing.manga_indexer, aobana.search.engine")
+    subprocess.run([exe, "-c", f"import sys; sys.path.insert(0, sys.argv[1]); import {mods}", image],
                    check=True, env=env, cwd=cwd)
-    print("  paths, utils, library, indexer, epub_indexer, manga_indexer, engine: import")
+    print(f"  {mods}: import")
     stray = [f for f in os.listdir(image) if f.endswith((".db", ".db-wal", ".db-shm", ".json"))
              or f in ("logs", "content", "aobana.installed")]
     stray += ["data/" + f for f in os.listdir(os.path.join(image, "data")) if f != "ruby"]
@@ -688,17 +754,32 @@ def check_release_notes():
     print(f"  release notes: {len(lines)} notable changes")
 
 
+def check_reibun_code():
+    with open(os.path.join(ROOT, "static", "app.js"), encoding="utf-8") as fh:
+        empty = re.search(r"const REIBUN_CODE = ''", fh.read())
+    left = ["static/app.js (REIBUN_CODE)"] if empty else []
+    for name in ("README.md", "README.ja.md"):
+        with open(os.path.join(PUBLIC, name), encoding="utf-8") as fh:
+            if "shared/info/CODE" in fh.read():
+                left.append(f"release/public/{name} (CODE)")
+    if left:
+        sys.exit("build: the AnkiWeb code is still a placeholder in " + ", ".join(left))
+    print("  AnkiWeb code: filled in")
+
+
 def main(argv):
     what = argv[1] if len(argv) > 1 else "all"
     if what not in ("all", "export", "bundle", "installer", "check"):
         sys.exit(__doc__)
     if what == "check":
         check_published(REPO)
+        check_reibun_code()
         return
     if what in ("all", "export"):
         export()
     if what in ("all", "installer"):
         check_release_notes()
+        check_reibun_code()
     if what in ("all", "bundle", "installer"):
         ico = bundle()
         if what != "bundle":

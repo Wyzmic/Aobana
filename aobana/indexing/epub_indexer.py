@@ -22,15 +22,14 @@ if hasattr(sys.stderr, 'reconfigure'):
 from sudachipy import tokenizer, dictionary
 from datetime import datetime
 
-import paths
+from aobana import paths
 BASE_DIR = paths.BASE_DIR
 EPUB_ROOT_DIR = paths.books_dir()
 DB_PATH = paths.epub_db()
-PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
-from utils import SUDACHI_MAX_BYTES, sudachi_pieces as _sudachi_pieces
+from aobana.utils import SUDACHI_MAX_BYTES, sudachi_pieces as _sudachi_pieces
 
 
 def get_tokenizer():
@@ -39,10 +38,11 @@ def get_tokenizer():
         _TOKENIZER = dictionary.Dictionary(dict="core").create()
     return _TOKENIZER
 
-from utils import (
+from aobana.utils import (
     KANA_RE, KANJI_CHARS, KANJI_PATTERN,
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, BOOK_RUBY_RE,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, write_tokenizer_meta, ruby_index_extras, parallel_map, append_filtered_rows, refresh_auto_filtered,
+    held_removals, ALLOW_REMOVAL_FLAG, start_output, emit, say,
 )
 
 TIMESTAMP_SCENE_RE = re.compile(
@@ -54,11 +54,11 @@ ILLUSTRATION_PLACEHOLDER_RE = re.compile(
 
 _EXCLUDED_LOG = []
 
-from utils import convert_hw_katakana, EPUB_STR_REPLACEMENTS, katakana_to_hiragana
-from utils import normalize_cjk_spacing, book_title_and_author
-from utils import ensure_chapters, chapter_spans, has_chapters
-from utils import ensure_line_lengths, has_line_lengths, write_line_lengths
-from utils import ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon
+from aobana.utils import convert_hw_katakana, EPUB_STR_REPLACEMENTS, katakana_to_hiragana
+from aobana.utils import normalize_cjk_spacing, book_title_and_author
+from aobana.utils import ensure_chapters, chapter_spans, has_chapters
+from aobana.utils import ensure_line_lengths, has_line_lengths, write_line_lengths
+from aobana.utils import ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon
 
 _RE_REPLACEMENTS = [
     (re.compile(r'＠ルビ.*?［(.+?)[｜|](.+?)］＠'), r'｜\1(\2)'),
@@ -192,7 +192,7 @@ def _postprocess_sentence(text: str) -> str:
 GENERIC_EXACT_LOWER = {
     'image', 'img', 'figure', 'fig', 'picture', 'photo', 'illustration',
     'イラスト', '写真', '挿絵', 'ロゴ', 'logo', 'icon', 'spacer', 'dummy', 'cover',
-    'comic book images',
+    'comic book images', 'page',
 }
 
 def is_generic_alt(alt: str) -> bool:
@@ -205,7 +205,7 @@ def is_generic_alt(alt: str) -> bool:
     if a_low in GENERIC_EXACT_LOWER or a_clean in GENERIC_EXACT_LOWER:
         return True
         
-    if re.match(r'^(?:fig|figure|image|img|photo)[\s_\-\.:\d]', a_low):
+    if re.match(r'^(?:fig|figure|image|img|photo|page)[\s_\-\.:\d]', a_low):
         return True
         
     if re.search(r'\.(?:png|jpg|jpeg|gif|webp|svg|bmp)$', a_low):
@@ -512,7 +512,7 @@ def _parse_mokuji_page(zf, mokuji_path, mokuji_dir, toc_map):
                     if candidate not in toc_map:
                         toc_map[candidate] = lbl
     except Exception as e:
-        print(f"Error parsing 目次 page {mokuji_path}: {e}")
+        say(f"Error parsing 目次 page {mokuji_path}: {e}")
 
 
 def extract_toc_map(zf, opf, content_dir):
@@ -538,7 +538,7 @@ def extract_toc_map(zf, opf, content_dir):
                         has_any_main = any(is_structural_chapter_heading(l) for l in all_labels)
                         _parse_nav_ol(root_ol, nav_dir, toc_map, depth=0, parent_label=None, has_any_main=has_any_main)
             except Exception as e:
-                print(f"Error parsing direct Nav TOC: {e}")
+                say(f"Error parsing direct Nav TOC: {e}")
         _apply_split_file_carry(toc_map, zf.namelist())
         return toc_map
 
@@ -563,7 +563,7 @@ def extract_toc_map(zf, opf, content_dir):
                     has_any_main = any(is_structural_chapter_heading(l) for l in all_labels)
                     _parse_nav_ol(root_ol, nav_dir, toc_map, depth=0, parent_label=None, has_any_main=has_any_main)
         except Exception as e:
-            print(f"Error parsing Nav TOC {nav_full}: {e}")
+            say(f"Error parsing Nav TOC {nav_full}: {e}")
 
     if not toc_map:
         ncx_item = next((item for item in manifest.values()
@@ -583,7 +583,7 @@ def extract_toc_map(zf, opf, content_dir):
                     has_any_main = any(is_structural_chapter_heading(l) for l in all_labels)
                     _parse_ncx_navpoints(top_navpoints, ncx_dir, toc_map, depth=0, parent_label=None, has_any_main=has_any_main)
             except Exception as e:
-                print(f"Error parsing NCX TOC {ncx_full}: {e}")
+                say(f"Error parsing NCX TOC {ncx_full}: {e}")
 
     _apply_split_file_carry(toc_map, zf.namelist())
 
@@ -604,7 +604,7 @@ def extract_toc_map(zf, opf, content_dir):
                     _parse_mokuji_page(zf, cp, mokuji_dir or posixpath.dirname(cp), toc_map)
                     break
         except Exception as e:
-            print(f"Error in 目次 supplementary parse: {e}")
+            say(f"Error in 目次 supplementary parse: {e}")
 
     return toc_map
 
@@ -1087,30 +1087,30 @@ COMMIT_EVERY_SECONDS = 20
 
 def build_tables(conn, top):
     if top and not has_chapters(conn):
-        print("CHAPTERS building the chapter table (once, reads the whole index)...", flush=True)
+        emit("phase", "CHAPTERS building the chapter table (once, reads the whole index)...", phase="chapters")
     if ensure_chapters(conn) and top:
-        print(f"CHAPTERS {conn.execute('SELECT COUNT(*) FROM chapters').fetchone()[0]} chapters", flush=True)
+        say(f"CHAPTERS {conn.execute('SELECT COUNT(*) FROM chapters').fetchone()[0]} chapters")
     if top and not has_line_lengths(conn):
-        print("LENGTHS building the display-length table (once, reads the whole index)...", flush=True)
+        emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
     ensure_line_lengths(conn, DB_PATH, "epubs", "epub", paths.index_workers())
     if stop_requested():
         return
     if top and not has_ruby_lexicon(conn):
-        print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
+        emit("phase", "LEXICON building the ruby lexicon table (once, reads the whole index)...", phase="lexicon")
     ensure_ruby_lexicon(conn, "epubs", "epub", paths.index_workers())
 
 
 def run_tables():
-    print(f"Building the book index's tables ({DB_PATH})...")
+    say(f"Building the book index's tables ({DB_PATH})...")
     with sqlite3.connect(DB_PATH) as conn:
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'epubs'").fetchone() is None:
-            print("Tables ready: no book index yet.")
+            say("Tables ready: no book index yet.")
             return
         build_tables(conn, conn.execute("SELECT rowid FROM epubs ORDER BY rowid DESC LIMIT 1").fetchone())
     if stop_requested():
-        print("STOPPED", flush=True)
+        emit("stopped", "STOPPED")
     else:
-        print("Tables ready.")
+        say("Tables ready.")
 
 
 def _auto_filter_journal():
@@ -1153,19 +1153,19 @@ def _recover_auto_filter_journal(conn):
     os.remove(path)
 
 
-def run_epub_indexer(force=False, outdated=False):
-    print(f"Starting EPUB indexer on {EPUB_ROOT_DIR} (force={force}, outdated={outdated})...")
+def run_epub_indexer(force=False, outdated=False, allow_removal=False):
+    say(f"Starting EPUB indexer on {EPUB_ROOT_DIR} (force={force}, outdated={outdated})...")
     _EXCLUDED_LOG.clear()
     if EPUB_ROOT_DIR is None:
-        print("ROOT_NOT_SET epub")
-        print("No books folder is set (Library tab). Nothing was changed.")
+        emit("root_not_set", "ROOT_NOT_SET epub", media="epub")
+        say("No books folder is set (Library tab). Nothing was changed.")
         return
     if not paths.media_enabled("books"):
-        print("Books are off in Settings. Nothing was changed.")
+        say("Books are off in Settings. Nothing was changed.")
         return
     if not os.path.isdir(EPUB_ROOT_DIR):
-        print(f"ROOT_MISSING {EPUB_ROOT_DIR}")
-        print("EPUB indexing aborted: the books folder does not exist. Nothing was changed.")
+        emit("root_missing", f"ROOT_MISSING {EPUB_ROOT_DIR}", folder=EPUB_ROOT_DIR)
+        say("EPUB indexing aborted: the books folder does not exist. Nothing was changed.")
         return
     os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     excluded = []
@@ -1174,7 +1174,7 @@ def run_epub_indexer(force=False, outdated=False):
         conn.row_factory = sqlite3.Row
 
         if force:
-            print("Force rebuild requested. Dropping existing tables in epub.db...")
+            say("Force rebuild requested. Dropping existing tables in epub.db...")
             conn.execute("DROP TABLE IF EXISTS epubs")
             conn.execute("DROP TABLE IF EXISTS sources")
             conn.execute("DROP TABLE IF EXISTS chapters")
@@ -1231,7 +1231,7 @@ def run_epub_indexer(force=False, outdated=False):
         if outdated:
             n_old = sum(1 for v in existing_files.values() if v['hash'] is None)
             if n_old:
-                print(f"OUTDATED {n_old}")
+                say(f"OUTDATED {n_old}")
         floor = top[0] if top else 0
         next_rowid = floor + 1
         replaced = []
@@ -1282,11 +1282,10 @@ def run_epub_indexer(force=False, outdated=False):
                 elif not f.startswith('.'):
                     ignored += 1
 
-        print(f"Found {len(epub_files)} .epub file(s) in {EPUB_ROOT_DIR}.")
+        say(f"Found {len(epub_files)} .epub file(s) in {EPUB_ROOT_DIR}.")
         if ignored:
-            print(f"IGNORED_OTHER {ignored}")
-        if PROGRESS:
-            print(f"TOTAL {len(epub_files)}", flush=True)
+            emit("ignored_other", f"IGNORED_OTHER {ignored}", count=ignored)
+        emit("total", f"TOTAL {len(epub_files)}", quiet=True, total=len(epub_files))
 
         epub_by_name = {norm_relpath(p, EPUB_ROOT_DIR): p for p in epub_files}
         filtered = {r["name"] for r in refresh_auto_filtered(
@@ -1301,11 +1300,11 @@ def run_epub_indexer(force=False, outdated=False):
             current_disk_files.add(relpath)
             jobs.append((epub_path, relpath, existing_files.get(relpath, {}).get('hash')))
         if n_filtered:
-            print(f"FILTERED {n_filtered}")
+            emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
         workers = paths.index_workers() if len(jobs) > 1 else 1
         if workers > 1:
-            print(f"Workers: {workers}")
+            say(f"Workers: {workers}")
         meta_written = False
         pending, last_commit = 0, time.monotonic()
         stopped = False
@@ -1313,18 +1312,16 @@ def run_epub_indexer(force=False, outdated=False):
             if stop_requested():
                 stopped = True
                 break
-            if PROGRESS:
-                print(f"PROGRESS {n}/{len(jobs)} {relpath}", flush=True)
+            emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
             if kind == 'same':
                 skipped += 1
                 continue
             old = existing_files.get(relpath)
             if kind == 'error':
                 if old:
-                    deleted_rows += delete_rows(old['id'], old_spans(old['id']))
-                    conn.execute("DELETE FROM sources WHERE id = ?", (old['id'],))
+                    conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
                 failed += 1
-                print(f"FAILED {relpath}: {payload}")
+                emit("failed", f"FAILED {relpath}: {payload}", file=relpath, error=str(payload))
                 continue
             title, author, n_chapters, rows, book_excluded = payload
             excluded.extend(book_excluded)
@@ -1350,8 +1347,8 @@ def run_epub_indexer(force=False, outdated=False):
                     })
                 filtered.add(relpath)
                 n_filtered += 1
-                print(f"Filtered image-only EPUB (0 sentences): {relpath}")
-                print(f"FILTERED {n_filtered}", flush=True)
+                say(f"Filtered image-only EPUB (0 sentences): {relpath}")
+                emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
                 pending += 1
                 if pending >= COMMIT_EVERY_BOOKS or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
                     flush()
@@ -1383,28 +1380,29 @@ def run_epub_indexer(force=False, outdated=False):
             if lexicon:
                 write_ruby_lexicon(conn, "epub", ((source_id, r[0], r[1]) for r in rows))
             next_rowid += len(rows)
-            print(f"Indexed EPUB: {title} by {author} ({len(rows)} sentences in {n_chapters} chapters)")
+            say(f"Indexed EPUB: {title} by {author} ({len(rows)} sentences in {n_chapters} chapters)")
             pending += 1
             if pending >= COMMIT_EVERY_BOOKS or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
                 flush()
                 pending, last_commit = 0, time.monotonic()
         flush()
 
-        deleted_files = set(existing_files.keys()) - current_disk_files
+        deleted_files, _ = held_removals(len(existing_files), set(existing_files.keys()) - current_disk_files,
+                                         filtered, allow_removal)
         for relpath in deleted_files:
             source_id = existing_files[relpath]['id']
             deleted_rows += delete_rows(source_id, old_spans(source_id))
             conn.execute("DELETE FROM sources WHERE id = ?", (source_id,))
-            print(f"Removed {'filtered' if relpath in filtered else 'deleted'} EPUB: {relpath}")
+            say(f"Removed {'filtered' if relpath in filtered else 'deleted'} EPUB: {relpath}")
 
         for t, n, rels in conn.execute(
                 "SELECT title, COUNT(*), group_concat(relpath, ' | ') FROM sources "
                 "GROUP BY title HAVING COUNT(*) > 1"):
-            print(f"WARNING: {n} books share the title {t}: {rels}")
+            say(f"WARNING: {n} books share the title {t}: {rels}")
 
         ident = write_tokenizer_meta(conn, 0)
         if new_or_updated:
-            print(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
+            say(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
                   f"({ident['dictionary_format']}), SudachiPy {ident['sudachipy_version']}, "
                   f"system.dic {ident['system_dic_sha256'][:12]}")
 
@@ -1412,7 +1410,7 @@ def run_epub_indexer(force=False, outdated=False):
             conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES ('epub_spine_checked', '3')")
         conn.commit()
         if stopped:
-            print("STOPPED", flush=True)
+            emit("stopped", "STOPPED")
         else:
             compact_if_worth(conn, "epubs", deleted_rows, inserted_rows)
 
@@ -1423,14 +1421,16 @@ def run_epub_indexer(force=False, outdated=False):
             for book, reason, text in excluded:
                 log_f.write(f"[{book}] [{reason}] {text}\n")
 
-    print(f"EPUB Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated books. Removed {len(deleted_files) + auto_removed} deleted."
-          + (f" Failed {failed}." if failed else ""))
+    emit("summary", f"EPUB Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated books. Removed {len(deleted_files) + auto_removed} deleted."
+         + (f" Failed {failed}." if failed else ""),
+         unchanged=skipped, indexed=new_or_updated, removed=len(deleted_files) + auto_removed, failed=failed)
 
 if __name__ == "__main__":
     import sys
+    start_output()
     force_flag = "--force" in sys.argv
     if "--tables" in sys.argv:
         if os.path.exists(DB_PATH):
             run_tables()
         sys.exit(0)
-    run_epub_indexer(force=force_flag, outdated="--outdated" in sys.argv)
+    run_epub_indexer(force=force_flag, outdated="--outdated" in sys.argv, allow_removal=ALLOW_REMOVAL_FLAG in sys.argv)

@@ -1,12 +1,13 @@
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "$0")")"
-PY="$HERE/python/bin/python3"
+PY="$HERE/app/python/bin/python3"
 SELF="${APPIMAGE:-$HERE/aobana}"
+cd "$HERE/app" || exit 1
 
-"$PY" "$HERE/launcher.py" --open-only && exit 0
+"$PY" -m aobana --open-only && exit 0
 
 if [ -t 1 ] || [ -n "$AOBANA_NO_TERMINAL" ]; then
-    exec "$PY" "$HERE/launcher.py"
+    exec "$PY" -m aobana
 fi
 
 export AOBANA_NO_TERMINAL=1
@@ -22,4 +23,4 @@ for t in x-terminal-emulator ptyxis gnome-terminal konsole xfce4-terminal mate-t
         *)               exec "$t" -e "$SELF" ;;
     esac
 done
-exec "$PY" "$HERE/launcher.py"
+exec "$PY" -m aobana

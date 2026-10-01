@@ -10,8 +10,8 @@ AppName=Aobana
 AppVersion={#AppVersion}
 AppVerName=Aobana {#AppVersion}
 AppPublisher=Wyzmic
-AppPublisherURL=https://github.com/Wyzmic/aobana
-AppSupportURL=https://github.com/Wyzmic/aobana/issues
+AppPublisherURL=https://github.com/Wyzmic/Aobana
+AppSupportURL=https://github.com/Wyzmic/Aobana/issues
 VersionInfoVersion={#AppVersion}.0.0
 UninstallDisplayName=Aobana
 UninstallDisplayIcon={app}\Aobana.exe
@@ -174,6 +174,21 @@ Type: files; Name: "{app}\data\ruby\gloss_ruby.tsv"
 Type: files; Name: "{app}\data\ruby\gloss_names.tsv"
 Type: files; Name: "{app}\data\ruby\unclosed_ruby.tsv"
 Type: files; Name: "{app}\data\ruby\ass_pairs.tsv"
+Type: files; Name: "{app}\app.py"
+Type: files; Name: "{app}\engine.py"
+Type: files; Name: "{app}\utils.py"
+Type: files; Name: "{app}\paths.py"
+Type: files; Name: "{app}\library.py"
+Type: files; Name: "{app}\analyser.py"
+Type: files; Name: "{app}\indexer.py"
+Type: files; Name: "{app}\epub_indexer.py"
+Type: files; Name: "{app}\manga_indexer.py"
+Type: files; Name: "{app}\ass_ruby.py"
+Type: files; Name: "{app}\folder_picker.py"
+Type: files; Name: "{app}\updater.py"
+Type: files; Name: "{app}\launcher.py"
+Type: files; Name: "{app}\index.html"
+Type: filesandordirs; Name: "{app}\__pycache__"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -189,6 +204,10 @@ Filename: "{app}\Aobana.exe"; Description: "{cm:LaunchProgram,Aobana}"; Flags: n
 Type: files; Name: "{app}\aobana.installed"
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\__pycache__"
+Type: filesandordirs; Name: "{app}\aobana\__pycache__"
+Type: filesandordirs; Name: "{app}\aobana\server\__pycache__"
+Type: filesandordirs; Name: "{app}\aobana\search\__pycache__"
+Type: filesandordirs; Name: "{app}\aobana\indexing\__pycache__"
 
 [Code]
 var

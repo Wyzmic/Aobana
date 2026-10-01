@@ -1,15 +1,16 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # 露草 / Aobana on Android: uninstall, in one command, from Termux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/uninstall.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/uninstall.sh | bash
 #
 #   AOBANA_DIR=<folder>   the folder install.sh used (default /storage/emulated/0/Aobana)
 AOBANA_DIR="${AOBANA_DIR:-/storage/emulated/0/Aobana}"
 DISTRO="aobana"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 PD_DIR="$PREFIX/var/lib/proot-distro"
-PHONE_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py folder_picker.py updater.py index.html
-requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+PHONE_FILES="aobana requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+OLD_ROOT_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py
+manga_indexer.py ass_ruby.py folder_picker.py updater.py index.html __pycache__"
 OLD_CLONE_FILES=".git .gitattributes .gitignore assets release termux Aobana.bat aobana.sh
 launcher.py README.md README.ja.md"
 
@@ -38,7 +39,7 @@ echo "removed"
 
 say "App files in $AOBANA_DIR"
 if [ -d "$AOBANA_DIR" ]; then
-    for f in $PHONE_FILES $OLD_CLONE_FILES __pycache__; do rm -rf "${AOBANA_DIR:?}/$f"; done
+    for f in $PHONE_FILES $OLD_ROOT_FILES $OLD_CLONE_FILES; do rm -rf "${AOBANA_DIR:?}/$f"; done
     rmdir "$AOBANA_DIR/data" 2>/dev/null
     if rmdir "$AOBANA_DIR" 2>/dev/null; then
         echo "removed (nothing of yours was in it, so the folder went too)"

@@ -10,16 +10,16 @@ import time
 import zlib
 from collections import Counter, defaultdict
 
-import paths
-from utils import norm_relpath, sub_relpath, parallel_map, line_kind, filtered_rows, write_filtered_rows, refresh_auto_filtered, stop_requested
+from aobana import paths
+from aobana.utils import norm_relpath, sub_relpath, parallel_map, line_kind, filtered_rows, write_filtered_rows, refresh_auto_filtered, stop_requested
+from aobana.utils import start_output, emit
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 SUB_EXTS = ('.srt', '.ass', '.ssa')
 VERSION = 2
-BOOK_VERSION = 5
+BOOK_VERSION = 6
 
 kind = line_kind
 
@@ -83,7 +83,7 @@ def _counts(lines):
 
 def _measure_sub(job):
     path, relpath = job
-    import indexer
+    from aobana.indexing import indexer
     try:
         with open(path, "rb") as fh:
             raw = fh.read()
@@ -106,7 +106,7 @@ def _measure_sub(job):
 
 def _measure_book(job):
     path, relpath = job
-    import epub_indexer
+    from aobana.indexing import epub_indexer
     try:
         author, title, chapters = epub_indexer.extract_epub_content(path)
     except Exception as e:
@@ -154,8 +154,8 @@ def _measure(conn, media, root, files, workers, skip=()):
     version = BOOK_VERSION if media == 'epub' else VERSION
     if media == "epub":
         conn.execute(
-            "UPDATE files SET version = 5 WHERE media = 'epub' AND version IN (2, 3, 4) "
-            "AND n > 200 AND (error IS NULL OR error = '')"
+            "UPDATE files SET version = ? WHERE media = 'epub' AND version IN (2, 3, 4, 5) "
+            "AND n > 200 AND (error IS NULL OR error = '')", (BOOK_VERSION,)
         )
         conn.commit()
     cached = {r[0]: r for r in conn.execute(
@@ -163,17 +163,15 @@ def _measure(conn, media, root, files, workers, skip=()):
     todo = [(p, name) for _, name, p, size, mtime in files
             if name not in skip and cached.get(name, (None, None, None, None))[1:] != (size, mtime, version)]
     stat = {name: (size, mtime) for _, name, _, size, mtime in files}
-    print(f"STAGE {media}", flush=True)
-    if PROGRESS:
-        print(f"TOTAL {len(todo)}", flush=True)
+    emit("stage", f"STAGE {media}", stage=media)
+    emit("total", f"TOTAL {len(todo)}", quiet=True, total=len(todo))
     fn = _measure_sub if media == "subs" else _measure_book
     last = time.monotonic()
     for i, (name, row, error) in enumerate(parallel_map(fn, todo, workers, chunksize=8 if media == "subs" else 1,
                                                         ordered=False, stop=stop_requested), 1):
         if stop_requested():
             break
-        if PROGRESS:
-            print(f"PROGRESS {i}/{len(todo)} {name}", flush=True)
+        emit("progress", f"PROGRESS {i}/{len(todo)} {name}", quiet=True, done=i, total=len(todo), file=name)
         size, mtime = stat[name]
         row = row or {"sha": "", "n": 0, "ja": 0, "zh": 0, "mix": 0, "en": 0, "utf8": None,
                       "keys": b"", "distinct": 0, "title": "", "author": ""}
@@ -415,7 +413,7 @@ def run(only=None):
         rows = _measure(conn, media, root, files, workers, skip)
         if stop_requested():
             conn.close()
-            print("STOPPED", flush=True)
+            emit("stopped", "STOPPED")
             return None
 
         def add(name, reason, **extra):
@@ -455,7 +453,7 @@ def run(only=None):
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(report, fh, ensure_ascii=False, indent=1)
     os.replace(tmp, report_path())
-    print(f"ANALYSIS_DONE {json.dumps(summary, ensure_ascii=False)}", flush=True)
+    emit("summary", f"ANALYSIS_DONE {json.dumps(summary, ensure_ascii=False)}", summary=summary)
     return report
 
 
@@ -468,10 +466,10 @@ WARN_TOTAL_BYTES = 10 * 1024 ** 3
 def _sample_job(job):
     media, path, relpath = job
     if media == "subs":
-        import indexer
+        from aobana.indexing import indexer
         indexer.get_tokenizer()
     else:
-        import epub_indexer
+        from aobana.indexing import epub_indexer
         epub_indexer.get_tokenizer()
     t = time.perf_counter()
     try:
@@ -483,10 +481,10 @@ def _sample_job(job):
 
 def _sample_one(media, path, relpath):
     if media == "subs":
-        import indexer
+        from aobana.indexing import indexer
         rows = indexer.index_rows(indexer.kept_lines(path, relpath), relpath)
         return sum(len(r[0]) for r in rows), len(rows)
-    import epub_indexer
+    from aobana.indexing import epub_indexer
     author, title, chapters = epub_indexer.extract_epub_content(path)
     rows = epub_indexer.book_rows(title, chapters)
     return sum(len(r[1]) for r in rows), len(rows)
@@ -603,4 +601,5 @@ if __name__ == "__main__":
     if "--estimate" in sys.argv:
         print(json.dumps(estimate(only), ensure_ascii=False))
     else:
+        start_output()
         run(only)

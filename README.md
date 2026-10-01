@@ -7,7 +7,7 @@
 <p align="center"><b>Japanese example sentences from the subtitles, e-books and manga you already own.</b></p>
 
 <p align="center">
-  <a href="https://github.com/Wyzmic/aobana/releases/latest"><img src="https://img.shields.io/github/v/release/Wyzmic/aobana" alt="Release"></a>
+  <a href="https://github.com/Wyzmic/Aobana/releases/latest"><img src="https://img.shields.io/github/v/release/Wyzmic/Aobana" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
 </p>
 
@@ -30,6 +30,11 @@ and if one does, it offers the release page.
 - **Favorites, sorting and filters:** save sentences; sort them by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
 - **Japanese and English UI**, four themes, keyboard shortcuts.
 
+## Anki add-on: Aobana Reibun
+[Aobana Reibun](https://ankiweb.net/shared/info/1429349152) fills your Anki cards with Japanese example sentences. With Aobana it picks them from your own subtitles, books and manga, with furigana, the title they come from, the lines around them, and for manga the page's image; it also takes sentences with screenshots and audio from Nadeshiko and Immersion Kit. It backfills a whole deck at once, or the card you are reviewing with one hotkey.
+
+To install it, open **Tools → Add-ons** in Anki, press **Get Add-ons...** and enter the code **1429349152**. Its source and guide: [Wyzmic/Aobana-Reibun](https://github.com/Wyzmic/Aobana-Reibun).
+
 ## Screenshots
 Searching for 帰る across subtitles, books and manga, in the Night theme:
 
@@ -40,21 +45,21 @@ The Media tab, reading an episode in chronological order:
 ![The Media tab with an episode open](assets/media-haze.en.png)
 
 ## Install (Windows 10 / 11, 64-bit)
-1. Download `Aobana-Setup-<version>.exe` from the [latest release](https://github.com/Wyzmic/aobana/releases/latest) and run it. It is not code-signed, so Windows SmartScreen may say *"Windows protected your PC"*: click **More info**, then **Run anyway**.
+1. Download `Aobana-Setup-<version>.exe` from the [latest release](https://github.com/Wyzmic/Aobana/releases/latest) and run it. It is not code-signed, so Windows SmartScreen may say *"Windows protected your PC"*: click **More info**, then **Run anyway**.
 2. Follow the setup. Python and everything else is included, so nothing needs to be installed first, and it works offline.
 3. Start **Aobana**. It opens in your browser at `http://127.0.0.1:5000/`, and the first time asks which media you use and where their folders go.
 
 To change your folders later, open the Settings tab.
 
 ## Install (macOS, Apple Silicon)
-1. Download `Aobana-<version>-macos-arm64.dmg` from the [latest release](https://github.com/Wyzmic/aobana/releases/latest), open it, and drag **Aobana** into **Applications**.
+1. Download `Aobana-<version>-macos-arm64.dmg` from the [latest release](https://github.com/Wyzmic/Aobana/releases/latest), open it, and drag **Aobana** into **Applications**.
 2. Open Aobana. It is not signed by Apple, so the first time macOS refuses to open it: open **System Settings › Privacy & Security**, scroll down, and click **Open Anyway** next to Aobana. (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Aobana.app`.)
 3. Aobana starts in a Terminal window and opens in your browser at `http://127.0.0.1:5005/` (not 5000, which macOS's AirPlay Receiver uses). Close the Terminal window to quit.
 
 Your library goes in `Documents/Aobana/Subtitles`, `Documents/Aobana/Books` and `Documents/Aobana/Manga` unless you choose other folders at the first start, and the databases and settings in `~/Library/Application Support/Aobana`. You can change the folders in the Settings tab. Intel Macs: run from source.
 
 ## Install (Linux, x86-64)
-Two downloads on the [latest release](https://github.com/Wyzmic/aobana/releases/latest), the same app in each. They are built and tested automatically (Ubuntu 22.04 and 24.04, Fedora), but not yet confirmed at a real Linux desktop: if something does not work, please [open an issue](https://github.com/Wyzmic/aobana/issues).
+Two downloads on the [latest release](https://github.com/Wyzmic/Aobana/releases/latest), the same app in each. They are built and tested automatically (Ubuntu 22.04 and 24.04, Fedora), but not yet confirmed at a real Linux desktop: if something does not work, please [open an issue](https://github.com/Wyzmic/Aobana/issues).
 - **`Aobana-<version>-linux-x86_64.tar.gz`** (recommended): unpack it and run `./install.sh` in the unpacked folder. That adds **Aobana** to your applications menu and an `aobana` command. Run the new version's `install.sh` to update, and `~/.local/share/aobana-app/uninstall.sh` to remove it.
 - **`Aobana-<version>-x86_64.AppImage`**: one file, nothing installed. Make it executable (`chmod +x`) and run it. If it says FUSE is missing, run it with `--appimage-extract-and-run`.
 
@@ -90,7 +95,7 @@ Aobana runs on an Android phone and opens in your browser there, so a pop-up dic
 
 1. **Install** — paste this into Termux, and allow storage access when asked:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh | bash
    ```
    It sets up a small Ubuntu inside Termux (the Sudachi analyzer has no Android build), installs Python and the pinned packages there, puts the files Aobana runs from (nothing else) in `/storage/emulated/0/Aobana`, and adds an **Aobana** shortcut for the Termux:Widget widget. Run the same command again to update; from 1.1 on, when a new version is out, the page offers **Update now**, which does that for you and reloads.
 2. **Add your library** to that folder: copy `subs.db`, `epub.db` and `manga.db` into its `data/db` folder from a computer where Aobana has indexed it (fastest, and identical results), or put files in `content/Subtitles` and `content/Books` there (`content/Manga` once Manga is on in the Settings tab) and press **Index library** in the Library tab (slow on a phone).
@@ -98,18 +103,18 @@ Aobana runs on an Android phone and opens in your browser there, so a pop-up dic
 
 **Uninstall** — removes Aobana's Ubuntu, the shortcut and the app's files; in the Aobana folder only your databases, media and settings stay, for you to delete if you no longer want them:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/uninstall.sh | bash
 ```
 
 ## Run from source (Windows, macOS, Linux)
 Python 3.14 is what the release is built and tested with.
 ```bash
-git clone https://github.com/Wyzmic/aobana.git
+git clone https://github.com/Wyzmic/Aobana.git
 cd aobana
 pip install -r requirements.txt
-python launcher.py
+python -m aobana
 ```
-From a source folder, the media folders are `content/Subtitles`, `content/Books` and `content/Manga` beside the code, and the databases and settings go in `data/`. You can point the folders elsewhere from the Settings tab. The pins in `requirements.txt` matter: the Sudachi dictionary decides how every sentence is indexed, so do not upgrade it on its own.
+From a source folder, the media folders are `content/Subtitles`, `content/Books` and `content/Manga` in the cloned folder, and the databases and settings go in `data/`. You can point the folders elsewhere from the Settings tab. The pins in `requirements.txt` matter: the Sudachi dictionary decides how every sentence is indexed, so do not upgrade it on its own.
 
 To build the Windows installer yourself, see `release/build.py`; the macOS and Linux downloads are built by `release/build_unix.py`, which the GitHub workflow runs.
 
@@ -118,7 +123,7 @@ To build the Windows installer yourself, see `release/build.py`; the macOS and L
 
 ## Suggestions and bug reports
 Ideas for what to add are welcome, and so are reports of anything that looks wrong. Open an
-[issue](https://github.com/Wyzmic/aobana/issues) for either.
+[issue](https://github.com/Wyzmic/Aobana/issues) for either.
 
 ## Acknowledgements
 - [Nadeshiko](https://github.com/BrigadaSOS/Nadeshiko), whose sentence search inspired many of these features.
@@ -130,7 +135,7 @@ Third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.
 ## Copyright
 - Aobana includes no subtitles and no books. It indexes files on your own computer; use it only with files you have the right to use.
 - The screenshots quote a few short lines from the developer's own library to show how the app works. The titles shown belong to their rights holders.
-- If you hold the rights to something shown and want it removed, [open an issue](https://github.com/Wyzmic/aobana/issues) and the image will be replaced.
+- If you hold the rights to something shown and want it removed, [open an issue](https://github.com/Wyzmic/Aobana/issues) and the image will be replaced.
 - Aobana collects nothing and sends nothing: it runs only on your computer.
 
 ## License

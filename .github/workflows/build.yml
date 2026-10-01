@@ -25,7 +25,7 @@ jobs:
           MNT="$(mktemp -d)"
           hdiutil attach release/dist/*.dmg -mountpoint "$MNT" -nobrowse -readonly
           APP="$MNT/Aobana.app/Contents"
-          python release/unix/smoke.py "$APP/Resources/app/python/bin/python3" "$APP/Resources/app/launcher.py"
+          (cd "$APP/Resources/app" && python "$GITHUB_WORKSPACE/release/unix/smoke.py" "$APP/Resources/app/python/bin/python3" -m aobana)
           codesign --verify --deep --strict "$MNT/Aobana.app"
           test -x "$APP/MacOS/Aobana" && test -x "$APP/Resources/Aobana.command"
           hdiutil detach "$MNT"

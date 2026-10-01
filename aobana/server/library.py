@@ -8,8 +8,8 @@ import sys
 import threading
 import time
 
-import paths
-from utils import FILTER_COLUMNS, count_rows, filtered_rows, outdated_sources, missing_tables
+from aobana import paths
+from aobana.utils import FILTER_COLUMNS, count_rows, filtered_rows, outdated_sources, missing_tables, ALLOW_REMOVAL_FLAG, JSONL_FLAG
 
 _LOCK = threading.Lock()
 _STATE = {"running": False}
@@ -41,16 +41,9 @@ def _unfinished():
     except (OSError, ValueError):
         return None
 
-_STAGES = (("subs", "indexer.py"), ("epub", "epub_indexer.py"), ("manga", "manga_indexer.py"))
+_STAGES = (("subs", "aobana.indexing.indexer"), ("epub", "aobana.indexing.epub_indexer"),
+           ("manga", "aobana.indexing.manga_indexer"))
 _STAGE_MEDIA = {"subs": "subs", "epub": "books", "manga": "manga"}
-_SUMMARY_RE = {
-    "subs": re.compile(r"Skipped (\d+) unchanged files\. Indexed (\d+) new/updated files\. "
-                       r"Removed (\d+) deleted files"),
-    "epub": re.compile(r"Skipped (\d+) unchanged files\. Indexed (\d+) new/updated books\. "
-                       r"Removed (\d+) deleted"),
-    "manga": re.compile(r"Skipped (\d+) unchanged files\. Indexed (\d+) new/updated volumes\. "
-                        r"Removed (\d+) deleted"),
-}
 
 
 def _count_files(root, ext, skip_dot, progress=None, count_other=True):
@@ -334,42 +327,43 @@ def save_settings_snapshot(data):
 def set_folders(subs_dir, books_dir, manga_dir=None):
     if _STATE.get("running"):
         return "busy"
-    cfg = paths.load_config()
-    for key, value in (("subs_dir", subs_dir), ("books_dir", books_dir), ("manga_dir", manga_dir)):
-        if value is None:
-            continue
-        value = os.path.expanduser(str(value).strip().strip('"'))
-        if not os.path.isabs(value):
-            return f"not_full:{key}"
-        value = os.path.abspath(value)
-        if not os.path.isdir(value):
-            return f"not_found:{key}"
-        cfg[key] = value
-    paths.save_config(cfg)
-    return None
+    def change(cfg):
+        for key, value in (("subs_dir", subs_dir), ("books_dir", books_dir), ("manga_dir", manga_dir)):
+            if value is None:
+                continue
+            value = os.path.expanduser(str(value).strip().strip('"'))
+            if not os.path.isabs(value):
+                return f"not_full:{key}"
+            value = os.path.abspath(value)
+            if not os.path.isdir(value):
+                return f"not_found:{key}"
+            cfg[key] = value
+    return paths.update_config(change)
 
 
 def set_media(media):
     if _STATE.get("running"):
         return "busy"
-    cfg = paths.load_config()
-    state = {k: paths.media_enabled(k, cfg) for k in paths.MEDIA_KINDS}
-    for kind, on in (media or {}).items():
-        if kind not in paths.MEDIA_KINDS:
-            continue
-        state[kind] = bool(on)
-        current = {"subs": paths.subs_dir, "books": paths.books_dir, "manga": paths.manga_dir}[kind]()
-        if kind == "manga" and current and "manga_dir" not in cfg:
-            current = None
-        if on and not current:
-            folder = paths.default_media_folder(kind)
-            try:
-                os.makedirs(folder, exist_ok=True)
-            except OSError:
-                return f"not_found:{paths.MEDIA_DIR_KEYS[kind]}"
-            cfg[paths.MEDIA_DIR_KEYS[kind]] = folder
-    cfg["media"] = state
-    paths.save_config(cfg)
+    def change(cfg):
+        state = {k: paths.media_enabled(k, cfg) for k in paths.MEDIA_KINDS}
+        for kind, on in (media or {}).items():
+            if kind not in paths.MEDIA_KINDS:
+                continue
+            state[kind] = bool(on)
+            current = {"subs": paths.subs_dir, "books": paths.books_dir, "manga": paths.manga_dir}[kind]()
+            if kind == "manga" and current and "manga_dir" not in cfg:
+                current = None
+            if on and not current:
+                folder = paths.default_media_folder(kind)
+                try:
+                    os.makedirs(folder, exist_ok=True)
+                except OSError:
+                    return f"not_found:{paths.MEDIA_DIR_KEYS[kind]}"
+                cfg[paths.MEDIA_DIR_KEYS[kind]] = folder
+        cfg["media"] = state
+    err = paths.update_config(change)
+    if err:
+        return err
     _FIG_STALE["stale"] = True
     _after_db_change()
     return None
@@ -395,13 +389,13 @@ def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, fresh=Tru
     err = set_folders(chosen.get("subs"), chosen.get("books"), chosen.get("manga"))
     if err:
         return err
-    cfg = paths.load_config()
-    if fresh:
-        for key in paths.MEDIA_DIR_KEYS.values():
-            cfg.setdefault(key, "")
-        cfg.pop("check_asked", None)
-    cfg["media_asked"] = True
-    paths.save_config(cfg)
+    def change(cfg):
+        if fresh:
+            for key in paths.MEDIA_DIR_KEYS.values():
+                cfg.setdefault(key, "")
+            cfg.pop("check_asked", None)
+        cfg["media_asked"] = True
+    paths.update_config(change)
     err = set_media(media)
     if not err and fresh:
         _forget_last_run()
@@ -417,18 +411,20 @@ def media_asked():
     return bool(paths.load_config().get("media_asked"))
 
 
+def _mark(key):
+    def change(cfg):
+        if cfg.get(key):
+            return False
+        cfg[key] = True
+    paths.update_config(change)
+
+
 def mark_media_asked():
-    cfg = paths.load_config()
-    if not cfg.get("media_asked"):
-        cfg["media_asked"] = True
-        paths.save_config(cfg)
+    _mark("media_asked")
 
 
 def mark_check_asked():
-    cfg = paths.load_config()
-    if not cfg.get("check_asked"):
-        cfg["check_asked"] = True
-        paths.save_config(cfg)
+    _mark("check_asked")
 
 
 def _forget_last_run():
@@ -495,7 +491,7 @@ def _release_handles():
         except Exception:
             pass
     try:
-        from engine import release_db_handles
+        from aobana.search.engine import release_db_handles
         release_db_handles()
     except Exception:
         pass
@@ -588,7 +584,7 @@ def _copy_counting(s, d):
 def _move_files(plan):
     src, dest = plan["src"], plan["dest"]
     _release_handles()
-    from engine import clear_disk_cache
+    from aobana.search.result_cache import clear_disk_cache
     clear_disk_cache()
     files = _db_files(src)
     with _LOCK:
@@ -613,12 +609,12 @@ def _move_files(plan):
                 raise OSError(f"size mismatch copying {name}")
             os.replace(tmp, d)
             copied.append(name)
-        cfg = paths.load_config()
-        if plan["default"]:
-            cfg.pop("db_dir", None)
-        else:
-            cfg["db_dir"] = dest
-        paths.save_config(cfg)
+        def change(cfg):
+            if plan["default"]:
+                cfg.pop("db_dir", None)
+            else:
+                cfg["db_dir"] = dest
+        paths.update_config(change)
     except OSError:
         for name in renamed:
             try:
@@ -670,7 +666,7 @@ def drop_index(kind):
         files = [os.path.join(folder, name + s) for s in _DB_SIDECARS if os.path.isfile(os.path.join(folder, name + s))]
         if not files:
             return "none", []
-        from engine import clear_disk_cache
+        from aobana.search.result_cache import clear_disk_cache
         _release_handles()
         clear_disk_cache()
         _after_db_change(warm=False)
@@ -686,7 +682,8 @@ def drop_index(kind):
 
 def _after_db_change(warm=True):
     try:
-        from engine import reset_caches, warm_media_library
+        from aobana.search.engine import reset_caches
+        from aobana.search.media_tab import warm_media_library
         reset_caches()
         if warm:
             threading.Thread(target=warm_media_library, daemon=True).start()
@@ -695,12 +692,12 @@ def _after_db_change(warm=True):
 
 
 def set_search_cache(on):
-    cfg = paths.load_config()
-    if on:
-        cfg["search_cache"] = True
-    else:
-        cfg.pop("search_cache", None)
-    paths.save_config(cfg)
+    def change(cfg):
+        if on:
+            cfg["search_cache"] = True
+        else:
+            cfg.pop("search_cache", None)
+    paths.update_config(change)
 
 
 usable_cpus = paths.usable_cpus
@@ -724,10 +721,10 @@ def workers_facts():
 
 
 def set_workers(value):
-    cfg = paths.load_config()
-    if value == "auto":
-        cfg.pop("index_workers", None)
-    else:
+    def change(cfg):
+        if value == "auto":
+            cfg.pop("index_workers", None)
+            return None
         try:
             n = int(str(value).strip())
         except (TypeError, ValueError):
@@ -735,8 +732,7 @@ def set_workers(value):
         if not 1 <= n <= usable_cpus():
             return "bad_workers"
         cfg["index_workers"] = n
-    paths.save_config(cfg)
-    return None
+    return paths.update_config(change)
 
 
 def search_workers_facts():
@@ -751,11 +747,7 @@ def search_workers_facts():
 
 
 def set_search_workers(count, delay):
-    cfg = paths.load_config()
-    if count == "auto":
-        cfg.pop("search_workers", None)
-        cfg.pop("search_worker_delay", None)
-    else:
+    if count != "auto":
         if (not isinstance(count, (str, int)) or isinstance(count, bool)
                 or not str(count).strip().isdigit() or not isinstance(delay, (str, int))
                 or isinstance(delay, bool) or not str(delay).strip().isdigit()):
@@ -763,10 +755,15 @@ def set_search_workers(count, delay):
         count, delay = int(str(count).strip()), int(str(delay).strip())
         if not 1 <= count <= paths.usable_cpus() or not 0 <= delay <= 60:
             return "bad_search_workers"
-        cfg["search_workers"] = count
-        cfg["search_worker_delay"] = delay
-    paths.save_config(cfg)
-    return None
+
+    def change(cfg):
+        if count == "auto":
+            cfg.pop("search_workers", None)
+            cfg.pop("search_worker_delay", None)
+        else:
+            cfg["search_workers"] = count
+            cfg["search_worker_delay"] = delay
+    return paths.update_config(change)
 
 
 def set_port(value):
@@ -776,10 +773,7 @@ def set_port(value):
         return "bad_port"
     if not 1024 <= port <= 65535:
         return "bad_port"
-    cfg = paths.load_config()
-    cfg["port"] = port
-    paths.save_config(cfg)
-    return None
+    return paths.update_config(lambda cfg: cfg.update(port=port))
 
 
 HANDOFF_PATH = os.path.join(paths.STORE_DIR, "profile-handoff.json")
@@ -916,7 +910,8 @@ def _os_open(path):
         elif sys.platform == "darwin":
             subprocess.Popen(["open", path])
         else:
-            opener = "termux-open" if os.environ.get("TERMUX_VERSION") else "xdg-open"
+            on_phone = os.environ.get("AOBANA_TERMUX") == "1" or os.environ.get("TERMUX_VERSION")
+            opener = "termux-open" if on_phone else "xdg-open"
             subprocess.Popen([opener, path])
     except Exception as e:
         return f"failed:{e}"
@@ -995,13 +990,19 @@ def stop_analysis():
     return True
 
 
-def start_indexing(only=None, outdated=False, tables=False):
+def start_indexing(only=None, outdated=False, tables=False, allow_removal=False):
     if tables:
         needed = table_needs()
         stages = tuple(st for st in _STAGES if needed[st[0]])
     else:
+        if isinstance(only, list):
+            if not only or any(not isinstance(st, str) or st not in _STAGE_MEDIA for st in only):
+                raise ValueError("Invalid media selection.")
+            selected = frozenset(only)
+        else:
+            selected = frozenset(_STAGE_MEDIA) if only in (None, "", "all") else frozenset((only,))
         media = paths.media_state()
-        stages = tuple(st for st in _STAGES if (only in (None, "", "all") or st[0] == only)
+        stages = tuple(st for st in _STAGES if st[0] in selected
                        and media[_STAGE_MEDIA[st[0]]])
     def wanted(stage):
         root, ext, skip_dot, db = _stage_inputs(stage)
@@ -1012,6 +1013,11 @@ def start_indexing(only=None, outdated=False, tables=False):
     with _LOCK:
         if _STATE.get("running") or _STATE.get("moving") or _ASTATE.get("running"):
             return False
+        if allow_removal and not tables:
+            held = frozenset(_STATE.get("removal_held", {}))
+            stages = tuple(st for st in stages if st[0] in held)
+            if not stages:
+                return "nothing"
         _STATE.clear()
         _STATE.update({
             "running": True, "stage": stages[0][0], "stages": [st[0] for st in stages],
@@ -1019,7 +1025,8 @@ def start_indexing(only=None, outdated=False, tables=False):
             "started_at": time.time(), "finished_at": None, "error": None,
             "results": {}, "skipped_clash": [], "failed": [], "ignored_other": {}, "filtered": {},
             "root_missing": [], "root_not_set": [], "log": [], "stopping": False, "stopped": False,
-            "outdated": bool(outdated), "tables": bool(tables), "phase": "",
+            "outdated": bool(outdated), "tables": bool(tables), "phase": "", "removal_held": {},
+            "allow_removal": bool(allow_removal),
         })
     _clear_stop("index")
     try:
@@ -1028,7 +1035,7 @@ def start_indexing(only=None, outdated=False, tables=False):
                        "outdated": bool(outdated), "tables": bool(tables)}, fh)
     except OSError:
         pass
-    threading.Thread(target=_run, args=(stages, outdated, tables), daemon=True).start()
+    threading.Thread(target=_run, args=(stages, outdated, tables, allow_removal), daemon=True).start()
     return True
 
 
@@ -1037,24 +1044,55 @@ def _set(**kw):
         _STATE.update(kw)
 
 
-def _run(stages, outdated=False, tables=False):
-    env = dict(os.environ, AOBANA_PROGRESS="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
+def _child_cmd(module, args=()):
+    source_bootstrap = ("import runpy, sys; "
+                        f"sys.path.insert(0, {paths.BASE_DIR!r}); "
+                        f"runpy.run_module({module!r}, run_name='__main__', alter_sys=True)")
+    return [sys.executable, "-c", source_bootstrap] + list(args)
+
+
+def _pump(proc, handle):
+    try:
+        for line in proc.stdout:
+            handle(line.rstrip("\r\n"))
+    except BaseException:
+        proc.kill()
+        raise
+    finally:
+        proc.stdout.close()
+    return proc.wait()
+
+
+def _event(line):
+    try:
+        ev = json.loads(line)
+    except ValueError:
+        ev = None
+    if not isinstance(ev, dict) or not isinstance(ev.get("type"), str):
+        return {"type": "malformed", "text": line}
+    return ev
+
+
+def _log(state, text):
+    state["log"].append(text)
+    del state["log"][:-200]
+
+
+def _run(stages, outdated=False, tables=False, allow_removal=False):
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
                AOBANA_STOP_FILE=_stop_file("index"))
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     try:
         for stage, script in stages:
             _set(stage=stage, done=0, total=0, current="", phase="")
-            script_path = os.path.join(paths.BASE_DIR, script)
-            source_bootstrap = ("import runpy, sys; "
-                                f"sys.path.insert(0, {paths.BASE_DIR!r}); "
-                                f"runpy.run_path({script_path!r}, run_name='__main__')")
+            args = [JSONL_FLAG] + (["--tables"] if tables else ["--outdated"] if outdated else [])
+            if allow_removal and not tables:
+                args.append(ALLOW_REMOVAL_FLAG)
             proc = subprocess.Popen(
-                [sys.executable, "-c", source_bootstrap] + (["--tables"] if tables else ["--outdated"] if outdated else []),
+                _child_cmd(script, args),
                 cwd=paths.BASE_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 encoding="utf-8", errors="replace", creationflags=flags)
-            for line in proc.stdout:
-                _read_line(stage, line.rstrip("\r\n"))
-            code = proc.wait()
+            code = _pump(proc, lambda line: _read_line(stage, line))
             if code != 0:
                 _set(error=f"{script} exited with code {code}")
                 break
@@ -1064,7 +1102,7 @@ def _run(stages, outdated=False, tables=False):
         _set(error=f"{type(e).__name__}: {e}")
     finally:
         try:
-            from engine import reset_caches
+            from aobana.search.engine import reset_caches
             reset_caches()
         except Exception:
             pass
@@ -1079,49 +1117,53 @@ def _run(stages, outdated=False, tables=False):
         except OSError:
             pass
         try:
-            from engine import warm_media_library
+            from aobana.search.media_tab import warm_media_library
             threading.Thread(target=warm_media_library, daemon=True).start()
         except Exception:
             pass
 
 
 def _read_line(stage, line):
+    ev = _event(line)
     with _LOCK:
-        log = _STATE["log"]
-        if not line.startswith("PROGRESS "):
-            log.append(line)
-            del log[:-200]
-        if line.startswith("TOTAL "):
-            _STATE.update(total=int(line.split()[1]), phase="")
-        elif line.startswith(("CHAPTERS building", "LENGTHS building", "LEXICON building")):
-            _STATE.update(phase=line.split()[0].lower(), done=0, total=0, current="")
-        elif line.startswith(("LENGTHS ", "LEXICON ")) and "/" in line:
-            done, _, total = line.split()[1].partition("/")
-            _STATE.update(phase=line.split()[0].lower(), done=int(done), total=int(total))
-        elif line.startswith("PROGRESS "):
-            head, _, rel = line[len("PROGRESS "):].partition(" ")
-            done, _, total = head.partition("/")
-            _STATE.update(done=int(done), total=int(total), current=rel)
-        elif line.startswith("SKIPPED_CLASH "):
-            _STATE["skipped_clash"].append(line[len("SKIPPED_CLASH "):])
-        elif line.startswith("IGNORED_OTHER "):
-            _STATE["ignored_other"][stage] = int(line.split()[1])
-        elif line.startswith("FILTERED "):
-            _STATE["filtered"][stage] = int(line.split()[1])
-        elif line.startswith("FAILED "):
-            _STATE["failed"].append(line[len("FAILED "):])
-        elif line.startswith("ROOT_MISSING "):
-            _STATE["root_missing"].append(stage)
-        elif line.startswith("ROOT_NOT_SET "):
-            _STATE["root_not_set"].append(stage)
-        elif line == "STOPPED":
-            _STATE["stopped"] = True
+        try:
+            _index_event(stage, ev)
+        except (KeyError, TypeError, ValueError) as e:
+            _log(_STATE, f"Unreadable progress line ({type(e).__name__}): {line}")
+
+
+def _index_event(stage, ev):
+    kind = ev["type"]
+    if kind != "progress" and isinstance(ev.get("text"), str):
+        _log(_STATE, ev["text"])
+    if kind == "total":
+        _STATE.update(total=int(ev["total"]), phase="")
+    elif kind == "phase":
+        if "done" in ev:
+            _STATE.update(phase=str(ev["phase"]), done=int(ev["done"]), total=int(ev["total"]))
         else:
-            m = _SUMMARY_RE[stage].search(line)
-            if m:
-                unchanged, indexed, removed = map(int, m.groups())
-                _STATE["results"][stage] = {"unchanged": unchanged, "indexed": indexed,
-                                            "removed": removed}
+            _STATE.update(phase=str(ev["phase"]), done=0, total=0, current="")
+    elif kind == "progress":
+        _STATE.update(done=int(ev["done"]), total=int(ev["total"]), current=str(ev["file"]))
+    elif kind == "skipped_clash":
+        _STATE["skipped_clash"].append(str(ev["file"]))
+    elif kind == "ignored_other":
+        _STATE["ignored_other"][stage] = int(ev["count"])
+    elif kind == "filtered":
+        _STATE["filtered"][stage] = int(ev["count"])
+    elif kind == "failed":
+        _STATE["failed"].append(f"{ev['file']}: {ev['error']}")
+    elif kind == "removal_held":
+        _STATE["removal_held"][stage] = {"gone": int(ev["gone"]), "indexed": int(ev["indexed"])}
+    elif kind == "root_missing":
+        _STATE["root_missing"].append(stage)
+    elif kind == "root_not_set":
+        _STATE["root_not_set"].append(stage)
+    elif kind == "stopped":
+        _STATE["stopped"] = True
+    elif kind == "summary":
+        _STATE["results"][stage] = {"unchanged": int(ev["unchanged"]), "indexed": int(ev["indexed"]),
+                                    "removed": int(ev["removed"])}
 
 
 _ASTATE = {"running": False}
@@ -1149,32 +1191,35 @@ def start_analysis(only=None):
     return True
 
 
+def _read_analysis_line(line):
+    ev = _event(line)
+    with _LOCK:
+        try:
+            kind = ev["type"]
+            if kind == "progress":
+                _ASTATE.update(done=int(ev["done"]), total=int(ev["total"]), current=str(ev["file"]))
+            elif kind == "stage":
+                _ASTATE.update(stage=str(ev["stage"]), done=0, total=0, current="")
+            elif kind == "total":
+                _ASTATE["total"] = int(ev["total"])
+            elif kind == "stopped":
+                _ASTATE["stopped"] = True
+            elif isinstance(ev.get("text"), str):
+                _log(_ASTATE, ev["text"])
+        except (KeyError, TypeError, ValueError) as e:
+            _log(_ASTATE, f"Unreadable progress line ({type(e).__name__}): {line}")
+
+
 def _run_analysis(only):
-    env = dict(os.environ, AOBANA_PROGRESS="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
                AOBANA_STOP_FILE=_stop_file("check"))
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-    cmd = [sys.executable, os.path.join(paths.BASE_DIR, "analyser.py")] + (["--only", only] if only else [])
+    cmd = _child_cmd("aobana.indexing.analyser", [JSONL_FLAG] + (["--only", only] if only else []))
     try:
         proc = subprocess.Popen(cmd, cwd=paths.BASE_DIR, env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
                                 creationflags=flags)
-        for line in proc.stdout:
-            line = line.rstrip("\r\n")
-            with _LOCK:
-                if line.startswith("PROGRESS "):
-                    head, _, rel = line[len("PROGRESS "):].partition(" ")
-                    done, _, total = head.partition("/")
-                    _ASTATE.update(done=int(done), total=int(total), current=rel)
-                elif line.startswith("STAGE "):
-                    _ASTATE.update(stage=line.split()[1], done=0, total=0, current="")
-                elif line.startswith("TOTAL "):
-                    _ASTATE["total"] = int(line.split()[1])
-                elif line == "STOPPED":
-                    _ASTATE["stopped"] = True
-                else:
-                    _ASTATE["log"].append(line)
-                    del _ASTATE["log"][:-200]
-        if proc.wait() != 0:
+        if _pump(proc, _read_analysis_line) != 0:
             with _LOCK:
                 _ASTATE["error"] = f"analyser.py exited with code {proc.returncode}"
     except Exception as e:
@@ -1298,7 +1343,7 @@ def unfilter(entries):
 
 def estimate(only=None):
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-    cmd = [sys.executable, os.path.join(paths.BASE_DIR, "analyser.py"), "--estimate"]
+    cmd = _child_cmd("aobana.indexing.analyser", ["--estimate"])
     if only in ("subs", "epub", "manga"):
         cmd += ["--only", only]
     try:

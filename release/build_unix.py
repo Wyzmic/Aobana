@@ -14,7 +14,6 @@ for those and for the wheels (pip download, the pinned versions only).
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import urllib.request
@@ -142,7 +141,7 @@ def linux():
     rmtree(root)
     name = f"Aobana-{VERSION}-linux-x86_64"
     dest = os.path.join(root, name)
-    image("linux", dest)
+    image("linux", os.path.join(dest, "app"))
     step("launch files")
     executable(os.path.join(dest, "aobana"), unix_file("aobana-run.sh"))
     executable(os.path.join(dest, "install.sh"), unix_file("install.sh"))

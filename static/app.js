@@ -1,929 +1,3 @@
-<!doctype html>
-<html lang="ja">
-<head>
-  <meta name="aobana-boot" content="{{ boot }}">
-  <meta name="aobana-version" content="{{ version }}">
-  <meta name="aobana-handoff-pending" content="{{ '1' if handoff_pending else '' }}">
-  <script type="application/json" id="aobana-media">{{ media_boot|tojson }}</script>
-  {% if handoff %}<script type="application/json" id="aobana-handoff">{{ handoff|tojson }}</script>{% endif %}
-  <script>
-    (function () {
-      var el = document.getElementById('aobana-handoff');
-      if (!el) return;
-      try {
-        var doc = JSON.parse(el.textContent), items = doc.items || {}, stamp = String(doc.written_at);
-        if (localStorage.getItem('handoff_applied') !== stamp) {
-          for (var k in items) {
-            if (!Object.prototype.hasOwnProperty.call(items, k)) continue;
-            if (k === 'savedSentences') {
-              var raw = localStorage.getItem('savedSentences');
-              var here = JSON.parse(raw || '[]'), come = JSON.parse(items[k] || '[]');
-              if (!Array.isArray(here) || !Array.isArray(come)) continue;
-              var lines = {};
-              here.forEach(function (s) { if (s && typeof s.line === 'string') lines[s.line] = 1; });
-              var added = come.filter(function (s) { return s && typeof s.line === 'string' && !lines[s.line]; });
-              if (!added.length) continue;
-              if (here.length && localStorage.getItem('savedSentences_backup_v1') === null) localStorage.setItem('savedSentences_backup_v1', raw);
-              localStorage.setItem('savedSentences', JSON.stringify(here.concat(added)));
-            } else if (k === 'savedSentences_backup_v1') {
-              if (localStorage.getItem(k) === null) localStorage.setItem(k, items[k]);
-            } else {
-              localStorage.setItem(k, items[k]);
-            }
-          }
-          localStorage.setItem('handoff_applied', stamp);
-        }
-        fetch('/api/profile-handoff', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' }, body: JSON.stringify({ applied: doc.written_at }) }).catch(function () {});
-      } catch (e) {}
-    })();
-    (function () {
-      var get = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
-      var theme = get('theme');
-      if (theme === 'dark') theme = 'night';
-      if (['paper', 'haze', 'night', 'midnight'].indexOf(theme) < 0) {
-        theme = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'paper' : 'night';
-      }
-      document.documentElement.setAttribute('data-theme', theme);
-      var lang = get('lang');
-      if (lang !== 'ja' && lang !== 'en') lang = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
-      document.documentElement.setAttribute('lang', lang);
-      if (get('furigana') === 'off') document.documentElement.classList.add('no-furigana');
-    })();
-  </script>
-  <meta name="darkreader" content="NO-DARKREADER-PLUGIN">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>露草</title>
-  <link rel="icon" type="image/svg+xml" href="/static/aobana.svg?v={{ asset_v }}">
-  <style>
-    @font-face {
-      font-family: 'Aobana Sans';
-      src: url('/static/fonts/NotoSansJP.ttf?v={{ asset_v }}') format('truetype');
-      font-weight: 100 900;
-      font-display: swap;
-    }
-
-    :root, [data-theme="night"] {
-      color-scheme: dark;
-      --bg-body: #181a1b;
-      --bg-sidebar: #1e2023;
-      --bg-card: #202225;
-      --bg-hover: #2b2d31;
-      --bg-input: #1e2023;
-      --bg-btn: #232529;
-      --bg-inset: #1a1b1e;
-      --border-color: #2f3136;
-      --border-strong: #41444b;
-      --accent: #2b73dc;
-      --accent-soft: rgba(61, 139, 253, 0.15);
-      --accent-line: rgba(61, 139, 253, 0.4);
-      --accent-text: #6aa6ff;
-      --on-accent: #ffffff;
-      --text-main: #f1f1f1;
-      --text-title: #e0e6ed;
-      --text-muted: #a0b0c0;
-      --text-faint: #8a929e;
-      --text-fainter: #5c6370;
-      --text-blue: #b0d6ff;
-      --link: #9be2ff;
-      --hl-mark: #3d8bfd;
-      --hl-bold: #9be2ff;
-      --hl-tail: #7ab8e0;
-      --rt: #a0b0c0;
-      --rt-alpha: #a6c4f7;
-      --gold: #ffd966;
-      --gold-soft: rgba(255, 217, 102, 0.1);
-      --danger: #e06c75;
-      --ok: #7fc97f;
-      --shadow: rgba(0, 0, 0, 0.35);
-      --overlay: rgba(0, 0, 0, 0.7);
-      --scroll-thumb: #36393f;
-      --scroll-thumb-hover: #4f545c;
-    }
-    [data-theme="midnight"] {
-      color-scheme: dark;
-      --bg-body: #000000;
-      --bg-sidebar: #050505;
-      --bg-card: #080808;
-      --bg-hover: #151515;
-      --bg-input: #0a0a0a;
-      --bg-btn: #111111;
-      --bg-inset: #030303;
-      --border-color: #1a1a1a;
-      --border-strong: #2a2a2a;
-      --text-main: #e0e0e0;
-      --text-title: #d6dbe1;
-      --text-muted: #888888;
-      --text-faint: #7b7f85;
-      --text-fainter: #4b4f55;
-      --text-blue: #a0c0e0;
-      --scroll-thumb: #202020;
-      --scroll-thumb-hover: #333333;
-    }
-    [data-theme="paper"] {
-      color-scheme: light;
-      --bg-body: #f7f7f5;
-      --bg-sidebar: #ffffff;
-      --bg-card: #ffffff;
-      --bg-hover: #eef3fb;
-      --bg-input: #ffffff;
-      --bg-btn: #f2f4f7;
-      --bg-inset: #f5f7fa;
-      --border-color: #e2e5ea;
-      --border-strong: #cbd1da;
-      --accent: #2b72e7;
-      --accent-soft: rgba(43, 114, 231, 0.10);
-      --accent-line: rgba(43, 114, 231, 0.35);
-      --accent-text: #1f5fc4;
-      --on-accent: #ffffff;
-      --text-main: #1d2330;
-      --text-title: #262d3b;
-      --text-muted: #5b6576;
-      --text-faint: #646e7f;
-      --text-fainter: #8e96a3;
-      --text-blue: #1f5fc4;
-      --link: #1f5fc4;
-      --hl-mark: #2b72e7;
-      --hl-bold: #1554c0;
-      --hl-tail: #4c7fb8;
-      --rt: #6b7585;
-      --rt-alpha: #4a73b8;
-      --gold: #8f6400;
-      --gold-soft: rgba(196, 138, 0, 0.10);
-      --danger: #c9404b;
-      --ok: #2f8a3a;
-      --shadow: rgba(30, 40, 60, 0.08);
-      --overlay: rgba(20, 26, 36, 0.45);
-      --scroll-thumb: #cfd5de;
-      --scroll-thumb-hover: #b3bcc8;
-    }
-    [data-theme="haze"] {
-      color-scheme: light;
-      --bg-body: #e4eaf1;
-      --bg-sidebar: #edf1f6;
-      --bg-card: #f4f7fa;
-      --bg-hover: #dce5f0;
-      --bg-input: #f7f9fb;
-      --bg-btn: #e6ecf3;
-      --bg-inset: #e9eef4;
-      --border-color: #cfd8e3;
-      --border-strong: #b5c2d1;
-      --accent: #2567d4;
-      --accent-soft: rgba(37, 103, 212, 0.12);
-      --accent-line: rgba(37, 103, 212, 0.38);
-      --accent-text: #1c56b5;
-      --on-accent: #ffffff;
-      --text-main: #1b2433;
-      --text-title: #212b3c;
-      --text-muted: #4f5d70;
-      --text-faint: #58667a;
-      --text-fainter: #7f8b9c;
-      --text-blue: #1c56b5;
-      --link: #1c56b5;
-      --hl-mark: #2567d4;
-      --hl-bold: #124aa8;
-      --hl-tail: #41709f;
-      --rt: #5d6a7c;
-      --rt-alpha: #3f67a8;
-      --gold: #7a5600;
-      --gold-soft: rgba(168, 116, 0, 0.12);
-      --danger: #b93440;
-      --ok: #2a7a34;
-      --shadow: rgba(30, 45, 70, 0.10);
-      --overlay: rgba(20, 30, 45, 0.45);
-      --scroll-thumb: #b9c5d3;
-      --scroll-thumb-hover: #9eadc0;
-    }
-
-    html, body { min-height: 100%; }
-    html { scrollbar-gutter: stable; }
-    html, .sidebar { overflow-anchor: none; }
-    :root { --pad: 1rem; --bar-px: 0.9em; }
-    body {
-      font-family: 'Noto Sans JP', 'Aobana Sans', 'Noto Serif Hentaigana', 'BabelStone Han', 'BabelStone Han Extra', 'BabelStone Han PUA', 'I.Ming Seiji', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', Meiryo, sans-serif;
-      background: var(--bg-body);
-      color: var(--text-main);
-      margin: 0;
-      padding: var(--pad);
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
-    input, button, select, textarea { font-family: inherit; }
-    a { color: var(--link); }
-    [hidden] { display: none !important; }
-    .set-media-row { border-top: 1px solid var(--border-color); margin-top: 0.9em; padding-top: 0.9em; }
-    .set-media-head { align-items: center; margin-bottom: 0.7em; }
-    .set-drop-ask .notice { margin: 0 0 0.6em; }
-    .set-media-head > strong { min-width: 7em; }
-    #setup-rows { text-align: left; }
-    #setup-rows .btns { justify-content: flex-start; }
-    .muted { color: var(--text-muted); }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 1.2em;
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 0.55em var(--bar-px);
-      margin-bottom: var(--pad);
-      box-shadow: 0 4px 12px var(--shadow);
-      transition: border-radius 0.15s, margin 0.15s, padding 0.15s, box-shadow 0.15s, border-color 0.15s,
-                  background-color 0.25s ease, color 0.25s ease;
-    }
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
-    .topbar.is-sticky {
-      margin-left: calc(-1 * var(--pad));
-      margin-right: calc(-1 * var(--pad));
-      border-radius: 0;
-      border-top-color: transparent;
-      border-left-color: transparent;
-      border-right-color: transparent;
-      padding-left: calc(var(--pad) + var(--bar-px));
-      padding-right: calc(var(--pad) + var(--bar-px));
-      box-shadow: 0 4px 18px var(--shadow);
-    }
-    .brand {
-      display: flex; align-items: center; gap: 0.55em;
-      height: 38px;
-      color: var(--text-title); text-decoration: none; flex-shrink: 0;
-      -webkit-user-drag: none; user-select: none; -webkit-user-select: none;
-    }
-    .brand img { width: 30px; height: 30px; border-radius: 8px; display: block; }
-    .brand-name { font-size: 1.15em; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; transform: translateY(-2px); }
-    .brand-name rt { font-size: 0.5em; letter-spacing: 0.1em; }
-    .nav-tabs { display: flex; gap: 0.25em; flex: 1; min-width: 0; }
-    .nav-tab {
-      display: inline-flex; align-items: center; gap: 0.45em;
-      color: var(--text-muted); text-decoration: none; white-space: nowrap;
-      padding: 7px 12px; border-radius: 8px; font-size: 0.93em; font-weight: 600;
-      border: 1px solid transparent;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-      -webkit-user-drag: none; user-select: none; -webkit-user-select: none;
-    }
-    .nav-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
-    html[lang="en"] .nav-tab svg { transform: none; }
-    .nav-tab:hover { background: var(--bg-hover); color: var(--text-main); }
-    .nav-tab.active { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-line); }
-    .topbar-right { display: flex; align-items: center; gap: 0.5em; flex-shrink: 0; }
-    .topbar-menu { display: none; }
-    .menu-btn {
-      display: none; align-items: center; justify-content: center; margin-left: auto;
-      width: 38px; height: 38px; padding: 0; border-radius: 8px; cursor: pointer;
-      background: transparent; color: var(--text-muted); border: 1.5px solid var(--border-color);
-    }
-    .menu-btn:hover, .topbar.open .menu-btn { color: var(--text-main); background: var(--bg-hover); }
-    .top-btn { width: auto; justify-content: flex-start; }
-    #shortcuts-btn {
-      width: 36px; height: 36px; padding: 0; justify-content: center; flex-shrink: 0;
-    }
-    #shortcuts-btn .dd-icon {
-      transform: none; margin: 0; display: inline-flex; align-items: center; justify-content: center;
-    }
-    html[lang="en"] #shortcuts-btn .dd-icon {
-      transform: none;
-    }
-
-    .dd { position: relative; }
-    .dd-btn {
-      display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5em;
-      background: var(--bg-input); color: var(--text-main);
-      border: 1.5px solid var(--border-color); border-radius: 8px;
-      height: 36px; padding: 0 12px; font-size: 0.92em; cursor: pointer; white-space: nowrap;
-      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-      user-select: none; -webkit-user-select: none; width: 100%; box-sizing: border-box;
-    }
-    .dd-btn:hover { border-color: var(--border-strong); }
-    .dd.open .dd-btn { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .dd-btn .dd-icon { display: inline-flex; color: var(--text-muted); transform: translateY(1px); }
-    html[lang="en"] .dd-btn .dd-icon { transform: translateY(2px); }
-    .dd-btn .dd-caret { width: 12px; height: 12px; fill: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
-    .dd.open .dd-caret { transform: rotate(180deg); }
-    .dd-label { overflow: hidden; text-overflow: ellipsis; }
-    .dd-menu {
-      position: absolute; top: calc(100% + 6px); right: 0; min-width: 100%; z-index: 99;
-      background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px;
-      box-shadow: 0 8px 20px var(--shadow); overflow: hidden; display: none; box-sizing: border-box;
-    }
-    .dd.left .dd-menu { left: 0; right: auto; }
-    .dd.open .dd-menu { display: block; animation: slideDownFader 0.15s ease-out; }
-    .dd-item {
-      display: flex; align-items: center; gap: 0.6em;
-      padding: 7px 14px; font-size: 0.92em; cursor: pointer; white-space: nowrap; color: var(--text-main);
-      user-select: none; -webkit-user-select: none;
-    }
-    .dd-item:hover { background: var(--bg-hover); color: var(--link); }
-    .dd-item.selected { background: var(--accent-soft); color: var(--accent-text); }
-    .dd-ico { flex-shrink: 0; opacity: 0.75; transform: translateY(1px); }
-    .dd-label .dd-ico { margin-right: 0.45em; vertical-align: -2.5px; transform: none; }
-    html[lang="en"] .dd-ico { transform: translateY(2px); }
-    html[lang="en"] .dd-label .dd-ico { vertical-align: -3.5px; transform: none; }
-    .dd-item:hover .dd-ico, .dd-item.selected .dd-ico { opacity: 1; }
-    .swatch {
-      width: 16px; height: 16px; border-radius: 5px; flex-shrink: 0;
-      border: 1px solid var(--border-strong); position: relative; overflow: hidden;
-    }
-    .swatch::after { content: ''; position: absolute; right: 2px; bottom: 2px; width: 6px; height: 6px; border-radius: 50%; }
-    .swatch.paper { background: #f7f7f5; } .swatch.paper::after { background: #2b72e7; }
-    .swatch.haze { background: #e4eaf1; } .swatch.haze::after { background: #2567d4; }
-    .swatch.night { background: #202225; } .swatch.night::after { background: #3d8bfd; }
-    .swatch.midnight { background: #000; } .swatch.midnight::after { background: #3d8bfd; }
-
-    .flex-row {
-      display: flex; flex-direction: row; align-items: flex-start;
-      gap: var(--pad); width: 100%; flex-wrap: nowrap;
-    }
-    .sidebar {
-      width: 280px; min-width: 220px; max-width: 320px;
-      background: var(--bg-sidebar);
-      padding: 1.1em;
-      border-radius: 12px;
-      height: calc(100vh - 2em);
-      max-height: calc(100vh - 2em);
-      overflow-y: auto;
-      flex-shrink: 0;
-      box-sizing: border-box;
-      display: flex; flex-direction: column;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 4px 12px var(--shadow);
-      position: sticky;
-      top: calc(var(--topbar-h, 0px) + var(--pad));
-      align-self: flex-start;
-      transition: height 0.15s cubic-bezier(0.25, 0.8, 0.25, 1), max-height 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    .main-content { flex: 1 1 0%; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; }
-    .page { max-width: 920px; width: 100%; margin: 0 auto; }
-
-    .side-controls { display: flex; flex-direction: column; gap: 0.6em; margin-bottom: 0.35em; }
-    .seg {
-      display: flex; background: var(--bg-btn); border: 1px solid var(--border-color);
-      border-radius: 9px; padding: 3px; gap: 3px;
-    }
-    .seg-btn {
-      flex: 1 1 0; min-width: 0; height: 30px; padding: 0 6px;
-      border: none; border-radius: 6px; background: transparent; color: var(--text-muted);
-      font-size: 0.88em; font-weight: 700; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      transition: background 0.2s, color 0.2s;
-    }
-    .seg-btn:hover { color: var(--text-main); background: var(--bg-hover); }
-    .seg-btn.active { background: var(--accent); color: var(--on-accent); }
-    .seg.seg-many .seg-btn { flex: 1 1 auto; padding: 0 4px; }
-    .side-row { display: flex; gap: 6px; align-items: center; }
-    .side-row .dd { flex: 1; min-width: 0; }
-    .sq-btn {
-      width: 34px; height: 34px; flex-shrink: 0; box-sizing: border-box;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: var(--bg-btn); color: var(--text-muted);
-      border: 1.5px solid var(--border-color); border-radius: 8px; cursor: pointer;
-      font-size: 0.92em; font-weight: 700; padding: 0; position: relative;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-      user-select: none; -webkit-user-select: none;
-    }
-    .sq-btn:hover { background: var(--bg-hover); color: var(--text-main); border-color: var(--border-strong); }
-    .sq-btn.on { color: var(--accent-text); border-color: var(--accent-line); background: var(--accent-soft); }
-    .sq-btn.furi-btn.off::after {
-      content: ''; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px;
-      background: currentColor; transform: rotate(-35deg); border-radius: 2px;
-    }
-    .folder-filter {
-      width: 100%; box-sizing: border-box; height: 34px;
-      background: var(--bg-input); color: var(--text-main);
-      border: 1.5px solid var(--border-color); border-radius: 8px; padding: 0 10px 0 32px; font-size: 0.9em; outline: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='9' cy='9' r='5.5' fill='none' stroke='%238a94a3' stroke-width='1.8'/%3E%3Cpath d='M13 13l4 4' stroke='%238a94a3' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: 9px center; background-size: 15px;
-    }
-    .folder-filter:focus { border-color: var(--accent); }
-    .folder-list { list-style: none; padding: 0; margin: 0; }
-    .folder-list li { margin: 0.25em 0; }
-    .folder-link {
-      color: var(--text-muted); text-decoration: none;
-      display: flex; justify-content: space-between; align-items: center; gap: 8px;
-      padding: 6px 10px; border-radius: 6px; border: 1px solid transparent;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-      font-size: 0.93em; cursor: pointer; line-height: 1.2;
-      -webkit-user-drag: none;
-    }
-    .folder-link:hover { background: var(--bg-hover); color: var(--text-main); border-color: var(--border-color); }
-    .folder-link.selected { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-line); }
-    .folder-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-    .count-badge {
-      background: var(--bg-hover); color: var(--text-muted);
-      border-radius: 12px; padding: 0 8px; font-size: 0.84em; font-weight: bold;
-      display: flex; align-items: center; height: 22px; min-width: 28px; justify-content: center;
-      flex-shrink: 0; line-height: 1;
-    }
-    .folder-link.selected .count-badge { background: var(--accent); color: var(--on-accent); }
-    .sidebar-more { text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 0.8em 0; list-style: none; }
-    .side-divider { height: 1px; background: var(--border-color); margin: 0.5em 0; }
-    li.side-divider { list-style: none; }
-
-    .search-bar { margin-bottom: var(--pad); display: flex; align-items: center; row-gap: var(--pad); column-gap: 0.8em; flex-wrap: wrap; }
-    .search-options { display: contents; }
-    .search-input-wrap {
-      display: flex; align-items: center; flex: 1; min-width: 250px;
-      position: relative; border-radius: 8px; transition: box-shadow 0.2s;
-    }
-    .search-input-wrap:focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
-    .search-input-wrap:focus-within .search-input,
-    .search-input-wrap:focus-within .search-btn-box { border-color: var(--accent); }
-    .search-input {
-      background: var(--bg-input); color: var(--text-main);
-      border: 1.5px solid var(--border-color); border-right: none;
-      border-radius: 8px 0 0 8px; padding: 10px 16px; width: 100%;
-      font-size: 1.05em; outline: none; height: 42px; box-sizing: border-box;
-    }
-    .search-input::placeholder { color: var(--text-fainter); }
-    .search-btn-box {
-      background: var(--bg-btn); border: 1.5px solid var(--border-color); border-left: none;
-      border-radius: 0 8px 8px 0; height: 42px; width: 48px;
-      display: flex; align-items: center; justify-content: center; box-sizing: border-box;
-    }
-    .search-btn {
-      background: none; border: none; cursor: pointer; padding: 0; margin: 0; outline: none;
-      display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
-      color: var(--text-muted);
-    }
-    .search-btn svg { width: 19px; height: 19px; transition: transform 0.1s; }
-    .search-btn:hover { color: var(--link); }
-    .search-btn:active svg { transform: scale(0.9); }
-    .exact-chip {
-      display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
-      border: 1.5px solid var(--border-color); border-radius: 8px; background: var(--bg-input);
-      color: var(--text-muted); font-size: 0.92em; font-weight: 600; cursor: pointer; white-space: nowrap;
-      transition: background 0.2s, color 0.2s, border-color 0.2s; box-sizing: border-box;
-      user-select: none; -webkit-user-select: none;
-    }
-    .exact-chip input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-    .exact-chip svg { width: 14px; height: 14px; }
-    .exact-chip:hover { border-color: var(--border-strong); color: var(--text-main); }
-    .exact-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-    .exact-chip:focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
-    .sort-dd { width: 180px; max-width: 100%; }
-    .filter-note {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 1em; font-size: 0.88em;
-    }
-    .filter-note[hidden] { display: none; }
-    .filter-label { color: var(--text-muted); margin-right: 2px; }
-    .filter-chip {
-      display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
-      background: var(--accent-soft); color: var(--accent-text); border: 1px solid var(--accent-line);
-      border-radius: 16px; padding: 4px 4px 4px 12px; box-sizing: border-box;
-    }
-    .filter-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .filter-chip.dim { opacity: .5; }
-    .filter-chip button {
-      border: none; background: none; color: inherit; cursor: pointer; font-size: 1em; padding: 0 6px; line-height: 1;
-      flex-shrink: 0;
-    }
-
-    #results { display: flex; flex-direction: column; gap: 0.8em; }
-    #load-more-sentinel { padding-bottom: 4em; }
-    .batch-wrapper {
-      width: 100%; display: flex; flex-direction: column; gap: 0.8em;
-      content-visibility: auto; contain-intrinsic-size: auto 5000px; overflow-clip-margin: 12px;
-    }
-    .card {
-      content-visibility: auto;
-      contain-intrinsic-size: auto 100px;
-      background: var(--bg-card); padding: 1.2em; border-radius: 10px;
-      border: 1px solid var(--border-color); box-shadow: 0 4px 6px var(--shadow);
-      transition: border-color 0.2s;
-    }
-    .card:hover { border-color: var(--border-strong); }
-    .card.keyboard-active, .episode-card.keyboard-active {
-      border-color: var(--accent) !important;
-      box-shadow: 0 0 0 2px var(--accent-line);
-    }
-    .card-meta {
-      font-size: 0.85em; color: var(--text-faint); margin-bottom: 6px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-    }
-    .card-meta .src { padding-right: 16px; line-height: 1.4; }
-    .page-link { color: var(--link); cursor: pointer; user-select: none; -webkit-user-select: none; }
-    .page-link:hover { text-decoration: underline; }
-    .card-meta .chars { color: var(--text-faint); font-weight: 600; white-space: nowrap; line-height: 1.4; user-select: none; -webkit-user-select: none; }
-    .file-title { color: var(--text-title); display: flex; align-items: flex-start; line-height: 1.6em; }
-    .main-sentence { flex: 1; min-width: 0; padding-right: 0.5em; }
-
-    .episode-card { padding: 0; overflow: hidden; }
-    .episode-header {
-      padding: 1.1em 1.2em; background: var(--bg-card); cursor: pointer;
-      display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
-    }
-    .episode-header:hover { background: var(--bg-hover); }
-    .episode-title { font-weight: bold; color: var(--text-title); padding-right: 16px; }
-    .episode-toggle-icon { color: var(--text-muted); font-size: 0.8em; transition: transform 0.2s; user-select: none; -webkit-user-select: none; }
-    .episode-card.collapsed .episode-toggle-icon { transform: rotate(-90deg); }
-    .episode-card.collapsed .episode-content { display: none; }
-    .episode-line {
-      display: flex; align-items: center; padding: 4px 10px;
-      border-top: 1px solid var(--border-color); transition: background 0.2s;
-    }
-    .episode-line:hover { background: var(--bg-hover); }
-    .episode-line .main-sentence { line-height: 1.4em; font-size: 0.98em; }
-    .episode-line .actions-box { opacity: 0.5; transition: opacity 0.2s; }
-    .episode-line:hover .actions-box, .episode-line .actions-box:focus-within { opacity: 1; }
-    .page-mark {
-      padding: 4px 10px; border-top: 1px solid var(--border-color);
-      font-size: 0.78em; font-weight: 700; color: var(--text-faint);
-    }
-
-    mark { background: none; color: var(--hl-mark); font-weight: bold; padding: 0; }
-    b { color: var(--hl-bold); font-weight: bold; }
-    .hl-tail, .hl-tail-p { color: var(--hl-tail); font-weight: normal; }
-    ruby { font-size: 1em; ruby-position: over; ruby-align: center; }
-    rt { font-size: 0.7em; color: var(--rt); user-select: none; line-height: 1; font-weight: normal; }
-    ruby.alpha { margin: 0 0.1em; }
-    ruby.alpha rt { color: var(--rt-alpha); font-size: 0.8em; }
-    .no-furigana .main-sentence rt, .no-furigana .context rt { display: none; }
-
-    .context {
-      color: var(--text-muted); margin-top: 0.8em; font-size: 0.9em; line-height: 1.5em;
-      display: none; border-radius: 8px; background: var(--bg-inset);
-      padding: 1em 1.2em; border: 1px solid var(--border-color);
-    }
-    .spacer { height: 0.5em; }
-    .actions-box { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
-    .icon-btn {
-      background: var(--bg-hover); color: var(--link);
-      border: 1px solid var(--border-color);
-      font-family: 'Noto Sans JP', 'Aobana Sans', sans-serif;
-      cursor: pointer; padding: 0; width: 32px; height: 32px; font-size: 1.1em; border-radius: 50%;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-      display: flex; align-items: center; justify-content: center;
-      user-select: none; -webkit-user-select: none;
-    }
-    .icon-btn:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-    .icon-btn.star-active { color: var(--gold); border-color: var(--gold); background: var(--gold-soft); }
-    .icon-btn span { transform: translateY(-1px); line-height: 1; }
-    .status-line { text-align: center; color: var(--text-faint); font-size: 0.85em; user-select: none; -webkit-user-select: none; }
-    .error-text { color: var(--danger); }
-
-    .spinner {
-      border: 3px solid var(--accent-soft); border-top: 3px solid var(--accent);
-      border-radius: 50%; width: 32px; height: 32px;
-      animation: spin 0.8s linear infinite; margin: 0 auto 15px auto;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    #main-loading {
-      text-align: center; color: var(--text-blue); padding: 4em;
-      display: none; flex-direction: column; align-items: center;
-      font-size: 0.9em; letter-spacing: 1px; user-select: none; -webkit-user-select: none;
-    }
-    .panel {
-      background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px;
-      padding: 1.4em 1.6em; box-shadow: 0 4px 12px var(--shadow);
-    }
-    #empty-state {
-      text-align: center; color: var(--text-muted); padding: 3em; display: none; font-size: 0.95em;
-      background: var(--bg-sidebar); border-radius: 10px; border: 1px solid var(--border-color);
-      user-select: none; -webkit-user-select: none;
-    }
-    #history-state { padding: 0.5em 0; display: none; }
-    .history-label { color: var(--text-muted); margin-bottom: 1em; user-select: none; -webkit-user-select: none; }
-    .folder-hint { color: var(--text-muted); font-size: 0.9em; margin: 1.6em 0 0; }
-    #history-state > .folder-hint:first-child { margin-top: 0; }
-    .history-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .history-chip {
-      background: var(--bg-btn); color: var(--link); padding: 6px 12px; border-radius: 16px;
-      text-decoration: none; border: 1px solid var(--border-color); font-size: 0.9em;
-      user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    .history-chip:hover { background: var(--bg-hover); border-color: var(--border-strong); }
-    .cta { text-align: center; padding: 2.6em 1.6em; }
-    .cta img { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 0.8em; }
-    .cta h2 { margin: 0 0 0.5em; color: var(--text-title); font-size: 1.25em; }
-    .cta p { color: var(--text-muted); margin: 0 auto 1.3em; max-width: 34em; line-height: 1.7; }
-
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 0.45em;
-      height: 36px; padding: 0 16px; border-radius: 8px; font-size: 0.92em; font-weight: 600;
-      border: 1.5px solid var(--border-color); background: var(--bg-btn); color: var(--text-main);
-      cursor: pointer; text-decoration: none; white-space: nowrap; box-sizing: border-box;
-      transition: background 0.2s, border-color 0.2s, color 0.2s;
-    }
-    .btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-    .btn.primary:hover { filter: brightness(1.08); }
-    .btn:disabled { opacity: 0.55; cursor: default; filter: none; }
-    .btn svg { width: 16px; height: 16px; }
-
-    .media-toolbar-wrap { container-type: inline-size; }
-    .media-toolbar { display: flex; gap: var(--pad); align-items: center; flex-wrap: wrap; margin-bottom: var(--pad); }
-    .media-toolbar .seg { width: auto; max-width: 100%; order: 1; }
-    .media-toolbar .seg .seg-btn { flex: 0 0 auto; padding: 0 12px; }
-    .media-toolbar .folder-filter { flex: 1; min-width: 200px; width: auto; height: 38px; order: 2; }
-    .media-toolbar .page-dd { width: 190px; order: 3; flex-shrink: 0; }
-    .media-toolbar .page-dd .dd-btn { height: 38px; }
-    @container (max-width: 700px) {
-      .media-toolbar .page-dd { order: 2; flex: 1; min-width: 130px; width: auto; }
-      .media-toolbar .folder-filter { order: 3; flex-basis: 100%; }
-    }
-    .media-more { text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 1em; min-height: 1px; }
-    .load-eta { margin-top: 0.6em; color: var(--text-muted); font-size: 0.92em; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-    .load-eta:empty { display: none; }
-    .media-summary { color: var(--text-muted); font-size: 0.9em; margin: 0 0 var(--pad) 0.2em; }
-    .media-list { background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
-    .media-row {
-      display: flex; align-items: center; gap: 0.9em; padding: 0.75em 1.1em;
-      border-top: 1px solid var(--border-color); text-decoration: none; color: var(--text-main);
-      transition: background 0.15s; -webkit-user-drag: none;
-    }
-    .media-row:first-child { border-top: none; }
-    .media-row:hover { background: var(--bg-hover); }
-    .media-kind {
-      font-size: 0.72em; font-weight: 700; padding: 3px 7px; border-radius: 6px; flex-shrink: 0;
-      background: var(--bg-btn); color: var(--text-muted); border: 1px solid var(--border-color); white-space: nowrap;
-    }
-    .media-kind.epub { color: var(--gold); }
-    .media-kind.subs { color: var(--accent-text); }
-    .media-kind.manga { color: var(--ok); }
-    .media-names { flex: 1; min-width: 0; }
-    .media-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-title); }
-    .media-row:has(.media-kind.subs) .media-name,
-    .media-row .media-kind.subs + .media-names .media-name,
-    .media-row:has(.media-kind.manga) .media-name,
-    .media-row .media-kind.manga + .media-names .media-name {
-      transform: translateY(-2px);
-    }
-    .media-author { font-size: 0.82em; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .media-stats { display: flex; gap: 6px; flex-shrink: 0; }
-    .stat-pill {
-      font-size: 0.8em; font-weight: 700; color: var(--text-muted); background: var(--bg-hover);
-      border-radius: 10px; padding: 3px 9px; white-space: nowrap;
-    }
-    .media-detail-head { margin-bottom: var(--pad); }
-    .media-detail-head h1 { font-size: 1.4em; margin: 0.4em 0 0.2em; color: var(--text-title); word-break: break-word; }
-    .media-detail-head .media-stats { margin-top: 0.5em; flex-wrap: wrap; }
-    .media-detail-search { display: flex; gap: 0.7em; align-items: center; flex-wrap: wrap; margin-top: 1em; }
-    .media-detail-search .seg { width: 200px; max-width: 100%; flex-shrink: 0; }
-    .media-detail-search .folder-filter { flex: 1; min-width: 0; width: auto; height: 38px; }
-    .media-detail-form { flex: 1; min-width: 0; display: flex; gap: 0.6em; align-items: center; margin: 0; }
-    .media-detail-form .search-input-wrap { flex: 1 1 0; min-width: 0; }
-    .media-detail-form .exact-chip { flex-shrink: 0; }
-    .media-detail-form[hidden] { display: none; }
-    @media (max-width: 560px) {
-      .media-detail-search .seg { width: 100%; order: -1; }
-    }
-    .media-detail-form .search-input { height: 38px; font-size: 0.96em; padding: 8px 14px; }
-    .media-detail-form .search-btn-box { height: 38px; width: 44px; }
-    .media-detail-form .exact-chip { height: 38px; }
-    #saved-head {
-      background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px;
-      padding: 1.1em 1.4em; box-shadow: 0 4px 12px var(--shadow); margin-bottom: var(--pad);
-    }
-    #saved-head h1 { font-size: 1.45em; margin: 0 0 0.25em; }
-    .back-link { color: var(--text-muted); text-decoration: none; font-size: 0.9em; display: inline-flex; gap: 0.4em; align-items: center; }
-    .back-link:hover { color: var(--accent-text); }
-
-    .doc h1 { font-size: 1.45em; margin: 0 0 0.3em; color: var(--text-title); }
-    .doc h2 { font-size: 1.1em; margin: 1.6em 0 0.6em; color: var(--text-blue); }
-    .doc h3 { font-size: 1em; margin: 1.1em 0 0.4em; color: var(--text-title); }
-    .doc p, .doc li { line-height: 1.75; color: var(--text-main); }
-    .doc .lead { color: var(--text-muted); margin-top: 0; }
-    .doc ul, .doc ol { padding-left: 1.4em; }
-    .doc code, .kbd-key, .path {
-      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 0.88em;
-      background: var(--bg-btn); border: 1px solid var(--border-color); border-radius: 5px; padding: 1px 6px;
-    }
-    .doc pre {
-      background: var(--bg-inset); border: 1px solid var(--border-color); border-radius: 8px;
-      padding: 0.9em 1.1em; overflow-x: auto; line-height: 1.6; font-size: 0.88em;
-      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-    }
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8em; margin: 1.2em 0 0.4em; }
-    .step { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.9em 1em; }
-    .step-n {
-      width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
-      display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; margin-bottom: 0.4em;
-    }
-    .step-t { font-weight: 700; color: var(--text-title); margin-bottom: 0.2em; }
-    .step-d { color: var(--text-muted); font-size: 0.88em; line-height: 1.6; }
-    .lib-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1.2em 0; }
-    .lib-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 1em 1.1em; min-width: 0; }
-    .lib-card .lib-pick-msg:empty { display: none; }
-    .lib-card h3 { margin: 0 0 0.5em; font-size: 1em; color: var(--text-title); display: flex; align-items: center; gap: 0.5em; }
-    .lib-card .path { display: block; word-break: break-all; padding: 6px 8px; margin-bottom: 0.7em; line-height: 1.5; }
-    .lib-card .facts { font-size: 0.87em; color: var(--text-muted); line-height: 1.7; margin-bottom: 0.8em; }
-    .lib-card .facts .warn { color: var(--gold); }
-    .lib-card .btns { display: flex; gap: 0.5em; flex-wrap: wrap; align-items: center; }
-    .lib-card .btns label { display: inline-flex; align-items: center; line-height: 1; }
-    .lib-card input[type=text] {
-      width: 100%; box-sizing: border-box; height: 34px; margin-bottom: 0.6em;
-      background: var(--bg-input); color: var(--text-main); border: 1.5px solid var(--border-color);
-      border-radius: 8px; padding: 0 10px; font-size: 0.88em; outline: none;
-    }
-    .lib-card input[type=text]:focus { border-color: var(--accent); }
-    .lib-card input[type=number] {
-      width: 7em; box-sizing: border-box; height: 36px;
-      background: var(--bg-input); color: var(--text-main); border: 1.5px solid var(--border-color);
-      border-radius: 8px; padding: 0 10px; font-size: 0.88em; outline: none;
-    }
-    .lib-card input[type=number]:focus { border-color: var(--accent); }
-    .progress { height: 10px; background: var(--bg-btn); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; margin: 0.8em 0 0.4em; }
-    .progress > div { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; }
-    .progress-text { font-size: 0.86em; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .summary-table { border-collapse: collapse; width: 100%; font-size: 0.9em; margin: 0.8em 0; }
-    .summary-table th, .summary-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border-color); }
-    .summary-table th { color: var(--text-muted); font-weight: 600; }
-    .notice { border-radius: 8px; padding: 0.7em 1em; margin: 0.6em 0; font-size: 0.9em; line-height: 1.6; border: 1px solid var(--border-color); background: var(--bg-card); }
-    .notice.warn { border-color: var(--gold); }
-    .notice.err { border-color: var(--danger); }
-    .notice.ok { border-color: var(--ok); }
-    .notice ul { margin: 0.3em 0 0; padding-left: 1.3em; max-height: 12em; overflow: auto; }
-    .lib-run-row { display: flex; gap: 0.6em; align-items: center; flex-wrap: wrap; }
-    .lib-select {
-      height: 42px; color: var(--text-main); border: 1.5px solid var(--border-color);
-      border-radius: 8px; padding: 0 38px 0 14px; font-size: 0.92em; outline: none; cursor: pointer;
-      -webkit-appearance: none; appearance: none;
-      background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23889' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center / 14px;
-    }
-    .lib-select:focus { border-color: var(--accent); }
-    .estimate-grid { display: grid; grid-template-columns: auto auto; gap: 0.2em 1.2em; margin: 0.4em 0 0.6em; font-size: 0.95em; }
-    .estimate-grid .num { font-variant-numeric: tabular-nums; }
-    .an-section { margin-top: 0.9em; }
-    .an-section > summary { cursor: pointer; font-weight: 600; color: var(--text-title); padding: 0.3em 0; }
-    .an-list { max-height: 22em; overflow: auto; border: 1px solid var(--border-color); border-radius: 8px; margin: 0.4em 0; }
-    .an-row { display: grid; grid-template-columns: auto 1fr; gap: 0.2em 0.6em; padding: 0.45em 0.7em; border-bottom: 1px solid var(--border-color); font-size: 0.86em; line-height: 1.5; }
-    .an-row:last-child { border-bottom: none; }
-    .an-row .name { word-break: break-all; color: var(--text-main); }
-    .an-row .why { grid-column: 2; color: var(--text-muted); }
-    .an-row.kept { background: var(--bg-btn); }
-    .an-row.filtered { opacity: 0.5; }
-    .an-group { border-bottom: 2px solid var(--border-color); }
-    .an-after { margin-top: 0.8em; }
-    details.log summary { cursor: pointer; color: var(--text-muted); font-size: 0.88em; margin-top: 0.8em; }
-    details.log pre { max-height: 18em; overflow: auto; font-size: 0.8em; }
-
-    body, .main-content { scrollbar-color: var(--scroll-thumb) var(--bg-body); }
-    .sidebar, .context { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
-    ::-webkit-scrollbar { width: 14px; height: 14px; background: var(--bg-body); }
-    .sidebar::-webkit-scrollbar, .context::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 8px; border: 3px solid var(--bg-body); min-height: 60px; }
-    .sidebar::-webkit-scrollbar-thumb { border: 2px solid var(--bg-sidebar); min-height: 40px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
-    ::-webkit-scrollbar-corner { background: var(--bg-body); }
-
-    .sidebar-tooltip {
-      position: fixed; z-index: 9999; background: var(--bg-card); color: var(--text-main);
-      border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 8px; font-size: 0.88em;
-      line-height: 1.4; pointer-events: none; box-shadow: 0 8px 24px var(--shadow);
-      max-width: 360px; word-break: break-word; white-space: normal; display: none; opacity: 0;
-      transition: opacity 0.12s ease-out;
-    }
-    .sidebar-tooltip.visible { opacity: 1; }
-    .modal-overlay {
-      position: fixed; inset: 0; background: var(--overlay); display: none;
-      align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px);
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-card {
-      background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;
-      max-width: 460px; width: 90%; padding: 1.4em; box-shadow: 0 16px 36px var(--shadow);
-      box-sizing: border-box; animation: slideDownFader 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-      max-height: 90vh; overflow: auto;
-    }
-    .modal-card.wide { max-width: 560px; }
-    .modal-card.welcome { max-width: 600px; }
-    .modal-card.welcome.big { max-width: 860px; }
-    #welcome-card { display: flex; flex-direction: column; }
-    #setup-step:not([hidden]) { flex: 1; display: flex; flex-direction: column; }
-    #setup-step > .btns { margin-top: auto; }
-    .progress-text + .btns { margin-top: 0.7em; }
-    .whatsnew-sub { margin: 0.2em 0 0.6em; font-size: 1em; color: var(--text-title); text-align: left; }
-    .whatsnew-list { text-align: left; margin: 0 0 1.4em; padding-left: 1.3em; color: var(--text-main);
-                     font-size: max(1rem, 1em); line-height: 1.75; }
-    .whatsnew-list li { margin: 0 0 0.55em; }
-    .whatsnew-list code { font-size: 0.92em; padding: 0.05em 0.35em; border-radius: 4px; background: var(--bg-hover); }
-    #task-notices { position: fixed; right: 1em; bottom: 1em; z-index: 900; display: flex; flex-direction: column;
-                    gap: 0.6em; max-width: min(420px, calc(100vw - 2em)); }
-    .task-notice { display: flex; align-items: center; gap: 0.9em; padding: 0.8em 1em; border-radius: 10px;
-                   background: var(--bg-card); border: 1px solid var(--ok); box-shadow: 0 8px 24px var(--shadow);
-                   color: var(--text-main); font-size: 0.92em; line-height: 1.55; }
-    .task-notice.warn { border-color: var(--gold); }
-    .task-notice span { flex: 1; }
-    .guide-top { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; margin: 0 0 1.4em; }
-    .guide-version { font-weight: 600; color: var(--text-title); margin-right: 0.4em; }
-    .changelog-card h2 { text-align: left; }
-    .changelog-card #changelog-body { text-align: left; }
-    .changelog-card #changelog-body p { color: var(--text-main); }
-    #update-progress { width: 100%; margin: 0 0 1em; accent-color: var(--accent); }
-    .modal-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;
-      border-bottom: 1px solid var(--border-color); padding-bottom: 0.6em;
-    }
-    .modal-title { font-size: 1.05em; font-weight: bold; color: var(--text-blue); margin: 0; }
-    .modal-close {
-      background: none; border: none; color: var(--text-muted); font-size: 1.2em; cursor: pointer;
-      padding: 2px 8px; border-radius: 4px; line-height: 1;
-    }
-    .modal-close:hover { color: var(--text-main); background: var(--bg-hover); }
-    .shortcut-row {
-      display: flex; justify-content: space-between; align-items: center; gap: 1em;
-      padding: 7px 0; font-size: 0.9em; border-bottom: 1px solid var(--border-color);
-    }
-    .shortcut-row:last-child { border-bottom: none; }
-    .shortcut-keys { display: flex; gap: 4px; align-items: center; flex-shrink: 0; color: var(--text-muted); }
-    .kbd-key { color: var(--link); font-weight: bold; }
-    .welcome { text-align: center; }
-    .welcome img { width: 72px; height: 72px; border-radius: 18px; margin: 0.4em 0 0.6em;
-                   user-select: none; -webkit-user-select: none; -webkit-user-drag: none; pointer-events: none; }
-    .welcome h2 { margin: 0 0 0.5em; color: var(--text-title); }
-    .welcome p { color: var(--text-muted); line-height: 1.75; margin: 0 0 1em; }
-    .welcome ol { text-align: left; line-height: 1.8; margin: 0 0 1.2em; padding-left: 1.4em; }
-    .welcome .btns { display: flex; gap: 0.6em; justify-content: center; flex-wrap: wrap; }
-    .update-cmd { display: flex; gap: 0.5em; align-items: center; margin: 0 0 1em; text-align: left; }
-    .update-cmd code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 0.85em; padding: 0.5em 0.7em;
-                       border-radius: 6px; background: var(--bg-hover); color: var(--text-main); }
-
-    @keyframes slideDownFader { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes slideUpFader { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
-    .context.anim-open { animation: slideDownFader 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
-    .context.anim-close { animation: slideUpFader 0.15s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
-
-    body, .sidebar, .card, .panel, .search-input, .search-btn-box, .dd-btn, .dd-menu,
-    .context, .icon-btn, .count-badge, .folder-link, #empty-state, .history-chip, .seg, .seg-btn,
-    .sq-btn, .exact-chip, .nav-tab, .media-list, .media-row, .lib-card, .step, .btn {
-      transition: background-color 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease !important;
-    }
-
-    @media (max-width: 900px) {
-      .sidebar { min-width: 190px; width: 230px; padding: 0.9em; }
-      .search-input-wrap { flex-basis: 100%; min-width: 0; }
-      .lib-grid { grid-template-columns: 1fr; }
-    }
-    .topbar.c-lang #lang-dd .dd-btn { width: 36px; padding: 0; justify-content: center; }
-    .topbar.c-lang #lang-dd .dd-label,
-    .topbar.c-lang #lang-dd .dd-caret { display: none; }
-    .topbar.c-lang #lang-dd .dd-icon { transform: none; margin: 0; }
-    html[lang="en"] .topbar.c-lang #lang-dd .dd-icon { transform: none; }
-
-    .topbar.c-theme #theme-dd .dd-btn { width: 36px; padding: 0; justify-content: center; }
-    .topbar.c-theme #theme-dd .dd-label,
-    .topbar.c-theme #theme-dd .dd-caret { display: none; }
-    .topbar.c-theme #theme-dd .dd-icon { transform: none; margin: 0; }
-    html[lang="en"] .topbar.c-theme #theme-dd .dd-icon { transform: none; }
-
-    .topbar.c-guide .nav-tab[data-tab="guide"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-guide .nav-tab[data-tab="guide"] span { display: none; }
-
-    .topbar.c-settings .nav-tab[data-tab="settings"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-settings .nav-tab[data-tab="settings"] span { display: none; }
-
-    .topbar.c-library .nav-tab[data-tab="library"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-library .nav-tab[data-tab="library"] span { display: none; }
-
-    .topbar.c-media .nav-tab[data-tab="media"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-media .nav-tab[data-tab="media"] span { display: none; }
-
-    .topbar.c-saved .nav-tab[data-tab="saved"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-saved .nav-tab[data-tab="saved"] span { display: none; }
-
-    .topbar.c-search .nav-tab[data-tab="search"] { padding: 7px 10px; gap: 0; }
-    .topbar.c-search .nav-tab[data-tab="search"] span { display: none; }
-
-    .topbar.compact { flex-wrap: wrap; row-gap: 0; }
-    .topbar.compact .menu-btn { display: inline-flex; }
-    .topbar.compact > .topbar-right:not(.is-empty) + .menu-btn { font-size: inherit; margin-left: -0.7em; }
-    .topbar.compact.open .topbar-menu {
-      display: flex; flex-basis: 100%; flex-direction: column; gap: 0.7em;
-      margin-top: 0.55em; padding-top: 0.7em; border-top: 1px solid var(--border-color);
-      animation: slideDownFader 0.15s ease-out;
-    }
-    .menu-tabs { display: flex; flex-direction: column; gap: 2px; }
-    .menu-tabs:empty { display: none; }
-    .topbar-right.is-empty { display: none; }
-    .topbar .topbar-menu .nav-tab[data-tab] { padding: 9px 12px; gap: 7px; }
-    .topbar .topbar-menu .nav-tab[data-tab] span { display: inline; }
-    .topbar-menu .dd-btn { gap: 7px; }
-    .topbar-menu .topbar-right { flex-wrap: wrap; }
-    .topbar-menu .topbar-right .dd { flex: 1; }
-    .topbar-menu .top-btn { flex: 1 1 100%; }
-    .topbar-menu .topbar-right .dd-label { flex: 1; text-align: left; display: inline; }
-    .topbar-menu .topbar-right .dd-caret { display: inline-block; }
-    .topbar-menu .dd-menu { left: 0; right: auto; }
-    @media (max-width: 720px) {
-      :root { --pad: 0.8rem; --bar-px: 0.7em; }
-      .flex-row { flex-direction: column; }
-      .sidebar { width: 100%; max-width: none; min-width: 0; height: 38vh; position: static; top: auto; align-self: auto; }
-      .main-content { width: 100%; }
-      .search-options .sort-dd { flex: 1; }
-      .steps { grid-template-columns: 1fr; }
-      .panel { padding: 1.1em 1.1em; }
-      .media-row { padding: 0.7em 0.8em; gap: 0.6em; }
-      .media-name, .media-author { white-space: normal; overflow-wrap: anywhere; }
-      .media-row { display: grid; grid-template-columns: auto 1fr; align-items: start; row-gap: 0.4em; }
-      .media-row .media-stats { grid-column: 2; }
-      .media-row .media-stats .stat-pill.secondary { display: none; }
-    }
-  </style>
-  <script>
     const store = {
       get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
       set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -941,6 +15,7 @@
       return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
     }
     function fmt(n) { return Number(n || 0).toLocaleString(LANG === 'ja' ? 'ja-JP' : 'en-US'); }
+    const ON_PHONE = (document.querySelector('meta[name="aobana-termux"]') || {}).content === '1';
 
     const LIST_CAP = 100;
     function capList(list) {
@@ -949,426 +24,6 @@
     }
 
     let LANG = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'ja';
-    const I18N = {
-      ja: {
-        app: '露草', tab_search: '検索', tab_media: 'メディア', tab_library: 'ライブラリ', tab_settings: '設定', tab_guide: 'ガイド',
-        tab_saved: 'お気に入り',
-        title_results: '「{q}」の例文',
-        theme_label: 'テーマ',
-        theme_paper: '紙', theme_haze: '霞', theme_night: '夜', theme_midnight: '深夜',
-        media_all: '全て', media_both: '両方', media_subs: '字幕', media_epub: '書籍', media_manga: '漫画',
-        furigana: 'ふりがなの表示 / 非表示 (F)', shortcuts: 'ショートカット (?)',
-        sort_recommended: 'おすすめ', sort_chrono: '時系列順', sort_desc: '長い順', sort_asc: '短い順', sort_random: 'ランダム',
-        sort_title: '例文の並べ替え',
-        filter_folders: '作品名で絞り込み', all: '全て', menu: 'メニュー', sidebar_more: 'さらに {n} 件（スクロールで表示）', counting_others: 'ほかの作品を数えています…',
-        placeholder: '検索（例: 食べる、たべる、"食べて"）', exact: '完全一致', exact_title: '入力した語形のまま検索します',
-        multi: '絞り込み', multi_title: '選んだ作品の中だけを検索し、選んだ作品は上にまとまります。切ると、押した作品に移るだけになります',
-        folder_hint_one: '左の作品名を押すと、その作品の中だけを検索します。',
-        recent: '最近の検索:', searching: 'データベースを検索中…', no_results: '一致する結果が見つかりませんでした。',
-        no_results_chosen: '選んだ作品には一致する結果が見つかりませんでした。',
-        no_results_outside_media: "選んだ作品は、現在のメディアには含まれていません。",
-        no_more: 'これ以上ありません', loading: '読み込み中…', error: 'エラーが発生しました', load_failed: '読み込みに失敗しました',
-        chars: '{n} 字', filtering: '絞り込み中:', remove_filter: '「{f}」を外す',
-        folder_hint: '左の作品名を押すと、その作品の中だけを検索します。いくつでも選べて、選んだ作品は上の ✕ を押すかタブを閉じるまで上に残ります。',
-        empty_title: 'ライブラリが空です',
-        empty_body: '字幕（.srt / .ass）、電子書籍（.epub）、漫画（.mokuro）をフォルダに入れて、ライブラリタブでインデックスを作成すると検索できるようになります。',
-        empty_btn: 'ライブラリを開く',
-        no_saved: 'お気に入りはまだありません。例文の ★ を押すと、ここに保存されます。',
-        saved_count: '{n} 件',
-        media_summary_subs: '{n} 作品', media_summary_epub: '{n} 冊', media_summary_manga: '{n} シリーズ', media_filter: 'タイトル・著者で絞り込み',
-        media_matches: '該当 {n} 件', media_preparing: 'メディア一覧を準備しています',
-        media_sort_title: '並べ替え', media_sort_name: 'タイトル順', media_sort_parts_desc: '収録数の多い順', media_sort_parts_asc: '収録数の少ない順',
-        media_sort_lines_desc: '行数の多い順', media_sort_lines_asc: '行数の少ない順',
-        eta_left: '残り約 {t}', eta_s: '{n} 秒', eta_m: '{m} 分', eta_ms: '{m} 分 {s} 秒', eta_soon: 'まもなく完了',
-        media_none: '該当する作品はありません。', back_media: 'メディア一覧',
-        media_mode_title: 'タイトル', media_mode_content: '本文',
-        media_detail_filter_subs: '話タイトルで絞り込み', media_detail_filter_epub: '章タイトルで絞り込み', media_detail_filter_manga: '巻タイトルで絞り込み',
-        stat_eps: '{n} 話', stat_lines: '{n} 行', stat_chaps: '{n} 章', stat_sents: '{n} 文', stat_vols: '{n} 巻',
-        kind_subs: '字幕', kind_epub: '書籍', kind_manga: '漫画', page_n: '{n} ページ', page_open: 'ページの画像を開く',
-        sc_title: 'ショートカット', sc_focus: '検索バーにフォーカス', sc_next: '次のカードを選択', sc_prev: '前のカードを選択',
-        sc_context: '文脈の展開 / 折りたたみ', sc_save: 'お気に入りに追加 / 解除', sc_furigana: 'ふりがなの表示 / 非表示',
-        sc_help: 'このヘルプの表示 / 非表示', sc_close: 'ダイアログを閉じる', close: '閉じる',
-        welcome_title: '露草へようこそ',
-        welcome_body: '露草（あおばな）は、お手持ちの字幕・電子書籍・漫画から日本語の例文を探せる、オフラインの検索エンジンです。例文はふりがな付きで表示され、前後の文脈も確認できます。',
-        welcome_s1: '字幕（.srt / .ass）、電子書籍（.epub）、漫画（.mokuro）を所定のフォルダに入れる（場所は<b>設定</b>タブで確認できる）',
-        welcome_s0_setup: '次の画面で、使うメディアとそのフォルダを選ぶ',
-        welcome_s1_setup: '字幕（.srt / .ass）、電子書籍（.epub）、漫画（.mokuro）をそのフォルダに入れる',
-        welcome_s2: '<b>ライブラリ</b>タブで「インデックス作成」を押す',
-        welcome_s3: '<b>検索</b>タブで単語や表現を検索する',
-        welcome_more: '使い方の詳細は<b>ガイド</b>タブにあります。',
-        welcome_guide: 'ガイドを読む', welcome_start: 'はじめる', welcome_again: 'ようこそ画面をもう一度表示',
-        changelog: '変更履歴', changelog_lang: '変更履歴は英語で書かれています。', changelog_none: '変更履歴を読み込めませんでした。',
-        update_title: '新しいバージョンがあります',
-        update_body: 'お使いのバージョンは <b>{current}</b>、最新版は <b>{latest}</b> です。',
-        update_more: 'GitHub のリリースページからダウンロードできます。',
-        update_later: 'あとで', update_get: 'リリースページを開く', update_skip: 'このバージョンはスキップ',
-        update_more_termux: 'Termux でインストールのコマンドをもう一度実行すると更新できます。コピーして Termux に貼り付けてください。',
-        update_more_self: '「今すぐ更新」を押すと、Aobana がいったん止まり、Termux で更新して、もう一度起動します。',
-        update_now: '今すぐ更新', update_copy: 'コピー', update_copied: 'コピーしました',
-        update_running: '更新中です。終わるとこのページが自動で再読み込みされます。',
-        update_more_auto: '「自動で更新」を押すと、Aobana がダウンロードとインストールを行い、再起動します。リリースページからダウンロードすることもできます。',
-        update_auto: '自動で更新', update_downloading: 'ダウンロード中… {pct}%',
-        update_installing: 'インストールしています。終わると Aobana が再起動し、このページが自動で再読み込みされます。',
-        update_installing_admin: 'Windows が確認を求めたら「はい」を選んでください。',
-        update_failed: '更新できませんでした。リリースページからダウンロードしてください。',
-        whatsnew_title: 'Aobana {version} に更新しました', whatsnew_sub: '主な変更点',
-        whatsnew_none: 'リリースノートを読み込めませんでした。', whatsnew_more: '詳しく見る',
-        lib_title: 'ライブラリ',
-        lib_lead: 'Aobana は、下のフォルダにあるファイルだけを読み込みます。ファイルを追加・削除・変更したら「インデックス作成」を押してください。変更のあったファイルだけが処理されるので、2回目以降は短時間で終わります。',
-        lib_step1_t: 'ファイルを入れる', lib_step1_d: '字幕は作品ごとのフォルダに、書籍はそのまま書籍フォルダに、漫画は .mokuro ファイルをシリーズごとのフォルダに入れます。',
-        lib_step2_t: 'インデックス作成', lib_step2_d: '文を解析して検索用のデータベースを作ります。大きなライブラリでは数分かかります。',
-        lib_step3_t: '検索する', lib_step3_d: '完了したら、検索タブで検索できます。',
-        lib_subs: '字幕フォルダ', lib_books: '書籍フォルダ', lib_manga: '漫画フォルダ',
-        lib_open: 'フォルダを開く', lib_change: '変更', lib_save: '保存', lib_cancel: 'キャンセル',
-        lib_change_hint: '既存のフォルダの場所を貼り付けてください',
-        lib_picking: '開いたウィンドウでフォルダを選んでください。',
-        lib_disk_subs: 'フォルダ内: 字幕ファイル {n} 件', lib_disk_books: 'フォルダ内: .epub ファイル {n} 件', lib_disk_manga: 'フォルダ内: .mokuro ファイル {n} 件',
-        lib_other: '対象外のファイル {n} 件（.srt / .ass / .ssa / .epub 以外は無視されます）',
-        lib_filtered: 'インデックスしないファイル {n} 件（ライブラリの点検で選んだもの）',
-        lib_missing: 'このフォルダは見つかりません。', lib_counting: '（数えています…）',
-        notice_index: 'インデックスの作成が完了しました（{time}）。', notice_index_stopped: 'インデックスの作成を停止しました（{time}）。',
-        notice_index_error: 'インデックスの作成がエラーで終了しました（{time}）。詳しくはライブラリ タブに表示されています。',
-        notice_check: 'ライブラリの点検が完了しました（{time}）。', notice_check_stopped: 'ライブラリの点検を停止しました（{time}）。',
-        notice_check_error: 'ライブラリの点検がエラーで終了しました（{time}）。詳しくはライブラリ タブに表示されています。',
-        notice_figures: 'ライブラリ タブのフォルダの集計が完了しました（{time}）。',
-        lib_indexed_subs: 'インデックス済み: {files} ファイル · {rows} 行',
-        lib_indexed_books: 'インデックス済み: {files} 冊 · {rows} 文',
-        lib_indexed_manga: 'インデックス済み: {files} 巻 · {rows} 行',
-        lib_outdated: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、再インデックスしてください。',
-        lib_outdated_run: '再インデックスする',
-        lib_tables: '「最適化する」を押して、{which} の検索用データを一度だけ更新してください。検索や書籍の表示が速くなります。ファイルは読み直しません。',
-        lib_tables_run: '最適化する', lib_tables_ready: '表の最適化が終わりました。', lib_tables_done_short: '完了',
-        lib_phase_chapters: '章の表を作成中…', lib_phase_lengths: '行の長さの表を作成中…', lib_phase_lexicon: 'ふりがなの表を作成中…',
-        reindex_title: '再インデックスをおすすめします',
-        reindex_body: '以前の読み込み方でインデックスされたファイルがあります（{which}）。現在の読み込み方を反映するには、<b>ライブラリ</b>タブから再インデックスしてください。',
-        reindex_later: 'あとで', reindex_go: 'ライブラリを開く',
-        recheck16_title: '1.6 の書籍を点検してください',
-        recheck16_body: 'Aobana 1.6 では、一部の .epub から読み込めなかった本文を取り出せるようになりました。既存のライブラリに反映するには、「ライブラリの点検」で「点検する」を押し、結果を確認してから「インデックス作成」を押してください。短い本の一部は読み込み直します。',
-        checkfirst_title: 'インデックスの前に、ライブラリを点検しますか？',
-        checkfirst_body: '点検すると、日本語以外のファイルと重複（同じ本の別ファイル、同じエピソードの別リッピング）を一覧にします。どれを外すかは一覧から選べます。点検しない場合は、フォルダ内のファイルがすべてインデックスされます。この確認は今回だけです。',
-        checkfirst_check: '先に点検する', checkfirst_index: '点検せずに作成',
-        stop_btn: '中止', stopping: '中止しています…', stop_keep: '続ける', stop_confirm: '中止する',
-        stop_index_title: 'インデックスを中止しますか？',
-        stop_index_body: 'ここまでにインデックスしたファイルは残り、そのまま検索できます。残りのファイルは、次に「インデックス作成」を押すと続きから読み込みます。',
-        stop_index_outdated: 'ここまでに読み直したファイルは新しい結果になり、残りは前の結果のまま、どちらも検索できます。続きは「再インデックスする」から実行できます。',
-        stop_check_title: '点検を中止しますか？',
-        stop_check_body: 'ここまで点検した分は保存され、次の点検はその続きから始まります。すでに外すと決めたファイルは、いまインデックスしても外されたままです。',
-        lib_stopped: '中止しました。ここまでの分はインデックス済みです。「インデックス作成」で続きから再開できます。',
-        lib_unfinished: '前回のインデックスは最後まで終わりませんでした（ウィンドウが閉じられたようです）。それまでの分は残っています。「インデックス作成」で続きから再開できます。',
-        lib_unfinished_outdated: '前回の再インデックスは最後まで終わりませんでした（ウィンドウが閉じられたようです）。読み直しの済んだファイルは新しく、残りは前の結果のまま検索できます。続きは「再インデックスする」から実行できます。',
-        an_stopped: '点検を中止しました。ここまでの分は保存されています。「点検する」で続きから再開できます。',
-        lib_run: 'インデックス作成', lib_running: '作成中…',
-        lib_stage_subs: '字幕', lib_stage_epub: '書籍', lib_stage_manga: '漫画',
-        lib_done: 'インデックスの作成が完了しました。', lib_done_search: '検索をはじめる',
-        lib_col_new: '追加・更新', lib_col_same: '変更なし', lib_col_removed: '削除',
-        lib_failed: '読み込めなかったファイル（.epub は破損、または DRM で保護されている可能性があります）:',
-        lib_root_missing: 'フォルダが見つからないため、この段階は中止されました（何も削除されていません）: {s}',
-        lib_log: '詳細ログ', lib_error: 'エラー: {e}',
-        lib_err_busy: 'インデックス作成中は変更できません。', lib_err_notfound: 'そのフォルダは存在しません。', lib_err_notfull: '{path} のような完全なパスを入力してください。', setup_err_make: 'そのフォルダを作成できません。別の場所を選んでください。',
-        lib_data: 'データベースの保存先', lib_saved: '保存しました。次回のインデックス作成から反映されます。',
-        lib_db_lead: 'subs.db、epub.db、manga.db と、その横にある Aobana のファイル（キャッシュ、チェックの結果など）を、指定した既存のフォルダへそのまま移動します。設定とログは移動しません。',
-        lib_db_move: '移動', lib_db_default: '既定の場所に戻す', lib_db_is_default: '既定の場所です。',
-        lib_db_moving: '移動中です…', lib_db_progress: '移動中です… {done} / {total}　{eta}',
-        lib_db_none: 'まだありません', lib_db_moved: 'データベースを移動しました。',
-        lib_db_old_kept: 'データベースを移動しました。ただし使用中のため、元のファイルを削除できませんでした。不要であれば手動で削除してください: {files}',
-        lib_db_err_busy: 'インデックス作成中、ライブラリのチェック中、または別の移動中は移動できません。', lib_db_err_same: 'データベースはすでにこのフォルダにあります。',
-        lib_db_err_exists: 'そのフォルダにはすでに Aobana のファイルがあります: {files}。上書きはしません。',
-        lib_db_err_notwritable: 'そのフォルダには書き込めません。',
-        lib_db_err_failed: '移動できませんでした。データベースは元の場所のままです。',
-        lib_cache_title: '検索キャッシュ', lib_cache: '保存済み: {n} 件 · {size}',
-        lib_cache_lead: 'オンにすると、1 秒以上かかった検索の結果をデータベースの隣に保存し、再起動後もすぐに表示します（最大 1 GB）。大きなライブラリで同じ語をよく検索する場合に役立ちます。多くの場合は不要です。オフにしても保存済みの結果は残り、「検索キャッシュを消去」でいつでも削除できます。',
-        lib_cache_on: 'オン', lib_cache_off: 'オフ',
-        lib_cache_clear: '検索キャッシュを消去', lib_cache_cleared: '検索キャッシュを消去しました。',
-        lib_not_set: '未設定です。設定タブでフォルダを指定してください。',
-        set_media_title: 'メディア',
-        set_media_lead: '使うメディアをオンにします。オフにしたメディアは検索・メディア・ライブラリに表示されず、インデックスはそのまま残ります。',
-        set_media_subs: '字幕', set_media_books: '書籍', set_media_manga: '漫画',
-        set_not_set: '未設定です。「変更」からフォルダを指定してください。',
-        set_drop: 'データベースを削除（{size}）', set_dropped: 'データベースを削除しました。',
-        set_drop_kept: '使用中のファイルが残りました。Aobana を再起動してから、もう一度削除してください。',
-        set_drop_busy: 'インデックス作成中や点検中は削除できません。',
-        set_drop_confirm: '{media}のデータベース {file}（{size}）を削除します。元に戻すには、もう一度インデックス作成が必要です。',
-        set_drop_yes: '削除する',
-        off_title: 'メディアがすべてオフです', off_btn: '設定を開く',
-        off_body: 'すべてのメディアがオフになっています。設定タブでオンにすると検索できます。',
-        setup_open: 'Aobana を設定する', setup_title: 'はじめの設定',
-        setup_lead: '使うメディアをオンにしてください。フォルダは下の場所に作られます。変えるときは「参照」を押してください。',
-        setup_browse: '参照', setup_back: '戻る', setup_pick_one: '少なくとも1つをオンにしてください。',
-        upgrade_title: 'メディアとフォルダ', upgrade_lead: 'このバージョンから漫画（.mokuro）も検索できます。使うメディアをオンにして、フォルダを確認してください。あとから設定タブで変えられます。', upgrade_save: '保存',
-        lib_root_not_set: 'フォルダが未設定のため、この段階は省略されました: {s}',
-        lib_scope_all: 'すべてのメディア', lib_scope_subs: '字幕のみ', lib_scope_epub: '書籍のみ', lib_scope_manga: '漫画のみ',
-        lib_skipped_clash: '同じ名前になるため読み込まなかったファイル（字幕フォルダ直下のファイルと、同名の作品フォルダ内のファイル）:',
-        lib_estimating: '所要時間とサイズを見積もっています…',
-        lib_nothing: 'インデックスするファイルがありません。下のフォルダにファイルを入れてから「インデックス作成」を押してください。',
-        est_title: 'インデックス作成の見積もり',
-        est_new: '新しいファイル: {n} 件', est_db: '{name}: 現在 {now} → 約 {after}',
-        est_total: 'データベース合計: 約 {n}', est_time: '所要時間: 約 {t}（{w} プロセス）',
-        est_warn: 'データベースの合計が 10 GB を超える見込みです。大きいほど検索は遅くなり、「行く」のようによく出る語では 1.7 GB で約 1.5 秒、5.4 GB で約 5 秒かかりました（10 GB を超えると 10 秒ほどの見込み）。まれな語はほとんど変わりません。続けますか？',
-        est_disk: '空き容量が足りない可能性があります（空き {free}）。',
-        est_note: '新しいファイルの一部を実際に解析した見積もりです。変更されたファイルは含みません。',
-        est_start: '開始', est_cancel: 'キャンセル',
-        est_min: '{n} 分', est_hour: '{h} 時間 {m} 分', est_sec: '1 分未満',
-        an_title: 'ライブラリの点検',
-        an_lead: '日本語以外のファイル、重複（同じエピソードの別リッピングや SubPlz の出力、同じ本の別ファイル）、中国語が残る二か国語の字幕を探します。チェックしたファイルはインデックスから外すだけで、移動も削除もしません。二か国語の字幕は、点検しなくても日本語の部分だけがインデックスされます。',
-        an_run: '点検する', an_running: '点検中…',
-        an_stage_subs: '字幕', an_stage_epub: '書籍',
-        an_none: '問題は見つかりませんでした。',
-        an_reason_bilingual: '二か国語（中国語が残る）', an_reason_other_language: '日本語以外', an_reason_language_review: '言語を確認', an_reason_image_only: '画像のみ（テキストなし）', an_reason_duplicate: '重複',
-        an_reason_encoding: '文字コード（UTF-8 で保存し直してください）', an_reason_unreadable: '読み込めないファイル',
-        an_why_lang: '{lines} 行のうち日本語 {ja}・中国語 {zh}・英語 {en}', an_why_image_only: '0 文',
-        an_why_dup: '{keep} と {pct}% 同じ内容', an_why_bytes: '{keep} と同一ファイル', an_why_subplz: 'SubPlz の組 · {keep} を残す',
-        an_kept: 'この組で残すファイル', an_summary: '{files} ファイルを点検 · {when}',
-        an_select_all: 'すべて選択', an_invert: '選択を反転',
-        an_filter: 'チェックしたファイルをインデックスしない',
-        an_filtered_done: '{n} 件をインデックスから外す対象にしました（ファイルはそのままです）。次にインデックスを作成すると検索から外れます。',
-        an_filter_failed: '外せなかったファイル（点検のあとでフォルダが変わりました）:',
-        an_filtered_title: 'インデックスしないファイル', an_kept_is: '残すファイル: {keep}', list_more: 'ほか {n} 件',
-        an_unfilter: 'チェックしたファイルを再び対象にする', an_missing: '（フォルダにありません）',
-        an_unfiltered: '{n} 件を戻しました。インデックスを作成し直すと検索に戻ります。',
-        an_err_busy: 'インデックス作成中は変更できません。',
-        fav_title: 'お気に入りの書き出し・読み込み',
-        fav_lead: 'お気に入りはこのブラウザに保存されます。別のブラウザやパソコンへ移すときは、ここで書き出して、移し先で読み込んでください。',
-        fav_export: '書き出す', fav_import: '読み込む',
-        fav_exported: '{n} 件を書き出しました。',
-        fav_imported: '{added} 件を追加しました（{same} 件はすでにありました）。',
-        fav_bad_file: 'お気に入りのファイルとして読み込めませんでした。',
-        port_title: 'ポート',
-        port_lead: 'Aobana はこのパソコンの中だけで、このポート番号で動きます（http://127.0.0.1:{port}/）。他のアプリが同じ番号を使っている場合は、別の番号（1024〜65535）に変更してください。設定とお気に入りは新しいポートに引き継がれます。',
-        port_save: '保存', port_bad: '1024〜65535 の数字を入力してください。',
-        port_restart: '保存しました。Aobana を閉じて起動し直すと http://127.0.0.1:{port}/ で開きます。',
-        port_env: '環境変数 AOBANA_PORT が設定されているため、ここでの設定は使われません。',
-        workers_title: '並列処理',
-        workers_lead: 'インデックス作成とライブラリの点検で、同時に処理するファイルの数を設定します。数を増やすと CPU 使用率と全ワーカーのメモリ使用量が増えます。このパソコンには CPU スレッドが {cpus} 個あり、おすすめは {rec} です。',
-        workers_save: '保存', workers_auto: 'おすすめに戻す',
-        workers_is_auto: '自動（おすすめの数）',
-        workers_bad: '1〜{max} の数字を入力してください。',
-        workers_saved: '保存しました。次のインデックスから使われます。',
-        workers_over: "おすすめの {rec} を超えると、CPU と全ワーカーのメモリ使用量が増える場合があります。速くなるとは限りません。",
-        workers_env: '環境変数 AOBANA_INDEX_WORKERS が設定されているため、ここでの設定は使われません。',
-        workers_single: 'この環境では、ファイルを 1 つずつ処理します。',
-        search_workers_title: '検索の並列処理',
-        search_workers_lead: "検索はまず 1 つの処理で始まり、設定した時間を過ぎても続いていれば並列処理を追加します。0 秒ならすぐに追加します。このパソコンには CPU スレッドが {cpus} 個あり、推奨値は {rec} です。数を増やしすぎると、速くならないままメモリの使用量が増える場合があります。",
-        search_workers_count: '検索で使う処理の数', search_workers_delay: '追加するまでの秒数',
-        search_workers_saved: '保存しました。次の検索から使われます。',
-        search_workers_over: "推奨値の {rec} を超えると、検索が速くならないままメモリの使用量が増える場合があります。",
-        search_workers_active: "{n} 個のワーカーで検索を続けています。",
-        search_workers_active_now: "{n} 個のワーカーで検索しています。",
-        reset_title: '設定の初期化', lib_scope_aria: 'インデックスする対象',
-        reset_lead: 'このポートの設定、お気に入り、検索履歴をすべて消して、初めて起動したときの状態に戻します。ライブラリとインデックスはそのまま残ります。',
-        reset_btn: '初期化', reset_q: 'すべての設定を初期化しますか？',
-        reset_body: 'お気に入り（{n} 件）も消え、元には戻せません。残す場合は先に書き出してください。ライブラリとインデックスは残ります。',
-        reset_export: 'お気に入りを書き出す', reset_confirm: '初期化する',
-      },
-      en: {
-        app: 'Aobana', tab_search: 'Search', tab_media: 'Media', tab_library: 'Library', tab_settings: 'Settings', tab_guide: 'Guide',
-        tab_saved: 'Favorites',
-        title_results: 'Example sentences for 「{q}」',
-        theme_label: 'Theme',
-        theme_paper: 'Paper', theme_haze: 'Haze', theme_night: 'Night', theme_midnight: 'Midnight',
-        media_all: 'All', media_both: 'All', media_subs: 'Subs', media_epub: 'Books', media_manga: 'Manga',
-        furigana: 'Show / hide furigana (F)', shortcuts: 'Keyboard shortcuts (?)',
-        sort_recommended: 'Recommended', sort_chrono: 'Chronological', sort_desc: 'Longest', sort_asc: 'Shortest', sort_random: 'Random',
-        sort_title: 'Sort sentences',
-        filter_folders: 'Filter titles', all: 'All', menu: 'Menu', sidebar_more: '{n} more (scroll to load)', counting_others: 'Counting other titles...',
-        placeholder: 'Search (e.g. 食べる, たべる, "食べて")', exact: 'Exact', exact_title: 'Match the form exactly as typed',
-        multi: 'Filtered', multi_title: 'Search inside the titles you pick, kept at the top. Off, a click moves to that title alone',
-        folder_hint_one: 'Click a title on the left to search inside it only.',
-        recent: 'Recent searches:', searching: 'Searching...', no_results: 'No matching sentences found.',
-        no_results_chosen: 'No matching sentences in the chosen titles.',
-        no_results_outside_media: "The selected {n|title is|titles are} not in this category.",
-        no_more: 'No more results', loading: 'Loading...', error: 'Something went wrong', load_failed: 'Could not load',
-        chars: '{n} {n|char|chars}', filtering: 'Filtered to:', remove_filter: 'Remove "{f}"',
-        folder_hint: 'Click titles on the left to search inside them. You can pick several; they stay at the top until you click their ✕ above or close the tab.',
-        empty_title: 'Your library is empty',
-        empty_body: 'Put subtitle files (.srt / .ass), e-books (.epub) and manga (.mokuro) in your folders, then build the index in the Library tab to start searching.',
-        empty_btn: 'Open Library',
-        no_saved: 'No favorites yet. Press ★ on a sentence to save it here.',
-        saved_count: '{n} saved',
-        media_summary_subs: '{n} {n|show|shows}', media_summary_epub: '{n} {n|book|books}', media_summary_manga: '{n} manga {n|series|series}', media_filter: 'Filter by title or author',
-        media_matches: '{n} matching', media_preparing: 'Preparing the media list',
-        media_sort_title: 'Sort', media_sort_name: 'Title', media_sort_parts_desc: 'Most entries', media_sort_parts_asc: 'Fewest entries',
-        media_sort_lines_desc: 'Most lines', media_sort_lines_asc: 'Fewest lines',
-        eta_left: 'About {t} left', eta_s: '{n} s', eta_m: '{m} min', eta_ms: '{m} min {s} s', eta_soon: 'Almost done',
-        media_none: 'Nothing matches.', back_media: 'All media',
-        media_mode_title: 'Titles', media_mode_content: 'Content',
-        media_detail_filter_subs: 'Filter episode titles', media_detail_filter_epub: 'Filter chapter titles', media_detail_filter_manga: 'Filter volume titles',
-        stat_eps: '{n} {n|episode|episodes}', stat_lines: '{n} {n|line|lines}', stat_chaps: '{n} {n|chapter|chapters}', stat_sents: '{n} {n|sentence|sentences}', stat_vols: '{n} {n|volume|volumes}',
-        kind_subs: 'SUBS', kind_epub: 'BOOK', kind_manga: 'MANGA', page_n: 'p. {n}', page_open: 'Open the page image',
-        sc_title: 'Keyboard shortcuts', sc_focus: 'Focus the search bar', sc_next: 'Select the next card', sc_prev: 'Select the previous card',
-        sc_context: 'Show / hide context', sc_save: 'Add to / remove from favorites', sc_furigana: 'Show / hide furigana',
-        sc_help: 'Show / hide this help', sc_close: 'Close a dialog', close: 'Close',
-        welcome_title: 'Welcome to Aobana',
-        welcome_body: 'Aobana (露草) is an offline search engine for Japanese example sentences, built from your own subtitles, e-books and manga. Sentences come with furigana, and you can open the surrounding context.',
-        welcome_s1: 'Put subtitle files (.srt / .ass), e-books (.epub) and manga (.mokuro) in your folders (the <b>Settings</b> tab shows where)',
-        welcome_s0_setup: 'Choose what you use, and its folders, on the next screen',
-        welcome_s1_setup: 'Put subtitle files (.srt / .ass), e-books (.epub) and manga (.mokuro) in those folders',
-        welcome_s2: 'Press "Index library" in the <b>Library</b> tab',
-        welcome_s3: 'Search for words and phrases in the <b>Search</b> tab',
-        welcome_more: 'The <b>Guide</b> tab explains everything in more detail.',
-        welcome_guide: 'Read the guide', welcome_start: 'Get started', welcome_again: 'Show the welcome screen again',
-        changelog: 'Changelog', changelog_lang: '', changelog_none: 'The changelog could not be loaded.',
-        update_title: 'A new version is available',
-        update_body: "You're on version <b>{current}</b>. The latest available is <b>{latest}</b>.",
-        update_more: 'You can download it from the release page on GitHub.',
-        update_later: 'Later', update_get: 'Open the release page', update_skip: 'Skip this version',
-        update_more_termux: 'To update, run the install command in Termux again. Copy it and paste it into Termux.',
-        update_more_self: '"Update now" stops Aobana, updates it in Termux and starts it again.',
-        update_now: 'Update now', update_copy: 'Copy', update_copied: 'Copied',
-        update_running: 'Updating. This page reloads by itself when it is done.',
-        update_more_auto: '"Update automatically" downloads and installs it, then restarts Aobana. You can also download it from the release page.',
-        update_auto: 'Update automatically', update_downloading: 'Downloading... {pct}%',
-        update_installing: 'Installing. Aobana restarts when it is done, and this page reloads by itself.',
-        update_installing_admin: 'If Windows asks for permission, choose "Yes".',
-        update_failed: 'The update did not go through. Download it from the release page.',
-        whatsnew_title: 'Updated to Aobana {version}', whatsnew_sub: 'Notable changes',
-        whatsnew_none: 'The release notes could not be loaded.', whatsnew_more: 'Read more',
-        lib_title: 'Library',
-        lib_lead: 'Aobana only reads files in the folders below. Whenever you add, remove or change files, press "Index library". Only changed files are processed, so later runs are quick.',
-        lib_step1_t: 'Add files', lib_step1_d: 'Subtitles go in one folder per show; books go straight into the books folder; manga .mokuro files go in one folder per series.',
-        lib_step2_t: 'Index library', lib_step2_d: 'Every sentence is analyzed into a search database. A large library can take a few minutes.',
-        lib_step3_t: 'Search', lib_step3_d: 'When it finishes, go to the Search tab.',
-        lib_subs: 'Subtitles folder', lib_books: 'Books folder', lib_manga: 'Manga folder',
-        lib_open: 'Open folder', lib_change: 'Change', lib_save: 'Save', lib_cancel: 'Cancel',
-        lib_change_hint: 'Paste the path of an existing folder',
-        lib_picking: 'Choose a folder in the window that opened.',
-        lib_disk_subs: 'In the folder: {n} subtitle {n|file|files}', lib_disk_books: 'In the folder: {n} .epub {n|file|files}', lib_disk_manga: 'In the folder: {n} .mokuro {n|file|files}',
-        lib_other: '{n} other {n|file|files} (anything that is not .srt / .ass / .ssa / .epub is ignored)',
-        lib_filtered: '{n} {n|file|files} left out of the index (chosen in Check library)',
-        lib_missing: 'This folder does not exist.', lib_counting: '(counting...)',
-        notice_index: 'Indexing finished ({time}).', notice_index_stopped: 'Indexing stopped ({time}).',
-        notice_index_error: 'Indexing ended with an error ({time}). The Library tab shows what happened.',
-        notice_check: 'Check library finished ({time}).', notice_check_stopped: 'Check library stopped ({time}).',
-        notice_check_error: 'Check library ended with an error ({time}). The Library tab shows what happened.',
-        notice_figures: 'The Library tab has finished counting the folders ({time}).',
-        lib_indexed_subs: 'Indexed: {files} {files|file|files} · {rows} {rows|line|lines}',
-        lib_indexed_books: 'Indexed: {files} {files|book|books} · {rows} {rows|sentence|sentences}',
-        lib_indexed_manga: 'Indexed: {files} {files|volume|volumes} · {rows} {rows|line|lines}',
-        lib_outdated: 'Some files were indexed using earlier reading rules ({which}). Re-index them to use the current reading rules.',
-        lib_outdated_run: 'Re-index them',
-        lib_tables: 'Click "Optimize tables" to update the tables for {which}. This can speed up search and book opening. Your files are not read again.',
-        lib_tables_run: 'Optimize tables', lib_tables_ready: 'Table optimization finished.', lib_tables_done_short: 'Done',
-        lib_phase_chapters: 'Building the chapter table...', lib_phase_lengths: 'Building the line-length table...', lib_phase_lexicon: 'Building the furigana table...',
-        reindex_title: 'Re-indexing recommended',
-        reindex_body: 'Some files were indexed using earlier reading rules ({which}). Re-index them from the <b>Library</b> tab to use the current reading rules.',
-        reindex_later: 'Later', reindex_go: 'Open Library',
-        recheck16_title: 'Check your books for 1.6',
-        recheck16_body: 'Aobana 1.6 can recover text missed in some .epub files. To update your existing library, press "Check" in Check library and review the results, then press "Index library". Some short books will be read again.',
-        checkfirst_title: 'Check the library before indexing?',
-        checkfirst_body: 'The check lists files that are not in Japanese and duplicates (one book in two files, other rips of one episode). You choose which to leave out. Without it, every file in the folders is indexed. You are only asked once.',
-        checkfirst_check: 'Check first', checkfirst_index: 'Index now',
-        stop_btn: 'Stop', stopping: 'Stopping...', stop_keep: 'Keep going', stop_confirm: 'Stop',
-        stop_index_title: 'Stop indexing?',
-        stop_index_body: 'The files indexed so far stay in the index and can be searched. The next time you press "Index library", it carries on from where this run stopped.',
-        stop_index_outdated: 'The files re-read so far have their new result, and the rest keep the earlier one; all of them can be searched. "Re-index them" carries on with the rest.',
-        stop_check_title: 'Stop the check?',
-        stop_check_body: 'What has been checked so far is saved, and the next check starts from there. The files you already chose to leave out stay out if you index now.',
-        lib_stopped: 'Stopped. Everything up to here is indexed; "Index library" carries on from where it stopped.',
-        lib_unfinished: 'The last indexing run did not finish (the window was probably closed). What it indexed before that is kept; "Index library" carries on from there.',
-        lib_unfinished_outdated: 'The last re-index did not finish (the window was probably closed). The files it read again are updated; the rest keep their earlier result and can still be searched. "Re-index them" carries on.',
-        an_stopped: 'Check stopped. What was checked so far is saved; "Check" carries on from there.',
-        lib_run: 'Index library', lib_running: 'Indexing...',
-        lib_stage_subs: 'Subtitles', lib_stage_epub: 'Books', lib_stage_manga: 'Manga',
-        lib_done: 'Indexing finished.', lib_done_search: 'Start searching',
-        lib_col_new: 'Added / updated', lib_col_same: 'Unchanged', lib_col_removed: 'Removed',
-        lib_failed: 'Files that could not be read (an .epub may be damaged, or protected by DRM):',
-        lib_root_missing: 'This stage was stopped because its folder is missing (nothing was removed): {s}',
-        lib_log: 'Detailed log', lib_error: 'Error: {e}',
-        lib_err_busy: 'Folders cannot be changed while indexing.', lib_err_notfound: 'That folder does not exist.', lib_err_notfull: 'Enter a full path, such as {path}.', setup_err_make: 'That folder cannot be made. Choose another place.',
-        lib_data: 'Databases folder', lib_saved: 'Saved. It takes effect at the next indexing run.',
-        lib_db_lead: 'Moves subs.db, epub.db and manga.db, with Aobana\'s other files beside them (the caches, the library check\'s report), as they are, into an existing folder you choose. Settings and logs stay where they are.',
-        lib_db_move: 'Move', lib_db_default: 'Back to the default', lib_db_is_default: 'This is the default folder.',
-        lib_db_moving: 'Moving...', lib_db_progress: 'Moving... {done} of {total} · {eta}',
-        lib_db_none: 'not there yet', lib_db_moved: 'The databases were moved.',
-        lib_db_old_kept: 'The databases were moved, but the old files were in use and could not be deleted. Delete them by hand if you no longer need them: {files}',
-        lib_db_err_busy: 'The databases cannot be moved while indexing, checking the library or another move.', lib_db_err_same: 'The databases are already in this folder.',
-        lib_db_err_exists: 'That folder already holds Aobana\'s files: {files}. Nothing is overwritten.',
-        lib_db_err_notwritable: 'That folder cannot be written to.',
-        lib_db_err_failed: 'The move failed. The databases are still where they were.',
-        lib_cache_title: 'Search cache', lib_cache: 'Saved: {n} {n|search|searches} · {size}',
-        lib_cache_lead: 'When on, searches that take a second or more are saved beside the databases, so they show at once, even after a restart (up to 1 GB). Useful for a large library searched for the same words often; most libraries do not need it. Turning it off keeps what was saved; Clear search cache deletes it at any time.',
-        lib_cache_on: 'On', lib_cache_off: 'Off',
-        lib_cache_clear: 'Clear search cache', lib_cache_cleared: 'The search cache was cleared.',
-        lib_not_set: 'Not set. Choose a folder in the Settings tab.',
-        set_media_title: 'Media',
-        set_media_lead: 'Turn on the media you use. A media turned off is hidden from Search, Media and Library, and its index is kept.',
-        set_media_subs: 'Subtitles', set_media_books: 'Books', set_media_manga: 'Manga',
-        set_not_set: 'Not set. Choose a folder with "Change".',
-        set_drop: 'Delete database ({size})', set_dropped: 'The database was deleted.',
-        set_drop_kept: 'Some files were in use and remain. Restart Aobana, then delete again.',
-        set_drop_busy: "The index can't be deleted while indexing or checking the library.",
-        set_drop_confirm: 'This deletes the {media} database, {file} ({size}). Getting it back means indexing again.',
-        set_drop_yes: 'Delete',
-        off_title: 'All media are turned off', off_btn: 'Open Settings',
-        off_body: 'Every media is turned off. Turn one on in the Settings tab to search it.',
-        setup_open: 'Set up Aobana', setup_title: 'Setup',
-        setup_lead: 'Turn on what you use. Its folder is made at the location below; press "Browse" to change it.',
-        setup_browse: 'Browse', setup_back: 'Back', setup_pick_one: 'Turn on at least one.',
-        upgrade_title: 'Media and folders', upgrade_lead: 'From this version, manga (.mokuro) can be searched too. Turn on what you use and check its folder. You can change this later in the Settings tab.', upgrade_save: 'Save',
-        lib_root_not_set: 'This stage was skipped because its folder is not set: {s}',
-        lib_scope_all: 'All media', lib_scope_subs: 'Subtitles only', lib_scope_epub: 'Books only', lib_scope_manga: 'Manga only',
-        lib_skipped_clash: 'Not read, because two files would get the same name (one directly in the subtitles folder, one in the show folder named after it):',
-        lib_estimating: 'Estimating time and size...',
-        lib_nothing: 'There are no files to index. Put files in the folders below, then press "Index library".',
-        est_title: 'Indexing estimate',
-        est_new: 'New files: {n}', est_db: '{name}: now {now} → about {after}',
-        est_total: 'Databases in total: about {n}', est_time: 'Time: about {t} ({w} {w|process|processes})',
-        est_warn: 'The databases are expected to pass 10 GB in total. Searches slow down as they grow: a very common word like 行く took about 1.5 s at 1.7 GB and 5 s at 5.4 GB, and may take around 10 s past 10 GB. Rare words are barely affected. Continue?',
-        est_disk: 'There may not be enough free space ({free} free).',
-        est_note: 'Estimated by analyzing a sample of the new files. Changed files are not counted.',
-        est_start: 'Start', est_cancel: 'Cancel',
-        est_min: '{n} min', est_hour: '{h} h {m} min', est_sec: 'under a minute',
-        an_title: 'Check library',
-        an_lead: 'Finds files that are not in Japanese, duplicates (other rips of one episode, SubPlz output, one book in two files) and bilingual subtitles with Chinese left in them. The files you tick are only left out of the index: nothing is moved or deleted. Bilingual subtitles are always indexed with their Japanese part only.',
-        an_run: 'Check', an_running: 'Checking...',
-        an_stage_subs: 'Subtitles', an_stage_epub: 'Books',
-        an_none: 'Nothing found.',
-        an_reason_bilingual: 'Bilingual (Chinese left over)', an_reason_other_language: 'Not Japanese', an_reason_language_review: 'Review language', an_reason_image_only: 'Image-only (no text)', an_reason_duplicate: 'Duplicates',
-        an_reason_encoding: 'Encoding (save it again as UTF-8)', an_reason_unreadable: 'Files that could not be read',
-        an_why_lang: '{lines} {lines|line|lines}: Japanese {ja} · Chinese {zh} · English {en}', an_why_image_only: '0 sentences',
-        an_why_dup: '{pct}% the same as {keep}', an_why_bytes: 'the same file as {keep}', an_why_subplz: 'SubPlz set · {keep} kept',
-        an_kept: 'the one kept from this group', an_summary: '{files} {files|file|files} checked · {when}',
-        an_select_all: 'Select all', an_invert: 'Invert selection',
-        an_filter: "Don't index the ticked files",
-        an_filtered_done: '{n} {n|file|files} will be left out of the index (the files stay where they are). They leave search at the next "Index library".',
-        an_filter_failed: 'Files that could not be left out (the folder changed after the check):',
-        an_filtered_title: 'Left out of the index', an_kept_is: 'kept: {keep}', list_more: 'and {n} more',
-        an_unfilter: 'Include the ticked files again', an_missing: '(no longer in the folder)',
-        an_unfiltered: '{n} {n|file|files} taken off the list. Index again to put them back in search.',
-        an_err_busy: 'This cannot be changed while indexing.',
-        fav_title: 'Export and import favorites',
-        fav_lead: 'Favorites are kept in this browser. To move them to another browser or computer, export them here and import them there.',
-        fav_export: 'Export', fav_import: 'Import',
-        fav_exported: 'Exported {n} {n|favorite|favorites}.',
-        fav_imported: 'Added {added} ({same} {same|was|were} already there).',
-        fav_bad_file: 'That file could not be read as favorites.',
-        port_title: 'Port',
-        port_lead: 'Aobana runs only on this computer, on this port number (http://127.0.0.1:{port}/). If another app uses the same number, change it to another one (1024 to 65535). Your settings and favorites move to the new port.',
-        port_save: 'Save', port_bad: 'Enter a number from 1024 to 65535.',
-        port_restart: 'Saved. Close Aobana and start it again, and it opens at http://127.0.0.1:{port}/.',
-        port_env: 'The AOBANA_PORT environment variable is set, so this setting is not used.',
-        workers_title: 'Workers',
-        workers_lead: "Set how many files indexing and the library check process at once. More workers can raise CPU use and total memory across processes. This computer has {cpus} CPU threads; the recommended count is {rec}.",
-        workers_save: 'Save', workers_auto: 'Use recommended',
-        workers_is_auto: 'Automatic (the recommended number)',
-        workers_bad: 'Enter a number from 1 to {max}.',
-        workers_saved: 'Saved. The next index run uses it.',
-        workers_over: "Above the recommended {rec}, CPU use and total worker memory may rise. Indexing may not finish faster.",
-        workers_env: 'The AOBANA_INDEX_WORKERS environment variable is set, so this setting is not used.',
-        workers_single: 'On this system, files are processed one at a time.',
-        search_workers_title: 'Search workers',
-        search_workers_lead: "Search starts with one worker and adds more if it is still running after the chosen delay. At 0 seconds, it adds them immediately. This computer has {cpus} CPU threads; the recommended count is {rec}. Higher counts can use more memory without speeding up a search.",
-        search_workers_count: 'Workers for search', search_workers_delay: 'Start after (seconds)',
-        search_workers_saved: 'Saved. The next search uses these settings.',
-        search_workers_over: "Above the recommended {rec}, some searches may use more memory without finishing faster.",
-        search_workers_active: "Using {n} workers to continue this search.",
-        search_workers_active_now: "Using {n} workers for this search.",
-        reset_title: 'Reset settings', lib_scope_aria: 'What to index',
-        reset_lead: 'Clears every setting, your favorites and your search history on this port, as on a first start. Your library and index stay as they are.',
-        reset_btn: 'Reset all settings to default', reset_q: 'Reset all settings?',
-        reset_body: 'Your favorites ({n}) go too, and this cannot be undone. Export them first to keep them. Your library and index are kept.',
-        reset_export: 'Export favorites', reset_confirm: 'Reset',
-      },
-    };
     function t(key, vars) {
       let s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.ja[key] ?? key;
       if (vars) s = s.replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, (m, k, one, many) =>
@@ -1454,6 +109,62 @@
       return btoa(unescape(encodeURIComponent(line)));
     }
 
+    const RUBY_HTML_TAGS = {
+      ruby: ['alpha'], rt: [], rp: [], rb: [], mark: [], b: [], br: [],
+      span: ['hl-tail', 'hl-tail-p'], div: ['spacer'],
+    };
+    const RUBY_HTML_DROP = new Set(['script', 'style', 'template', 'noscript', 'iframe', 'object', 'embed',
+      'svg', 'math', 'textarea', 'title', 'xmp', 'noembed', 'noframes', 'select', 'head']);
+    const RUBY_HTML_ESC = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;'};
+    function sanitizeRubyHtml(html) {
+      if (typeof html !== 'string' || !html) return '';
+      const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, 'text/html');
+      const walk = node => {
+        let out = '';
+        for (const n of node.childNodes) {
+          if (n.nodeType === Node.TEXT_NODE) {
+            out += n.data.replace(/[&<>"']/g, c => RUBY_HTML_ESC[c]);
+          } else if (n.nodeType === Node.ELEMENT_NODE) {
+            const tag = n.localName;
+            if (RUBY_HTML_DROP.has(tag)) continue;
+            const classes = Object.prototype.hasOwnProperty.call(RUBY_HTML_TAGS, tag) ? RUBY_HTML_TAGS[tag] : null;
+            const cls = n.getAttribute('class');
+            const keep = classes && (tag === 'span' || tag === 'div' ? classes.includes(cls) : true);
+            if (!keep) { out += walk(n); continue; }
+            if (tag === 'br') { out += '<br>'; continue; }
+            const attr = cls && classes.includes(cls) ? ` class="${cls}"` : '';
+            out += `<${tag}${attr}>${walk(n)}</${tag}>`;
+          }
+        }
+        return out;
+      };
+      return walk(doc.body);
+    }
+
+    const FAV_TEXT = new Set(['id', 'legacy_id', 'line', 'file', 'media_type', 'title', 'folder', 'original_q',
+      'readings', 'base_forms', 'clean_text']);
+    const FAV_INT = new Set(['rowid', 'page', 'char_count']);
+    const FAV_HTML = new Set(['display_line', 'context']);
+    function cleanFavorite(s) {
+      if (!s || typeof s !== 'object' || typeof s.line !== 'string') return null;
+      const out = {};
+      for (const k of Object.keys(s)) {
+        const v = s[k];
+        if (FAV_TEXT.has(k)) {
+          if (typeof v === 'string') out[k] = v;
+        } else if (FAV_INT.has(k)) {
+          const n = typeof v === 'number' ? v : parseInt(v, 10);
+          if (Number.isSafeInteger(n)) out[k] = n;
+        } else if (k === 'score') {
+          const n = Number(v);
+          if (Number.isFinite(n)) out[k] = n;
+        } else if (FAV_HTML.has(k)) {
+          if (typeof v === 'string') out[k] = sanitizeRubyHtml(v);
+        }
+      }
+      return out;
+    }
+
     function loadSavedSentences() {
       let raw, list;
       try {
@@ -1467,16 +178,17 @@
       const seen = new Set();
       const out = [];
       let changed = false;
-      for (const s of list) {
-        if (s && typeof s.line === 'string') {
-          const id = lineId(s.line);
-          if (seen.has(id)) { changed = true; continue; }
-          seen.add(id);
-          if (s.id !== id) {
-            if (s.legacy_id === undefined) s.legacy_id = s.id;
-            s.id = id;
-            changed = true;
-          }
+      for (const orig of list) {
+        const s = cleanFavorite(orig);
+        if (!s) { changed = true; continue; }
+        if (JSON.stringify(s) !== JSON.stringify(orig)) changed = true;
+        const id = lineId(s.line);
+        if (seen.has(id)) { changed = true; continue; }
+        seen.add(id);
+        if (s.id !== id) {
+          if (s.legacy_id === undefined && typeof orig.id === 'string') s.legacy_id = orig.id;
+          s.id = id;
+          changed = true;
         }
         out.push(s);
       }
@@ -3049,7 +1761,7 @@
 `;
         const drop = size == null ? '' : `<button class="btn set-drop" onclick="askDrop('${which}')">${esc(t('set_drop', { size: fmtBytes(size) }))}</button>`;
         const buttons = `<div class="btns lib-view-btns">
-            ${on[which] ? `<button class="btn" onclick="openFolder('${which}', this)" ${path == null ? 'disabled' : ''}>${esc(t('lib_open'))}</button>
+            ${on[which] ? `${ON_PHONE ? '' : `<button class="btn" onclick="openFolder('${which}', this)" ${path == null ? 'disabled' : ''}>${esc(t('lib_open'))}</button>`}
             <button class="btn" onclick="changeFolder('${which}')">${esc(t('lib_change'))}</button>` : ''}
             ${drop}
           </div>
@@ -3155,9 +1867,9 @@
         <h3>${esc(title)}</h3>
         ${path == null ? '' : `<span class="path">${esc(path)}</span>`}
         <div class="facts lib-facts">${folderFacts(which, path, disk, indexed, counting)}</div>
-        <div class="btns lib-view-btns">
+        ${ON_PHONE ? '' : `<div class="btns lib-view-btns">
           <button class="btn" onclick="openFolder('${which}', this)" ${disk ? '' : 'disabled'}>${esc(t('lib_open'))}</button>
-        </div>
+        </div>`}
         <div class="lib-open-msg facts" role="status"></div>
       </div>`;
     }
@@ -3267,7 +1979,7 @@
           </div>
         </div>
         <div class="btns lib-view-btns">
-          <button class="btn" onclick="openFolder('data', this)">${esc(t('lib_open'))}</button>
+          ${ON_PHONE ? '' : `<button class="btn" onclick="openFolder('data', this)">${esc(t('lib_open'))}</button>`}
           <button class="btn" onclick="changeDbFolder()">${esc(t('lib_change'))}</button>
           ${lib.db_is_default ? '' : `<button class="btn" onclick="moveDatabases('default')">${esc(t('lib_db_default'))}</button>`}
         </div>
@@ -3371,12 +2083,13 @@
       const have = new Set(savedSentences.map(s => s.id));
       let added = 0, same = 0;
       const incoming = [];
-      for (const s of items) {
-        if (!s || typeof s.line !== 'string') continue;
+      for (const orig of items) {
+        const s = cleanFavorite(orig);
+        if (!s) continue;
         const id = lineId(s.line);
         if (have.has(id)) { same++; continue; }
         have.add(id);
-        if (s.id !== id && s.legacy_id === undefined && s.id !== undefined) s.legacy_id = s.id;
+        if (s.id !== id && s.legacy_id === undefined && typeof s.id === 'string') s.legacy_id = s.id;
         s.id = id;
         incoming.push(s);
         added++;
@@ -3670,7 +2383,7 @@
         </div></div>`;
     }
 
-    async function startIndex(only, outdated, tables) {
+    async function startIndex(only, outdated, tables, allowRemoval) {
       document.getElementById('lib-estimate').innerHTML = '';
       if (tables) {
         tableRunStartedHere = true;
@@ -3679,6 +2392,7 @@
       const body = only ? { only } : {};
       if (outdated) body.outdated = true;
       if (tables) body.tables = true;
+      if (allowRemoval) body.allow_removal = true;
       const res = await apiPost('/api/index', body).catch(() => null);
       if (res && res.nothing) {
         tableRunStartedHere = false;
@@ -3819,12 +2533,14 @@
         const cb = e.target;
         if (cb.classList.contains('an-pick')) (cb.checked ? anPicked.add(Number(cb.value)) : anPicked.delete(Number(cb.value)));
         else if (cb.classList.contains('an-unpick')) (cb.checked ? anUnpicked.add(Number(cb.value)) : anUnpicked.delete(Number(cb.value)));
+        else return;
+        anSelectLabel(cb.closest('details.an-section'));
       });
     }
 
     function renderFiltered(list) {
       if (!list || !list.length) return '';
-      const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this, true)">${esc(t('an_select_all'))}</button></div>`;
+      const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn an-all" data-filtered="1" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button></div>`;
       let html = `<div class="facts" style="margin-top:1.2em; margin-bottom:0.2em;">${esc(t('an_filtered_title'))} (${fmt(list.length)})</div>`;
       for (const media of ['subs', 'epub']) {
         const reasons = [...AN_ORDER, ...new Set(list.filter(f => f.media === media && !AN_ORDER.includes(f.reason)).map(f => f.reason))];
@@ -3853,7 +2569,7 @@
       anPicked = new Set(anItems.filter(it => AN_FILTERABLE.includes(it.reason)
         && it.reason !== 'duplicate_kept' && it.reason !== 'language_review' && !it.filtered).map(it => Number(it.id)));
       const filtered = renderFiltered(anFiltered);
-      if (!r) { box.innerHTML = filtered + '<div id="an-move-msg"></div>'; return; }
+      if (!r) { box.innerHTML = filtered + '<div id="an-move-msg"></div>'; anSelectLabels(box); return; }
       let html = '';
       let files = 0;
       for (const media of ['subs', 'epub']) {
@@ -3870,12 +2586,12 @@
             items.filter(i => i.reason === 'duplicate' || i.reason === 'duplicate_kept')
               .forEach(i => (groups[i.keep] = groups[i.keep] || []).push(i));
             const units = Object.values(groups).map(g => g.sort((a, b) => (a.reason === 'duplicate_kept' ? -1 : 0) - (b.reason === 'duplicate_kept' ? -1 : 0)));
-            const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`;
+            const bar = `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn an-all" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button><button type="button" class="btn" onclick="invertDuplicates(this)">${esc(t('an_invert'))}</button></div>`;
             html += anSection(units, g => `<div class="an-group">${g.map(anRow).join('')}</div>`,
               g => g.filter(i => i.reason === 'duplicate').length, summary, bar);
           } else {
             const bar = AN_FILTERABLE.includes(reason)
-              ? `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button></div>`
+              ? `<div class="btns" style="margin:0.3em 0 0.5em;"><button type="button" class="btn an-all" onclick="selectAllSection(this)">${esc(t('an_select_all'))}</button></div>`
               : '';
             html += anSection(list, anRow, () => 1, summary, bar);
           }
@@ -3887,19 +2603,44 @@
             <button class="btn primary" onclick="filterFlagged()">${esc(t('an_filter'))}</button></div>`
         : `<div class="notice ok">${esc(t('an_none'))}</div>`;
       box.innerHTML = head + found + filtered + '<div id="an-move-msg"></div>';
+      anSelectLabels(box);
     }
 
-    function selectAllSection(btn, isFiltered = false) {
-      const details = btn.closest('.an-section');
+    function anSectionPicks(details) {
       const sec = details && anSections[Number(details.dataset.an)];
-      if (!sec) return;
-      if (isFiltered) {
-        sec.units.forEach(i => anUnpicked.add(Number(i)));
-        details.querySelectorAll('.an-unpick').forEach(cb => { cb.checked = true; });
-      } else {
-        sec.units.flat().filter(it => it && !it.filtered).forEach(it => anPicked.add(Number(it.id)));
-        details.querySelectorAll('.an-pick:not(:disabled)').forEach(cb => { cb.checked = true; });
-      }
+      if (!sec) return null;
+      if (details.querySelector('.an-all[data-filtered]')) return { ids: sec.units.map(Number), set: anUnpicked };
+      const ids = sec.units.flat().filter(it => it && !it.filtered && it.reason !== 'duplicate_kept').map(it => Number(it.id));
+      return { ids, set: anPicked };
+    }
+
+    function anAllTicked(p) {
+      return p.ids.length > 0 && p.ids.every(id => p.set.has(id));
+    }
+
+    function anSelectLabel(details) {
+      const btn = details && details.querySelector('.an-all');
+      const p = btn && anSectionPicks(details);
+      if (p) btn.textContent = t(anAllTicked(p) ? 'an_deselect_all' : 'an_select_all');
+    }
+
+    function anSelectLabels(box) {
+      box.querySelectorAll('details.an-section').forEach(anSelectLabel);
+    }
+
+    function anSyncBoxes(details) {
+      details.querySelectorAll('.an-pick').forEach(cb => { cb.checked = anPicked.has(Number(cb.value)); });
+      details.querySelectorAll('.an-unpick').forEach(cb => { cb.checked = anUnpicked.has(Number(cb.value)); });
+    }
+
+    function selectAllSection(btn) {
+      const details = btn.closest('.an-section');
+      const p = anSectionPicks(details);
+      if (!p) return;
+      const untick = anAllTicked(p);
+      p.ids.forEach(id => (untick ? p.set.delete(id) : p.set.add(id)));
+      anSyncBoxes(details);
+      anSelectLabel(details);
     }
 
     function invertDuplicates(btn) {
@@ -3911,6 +2652,7 @@
         anPicked.has(id) ? anPicked.delete(id) : anPicked.add(id);
       });
       details.querySelectorAll('.an-pick').forEach(cb => { cb.checked = anPicked.has(Number(cb.value)); });
+      anSelectLabel(details);
     }
 
     function anMessage(html) {
@@ -4009,6 +2751,15 @@ function startPolling() {
       (s.root_missing || []).forEach(st => {
         html += `<div class="notice warn">${esc(t('lib_root_missing', { s: t('lib_stage_' + st) }))}</div>`;
       });
+      const held = Object.keys(s.removal_held || {}).filter(st => ['subs', 'epub', 'manga'].includes(st));
+      if (!s.running && held.length) {
+        held.forEach(st => {
+          const h = s.removal_held[st];
+          html += `<div class="notice warn">${esc(t('lib_removal_held', { s: t('lib_stage_' + st), gone: fmt(h.gone), indexed: fmt(h.indexed) }))}</div>`;
+        });
+        const only = '[' + held.map(st => `'${st}'`).join(',') + ']';
+        html += `<div class="btns"><button class="btn" onclick="startIndex(${only}, false, false, true)">${esc(t('lib_remove_anyway'))}</button></div>`;
+      }
       if ((s.skipped_clash || []).length) {
         html += `<div class="notice warn">${esc(t('lib_skipped_clash'))}<ul>${capList(s.skipped_clash)}</ul></div>`;
       }
@@ -4083,6 +2834,16 @@ function startPolling() {
         <h2>ショートカット</h2>
         <p><span class="kbd-key">Q</span> 検索バー · <span class="kbd-key">D</span>/<span class="kbd-key">↓</span> 次へ · <span class="kbd-key">A</span>/<span class="kbd-key">↑</span> 前へ · <span class="kbd-key">C</span> 文脈 · <span class="kbd-key">S</span> お気に入り · <span class="kbd-key">F</span> ふりがな · <span class="kbd-key">?</span> ヘルプ · <span class="kbd-key">Esc</span> 閉じる</p>
 
+        <h2>Anki アドオン: Aobana Reibun</h2>
+        <!--reibun-->
+        <p>Aobana Reibun（例文）は、Anki のカードに日本語の例文を入れるアドオンです。Aobana を使うと、手持ちの字幕・書籍・漫画から例文を選び、ふりがな、作品名、前後の文脈を、漫画ならそのページの画像も一緒に入れます。Aobana が動いていなければアドオンが起動し、終わったら止めます。</p>
+        <ul>
+          <li><b>まとめて入れる</b> — Anki の「Tools → Aobana Reibun → Run」でデッキ全体に、ブラウザでは選んだノートに入れます。フィールドが埋まっているときは、スキップ・置き換え・追加から選べます。</li>
+          <li><b>復習中に1枚ずつ</b> — <span class="kbd-key">Ctrl+Shift+W</span> を押すと、今のカードに Aobana の例文が入ります。</li>
+          <li><b>ほかの2つのソース</b> — Nadeshiko（API キーが必要）と Immersion Kit（キー不要）の例文も、スクリーンショットと音声つきで入れられます（<span class="kbd-key">Ctrl+Shift+O</span>・<span class="kbd-key">Ctrl+Shift+K</span>）。</li>
+        </ul>
+        <p>Anki の「ツール → アドオン」で「アドオンを入手...」を押し、上のコードを入力するとインストールできます。AnkiAutoImage をもとに作られました。</p>
+
         <h2>表示と設定</h2>
         <p>右上のボタンでショートカット一覧（?）、言語（日本語 / English）、テーマ（紙・霞・夜・深夜）を切り替えられます。</p>
 
@@ -4149,6 +2910,16 @@ Manga folder/
         <h2>Keyboard shortcuts</h2>
         <p><span class="kbd-key">Q</span> search bar · <span class="kbd-key">D</span>/<span class="kbd-key">↓</span> next · <span class="kbd-key">A</span>/<span class="kbd-key">↑</span> previous · <span class="kbd-key">C</span> context · <span class="kbd-key">S</span> favorite · <span class="kbd-key">F</span> furigana · <span class="kbd-key">?</span> help · <span class="kbd-key">Esc</span> close</p>
 
+        <h2>Anki add-on: Aobana Reibun</h2>
+        <!--reibun-->
+        <p>Aobana Reibun (例文, "example sentences") is an Anki add-on that fills your cards with Japanese example sentences. With Aobana, it picks a sentence from your own subtitles, books and manga, with its furigana, the title it comes from, the lines around it, and for manga the page's image. If Aobana is not running, the add-on starts it and stops it when done.</p>
+        <ul>
+          <li><b>A whole deck at once</b>: "Tools → Aobana Reibun → Run" fills a deck, and the Browser fills the notes you select. When a field is already filled, you choose to skip it, replace it or add to it.</li>
+          <li><b>One card while reviewing</b>: <span class="kbd-key">Ctrl+Shift+W</span> puts an Aobana sentence on the current card.</li>
+          <li><b>Two more sources</b>: Nadeshiko (needs an API key) and Immersion Kit (no key) add sentences with a screenshot and audio (<span class="kbd-key">Ctrl+Shift+O</span>, <span class="kbd-key">Ctrl+Shift+K</span>).</li>
+        </ul>
+        <p>To install it, open "Tools → Add-ons" in Anki, press "Get Add-ons..." and enter the code above. It is based on AnkiAutoImage.</p>
+
         <h2>Appearance and settings</h2>
         <p>The buttons at the top right show keyboard shortcuts (?), and switch language (日本語 / English) and theme (Paper, Haze, Night, Midnight).</p>
 
@@ -4156,12 +2927,33 @@ Manga folder/
         <p>Aobana runs in a small window titled "露草 / Aobana". Close that window to quit; closing the browser tab alone does not stop it.</p>
       `,
     };
+    const REIBUN_CODE = '1429349152';
+    function reibunTop() {
+      if (!REIBUN_CODE) return `<div class="guide-top"><span class="guide-version">Aobana Reibun</span></div>`;
+      const code = esc(REIBUN_CODE);
+      return `<div class="guide-top"><span class="guide-version">Aobana Reibun</span>` +
+        `<code id="reibun-code">${code}</code>` +
+        `<button class="btn" onclick="copyReibunCode(this)">${esc(t('reibun_copy'))}</button>` +
+        `<a class="btn" href="https://ankiweb.net/shared/info/${code}" target="_blank" rel="noopener">AnkiWeb</a></div>`;
+    }
+    async function copyReibunCode(btn) {
+      try { await navigator.clipboard.writeText(REIBUN_CODE); }
+      catch (e) {
+        const r = document.createRange(); r.selectNodeContents(document.getElementById('reibun-code'));
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e2) {}
+        if (!ok) return;
+      }
+      btn.textContent = t('update_copied');
+    }
     function initGuideTab() {
       setTitle(t('tab_guide'));
       document.getElementById('guide-body').innerHTML =
         `<div class="guide-top"><span class="guide-version">Aobana ${esc(APP_VERSION)}</span>` +
         `<button class="btn" onclick="openChangelog()">${esc(t('changelog'))}</button>` +
-        `<button class="btn" onclick="openWelcome()">${esc(t('welcome_again'))}</button></div>` + GUIDE[LANG];
+        `<button class="btn" onclick="openWelcome()">${esc(t('welcome_again'))}</button></div>` +
+        GUIDE[LANG].replace('<!--reibun-->', reibunTop());
     }
 
     let activityTimer = null;
@@ -5119,405 +3911,3 @@ Manga folder/
         }
       }
     });
-  </script>
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/" draggable="false" onclick="cancelServerSearch(1); clearPins(); store.del('aobana_last_search'); store.del('aobana_last_media')">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <span class="brand-name"><ruby>露草<rt>あおばな</rt></ruby></span>
-    </a>
-    <nav class="nav-tabs">
-      <a class="nav-tab" data-tab="search" href="/" draggable="false" onclick="handleSearchTabClick(event)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
-        <span data-i18n="tab_search">検索</span>
-      </a>
-      <a class="nav-tab" data-tab="media" href="/?tab=media" draggable="false" onclick="handleMediaTabClick(event)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>
-        <span data-i18n="tab_media">メディア</span>
-      </a>
-      <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-        <span data-i18n="tab_saved">お気に入り</span>
-      </a>
-      <a class="nav-tab" data-tab="library" href="/?tab=library" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5L12 16l2.5-2.5"/></svg>
-        <span data-i18n="tab_library">ライブラリ</span>
-      </a>
-      <a class="nav-tab" data-tab="settings" href="/?tab=settings" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-        <span data-i18n="tab_settings">設定</span>
-      </a>
-      <a class="nav-tab" data-tab="guide" href="/?tab=guide" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
-        <span data-i18n="tab_guide">ガイド</span>
-      </a>
-    </nav>
-    <div class="topbar-right">
-      <button type="button" id="shortcuts-btn" class="dd-btn top-btn" onclick="toggleShortcutsModal()" data-i18n-title="shortcuts" data-i18n-aria="shortcuts" title="ショートカット (?)" aria-label="ショートカット (?)">
-        <span class="dd-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/></svg></span>
-      </button>
-      <div id="lang-dd"></div>
-      <div id="theme-dd"></div>
-    </div>
-    <button type="button" class="menu-btn" id="menu-btn" onclick="toggleMenu(event)" aria-expanded="false" aria-controls="topbar-menu" data-i18n-title="menu" title="メニュー">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
-    <div class="topbar-menu" id="topbar-menu"><nav class="menu-tabs"></nav><div class="topbar-right menu-right"></div></div>
-  </header>
-
-  <div class="flex-row" data-tab-panel="search">
-    <div class="sidebar">
-      <div class="side-controls">
-        <div class="seg" id="media-seg-side"></div>
-        <div class="side-row">
-          <input id="folder-filter" class="folder-filter" type="text" data-i18n-placeholder="filter_folders" placeholder="作品を検索" spellcheck="false" autocomplete="off">
-          <button type="button" class="sq-btn furi-btn" onclick="toggleFurigana()" data-i18n-title="furigana" title="ふりがな">ふ</button>
-        </div>
-      </div>
-      <ul class="folder-list" id="folder-list-dynamic">
-      </ul>
-    </div>
-    <div class="main-content">
-      <form method="GET" class="search-bar" autocomplete="off" action="/" onsubmit="handleSearchSubmit(event, this)">
-        <span id="hidden-folders" hidden></span>
-        <div class="search-input-wrap">
-          <input name="q" class="search-input" data-i18n-placeholder="placeholder" placeholder="検索" value="" autofocus autocomplete="off" spellcheck="false" />
-          <span class="search-btn-box">
-            <button type="submit" class="search-btn" data-i18n-aria="tab_search" aria-label="検索">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
-            </button>
-          </span>
-        </div>
-        <div class="search-options">
-          <label class="exact-chip" id="multi-chip" data-i18n-title="multi_title">
-            <input type="checkbox" id="multi-check">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
-            <span data-i18n="multi">絞り込み</span>
-          </label>
-          <label class="exact-chip" id="exact-chip" data-i18n-title="exact_title">
-            <input type="checkbox" name="exact" id="exact-check">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
-            <span data-i18n="exact">完全一致</span>
-          </label>
-          <input type="hidden" name="media" id="media-input" value="all">
-          <div class="sort-dd" id="sort-select"></div>
-          <input type="hidden" name="sort" id="sort-input" value="recommended">
-        </div>
-      </form>
-
-      <div class="filter-note" id="filter-note" hidden></div>
-      <div id="history-state"></div>
-      <div class="panel cta" id="empty-library" hidden>
-        <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-        <h2 data-i18n="empty_title">ライブラリが空です</h2>
-        <p data-i18n="empty_body"></p>
-        <a class="btn primary" href="/?tab=library" data-i18n="empty_btn">ライブラリを開く</a>
-      </div>
-      <div id="main-loading">
-        <div class="spinner"></div>
-        <span data-i18n="searching">データベースを検索中...</span>
-        <span class="load-eta" id="search-eta"></span>
-        <span class="load-eta" id="search-workers-active" role="status"></span>
-      </div>
-      <div id="empty-state" data-i18n="no_results">一致する結果が見つかりませんでした。</div>
-      <div id="results"></div>
-    </div>
-  </div>
-
-  <div class="page" data-tab-panel="saved" hidden>
-    <div class="media-detail-head" id="saved-head">
-      <h1 data-i18n="tab_saved">お気に入り</h1>
-      <div class="muted" id="saved-meta"></div>
-    </div>
-  </div>
-
-  <div class="page" data-tab-panel="media" hidden>
-    <div id="media-body">
-      <div class="media-toolbar-wrap">
-        <div class="media-toolbar">
-          <div class="seg" id="media-seg"></div>
-          <div class="page-dd" id="media-sort"></div>
-          <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
-        </div>
-      </div>
-      <div class="media-summary" id="media-summary"></div>
-      <div class="media-list" id="media-list"></div>
-      <div class="media-more" id="media-more"></div>
-    </div>
-    <div class="panel cta" id="media-empty" hidden>
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="empty_title">ライブラリが空です</h2>
-      <p data-i18n="empty_body"></p>
-      <a class="btn primary" href="/?tab=library" data-i18n="empty_btn">ライブラリを開く</a>
-    </div>
-    <div class="media-detail-head" id="media-detail" hidden></div>
-  </div>
-
-  <div class="page doc" data-tab-panel="library" hidden>
-    <div class="panel">
-      <h1 data-i18n="lib_title">ライブラリ</h1>
-      <p class="lead" data-i18n="lib_lead"></p>
-      <div class="steps">
-        <div class="step"><div class="step-n">1</div><div class="step-t" data-i18n="lib_step1_t"></div><div class="step-d" data-i18n="lib_step1_d"></div></div>
-        <div class="step"><div class="step-n">2</div><div class="step-t" data-i18n="lib_step2_t"></div><div class="step-d" data-i18n="lib_step2_d"></div></div>
-        <div class="step"><div class="step-n">3</div><div class="step-t" data-i18n="lib_step3_t"></div><div class="step-d" data-i18n="lib_step3_d"></div></div>
-      </div>
-      <div class="lib-grid" id="lib-folders"></div>
-      <div class="notice" id="lib-note" hidden></div>
-      <div class="lib-run-row">
-        <button class="btn primary" id="lib-run" onclick="runIndex()" style="height:42px; padding:0 22px; font-size:1em;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-          <span data-i18n="lib_run">インデックス作成</span>
-        </button>
-        <button class="btn primary" id="lib-optimize" onclick="startIndex('', false, true)" hidden style="height:42px; padding:0 22px; font-size:1em;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg>
-          <span data-i18n="lib_tables_run">最適化する</span>
-        </button>
-        <select id="lib-scope" class="lib-select" onchange="syncCheckScope()" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
-          <option value="" data-i18n="lib_scope_all">すべてのメディア</option>
-          <option value="subs" data-i18n="lib_scope_subs">字幕のみ</option>
-          <option value="epub" data-i18n="lib_scope_epub">書籍のみ</option>
-          <option value="manga" data-i18n="lib_scope_manga">漫画のみ</option>
-        </select>
-      </div>
-      <div class="notice" id="lib-outdated" hidden style="margin-top:0.8em;"></div>
-      <div id="lib-estimate"></div>
-      <div id="lib-status"></div>
-      <div class="lib-card" id="lib-workers" style="margin-top:1em;">
-        <h3 data-i18n="workers_title">並列処理</h3>
-        <p class="muted" id="workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <input type="number" id="workers-input" min="1" oninput="workersHint()">
-          <button class="btn" onclick="saveWorkers()" data-i18n="workers_save">保存</button>
-          <button class="btn" onclick="saveWorkers('auto')" data-i18n="workers_auto">おすすめに戻す</button>
-        </div>
-        <div class="notice" id="workers-note" hidden style="margin:0.8em 0 0;"></div>
-      </div>
-      <div class="lib-card" id="lib-analyse" style="margin-top:1.5em;">
-        <h3 data-i18n="an_title">ライブラリの点検</h3>
-        <div class="facts" data-i18n="an_lead"></div>
-        <div class="btns">
-          <button class="btn" id="an-run" onclick="runAnalysis()"><span data-i18n="an_run">点検する</span></button>
-        </div>
-        <div id="an-status"></div>
-        <div id="an-report"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="page doc" data-tab-panel="settings" hidden>
-    <div class="panel">
-      <h1 data-i18n="tab_settings">設定</h1>
-      <div class="lib-card" id="set-media"></div>
-      <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
-      <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
-        <h3 data-i18n="search_workers_title">検索の並列処理</h3>
-        <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
-          <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
-          <label for="search-delay-input" data-i18n="search_workers_delay">追加するまでの秒数</label>
-          <input type="number" id="search-delay-input" min="0" max="60" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
-          <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
-          <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
-        </div>
-        <div class="notice" id="search-workers-note" hidden style="margin:0.8em 0 0;"></div>
-      </div>
-      <div class="lib-card" id="lib-cache" style="margin-top:1em;"></div>
-      <div class="lib-card" id="lib-favorites" style="margin-top:1em;">
-        <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
-        <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <button class="btn" onclick="exportFavorites()" data-i18n="fav_export">書き出す</button>
-          <button class="btn" onclick="document.getElementById('fav-file').click()" data-i18n="fav_import">読み込む</button>
-          <input type="file" id="fav-file" accept=".json,application/json" hidden onchange="importFavorites(this)">
-        </div>
-        <div class="notice" id="fav-note" hidden style="margin:0.8em 0 0;"></div>
-      </div>
-      <div class="lib-card" id="lib-port" style="margin-top:1em;">
-        <h3 data-i18n="port_title">ポート</h3>
-        <p class="muted" id="port-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <input type="number" id="port-input" min="1024" max="65535">
-          <button class="btn" onclick="savePort()" data-i18n="port_save">保存</button>
-        </div>
-        <div class="notice" id="port-note" hidden style="margin:0.8em 0 0;"></div>
-      </div>
-      <div class="lib-card" id="lib-reset" style="margin-top:1em;">
-        <h3 data-i18n="reset_title">設定の初期化</h3>
-        <p class="muted" data-i18n="reset_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <button class="btn" onclick="openReset()" data-i18n="reset_btn">初期化</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="page doc" data-tab-panel="guide" hidden>
-    <div class="panel" id="guide-body"></div>
-  </div>
-
-  <div class="modal-overlay" id="shortcuts-modal" onclick="if(event.target===this)toggleShortcutsModal()">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title" data-i18n="sc_title">ショートカット</h3>
-        <button type="button" class="modal-close" onclick="toggleShortcutsModal()" data-i18n-title="close" title="閉じる">✕</button>
-      </div>
-      <div class="shortcut-row"><span data-i18n="sc_focus"></span><div class="shortcut-keys"><span class="kbd-key">Q</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_next"></span><div class="shortcut-keys"><span class="kbd-key">D</span> / <span class="kbd-key">↓</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_prev"></span><div class="shortcut-keys"><span class="kbd-key">A</span> / <span class="kbd-key">↑</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_context"></span><div class="shortcut-keys"><span class="kbd-key">C</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_save"></span><div class="shortcut-keys"><span class="kbd-key">S</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_furigana"></span><div class="shortcut-keys"><span class="kbd-key">F</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_help"></span><div class="shortcut-keys"><span class="kbd-key">?</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_close"></span><div class="shortcut-keys"><span class="kbd-key">Esc</span></div></div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="welcome-modal">
-    <div class="modal-card welcome big" id="welcome-card">
-     <div id="welcome-pane">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="welcome_title">露草へようこそ</h2>
-      <p data-i18n="welcome_body"></p>
-      <ol>
-        <li data-i18n-html="welcome_s0_setup" id="welcome-s0" hidden></li>
-        <li data-i18n-html="welcome_s1" id="welcome-s1"></li>
-        <li data-i18n-html="welcome_s2"></li>
-        <li data-i18n-html="welcome_s3"></li>
-      </ol>
-      <p data-i18n-html="welcome_more"></p>
-      <div class="btns" id="welcome-btns">
-        <button class="btn" onclick="closeWelcome(true)" data-i18n="welcome_guide">ガイドを読む</button>
-        <button class="btn primary" onclick="closeWelcome(false)" data-i18n="welcome_start">はじめる</button>
-      </div>
-      <div class="btns" id="welcome-setup-btns" hidden>
-        <button class="btn primary" onclick="openSetupStep()" data-i18n="setup_open">Aobana を設定する</button>
-      </div>
-     </div>
-    <div id="setup-step" hidden>
-      <h2 data-i18n="setup_title" id="setup-title">はじめの設定</h2>
-      <p data-i18n="setup_lead" id="setup-lead"></p>
-      <div id="setup-rows"></div>
-      <div class="lib-msg facts" id="setup-msg" style="margin:1em 0 1.2em; min-height:1.5em;"></div>
-      <div class="btns">
-        <button class="btn setup-first" onclick="backToWelcome()" data-i18n="setup_back">戻る</button>
-        <button class="btn setup-finish setup-first" onclick="finishSetup(true)" data-i18n="welcome_guide">ガイドを読む</button>
-        <button class="btn primary setup-finish setup-first" onclick="finishSetup(false)" data-i18n="welcome_start">はじめる</button>
-        <button class="btn primary setup-finish" id="upgrade-save" onclick="finishUpgrade()" data-i18n="upgrade_save" hidden>保存</button>
-      </div>
-    </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="reindex-modal">
-    <div class="modal-card welcome">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="reindex_title">再インデックスをおすすめします</h2>
-      <p id="reindex-body"></p>
-      <div class="btns">
-        <button class="btn" onclick="closeReindex(false)" data-i18n="reindex_later">あとで</button>
-        <button class="btn primary" onclick="closeReindex(true)" data-i18n="reindex_go">ライブラリを開く</button>
-      </div>
-    </div>
-  </div>
-  <div class="modal-overlay" id="recheck16-modal">
-    <div class="modal-card welcome">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="recheck16_title">1.6 の書籍を点検してください</h2>
-      <p data-i18n="recheck16_body"></p>
-      <div class="btns">
-        <button class="btn" onclick="closeRecheck16(false)" data-i18n="reindex_later">あとで</button>
-        <button class="btn primary" onclick="closeRecheck16(true)" data-i18n="reindex_go">ライブラリを開く</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="checkfirst-modal">
-    <div class="modal-card welcome">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="checkfirst_title">インデックスの前に、ライブラリを点検しますか？</h2>
-      <p data-i18n="checkfirst_body"></p>
-      <div class="btns">
-        <button class="btn" onclick="closeCheckFirst(false)" data-i18n="checkfirst_index">このままインデックス</button>
-        <button class="btn primary" onclick="closeCheckFirst(true)" data-i18n="checkfirst_check">先に点検する</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="stop-modal">
-    <div class="modal-card welcome">
-      <h2></h2>
-      <p></p>
-      <div class="btns">
-        <button class="btn primary" onclick="closeStop(false)" data-i18n="stop_keep">続ける</button>
-        <button class="btn" onclick="closeStop(true)" data-i18n="stop_confirm">中止する</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="reset-modal" onclick="if(event.target===this)closeReset(false)">
-    <div class="modal-card welcome">
-      <h2 data-i18n="reset_q">すべての設定を初期化しますか？</h2>
-      <p id="reset-body"></p>
-      <div class="btns">
-        <button class="btn" onclick="exportFavorites()" data-i18n="reset_export">お気に入りを書き出す</button>
-        <button class="btn primary" onclick="closeReset(false)" data-i18n="lib_cancel">キャンセル</button>
-        <button class="btn" onclick="closeReset(true)" data-i18n="reset_confirm">初期化する</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="update-modal">
-    <div class="modal-card welcome">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="update_title">新しいバージョンがあります</h2>
-      <p id="update-body"></p>
-      <p id="update-more" data-i18n="update_more">GitHub のリリースページからダウンロードできます。</p>
-      <progress id="update-progress" max="100" value="0" hidden></progress>
-      <div class="update-cmd" id="update-cmd" hidden>
-        <code id="update-cmd-text"></code>
-        <button class="btn" type="button" onclick="copyUpdateCmd(this)" data-i18n="update_copy">コピー</button>
-      </div>
-      <div class="btns">
-        <button class="btn" onclick="skipUpdate()" data-i18n="update_skip">このバージョンはスキップ</button>
-        <button class="btn" onclick="closeUpdate()" data-i18n="update_later">あとで</button>
-        <a class="btn primary" id="update-link" href="https://github.com/Wyzmic/aobana/releases/latest" target="_blank" rel="noopener" onclick="closeUpdate()" data-i18n="update_get">リリースページを開く</a>
-        <button class="btn primary" id="update-now" type="button" onclick="applyUpdate()" data-i18n="update_now" hidden>今すぐ更新</button>
-        <button class="btn primary" id="update-auto" type="button" onclick="applyAutoUpdate()" data-i18n="update_auto" hidden>自動で更新</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="whatsnew-modal">
-    <div class="modal-card welcome big">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 id="whatsnew-title"></h2>
-      <h3 class="whatsnew-sub" id="whatsnew-sub" data-i18n="whatsnew_sub">主な変更点</h3>
-      <ul class="whatsnew-list" id="whatsnew-list"></ul>
-      <p id="whatsnew-none" data-i18n="whatsnew_none" hidden></p>
-      <div class="btns">
-        <a class="btn" id="whatsnew-more" href="https://github.com/Wyzmic/aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
-        <button class="btn primary" type="button" onclick="closeWhatsNew()" data-i18n="close">閉じる</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="changelog-modal" onclick="if (event.target === this) closeChangelog()">
-    <div class="modal-card welcome big changelog-card">
-      <h2 data-i18n="changelog">変更履歴</h2>
-      <p id="changelog-lang" data-i18n="changelog_lang" hidden></p>
-      <div id="changelog-body"></div>
-      <div class="btns">
-        <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
-        <button class="btn primary" type="button" onclick="closeChangelog()" data-i18n="close">閉じる</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="task-notices" aria-live="polite"></div>
-
-  <div id="sidebar-tooltip" class="sidebar-tooltip" role="tooltip"></div>
-</body>
-</html>

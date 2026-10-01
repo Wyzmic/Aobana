@@ -7,7 +7,7 @@ main() {
 AOBANA_DIR="${AOBANA_DIR:-/storage/emulated/0/Aobana}"
 DISTRO="aobana"
 BROWSER_PKG="${AOBANA_BROWSER:-org.mozilla.firefox}"
-INSTALL_URL="https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/install.sh"
+INSTALL_URL="https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh"
 UPDATE_EXIT_CODE=75
 
 PORT="$AOBANA_PORT"
@@ -33,8 +33,8 @@ fi
 
 first=1
 while :; do
-    proot-distro login "$DISTRO" -- env AOBANA_TERMUX=1 AOBANA_UPDATER=1 \
-        python3 "$AOBANA_DIR/app.py" &
+    proot-distro login "$DISTRO" -- env AOBANA_TERMUX=1 AOBANA_UPDATER=1 PYTHONPATH="$AOBANA_DIR" \
+        python3 -m aobana.server.app &
     PID=$!
 
     for _ in $(seq 1 120); do

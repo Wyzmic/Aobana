@@ -2,8 +2,8 @@ import collections
 import re
 import unicodedata
 
-import paths
-from utils import ALPHA_CHARS, RUBY_RE, katakana_to_hiragana, ruby_merge_key, ruby_table
+from aobana import paths
+from aobana.utils import ALPHA_CHARS, RUBY_RE, katakana_to_hiragana, ruby_merge_key, ruby_table
 
 POS = re.compile(r"\\pos\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)")
 AN = re.compile(r"\\an(\d)")

@@ -14,11 +14,10 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 from sudachipy import tokenizer, dictionary
 
-import paths
+from aobana import paths
 BASE_DIR = paths.BASE_DIR
 MANGA_ROOT_DIR = paths.manga_dir()
 DB_PATH = paths.manga_db()
-PROGRESS = os.environ.get("AOBANA_PROGRESS") == "1"
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
@@ -31,10 +30,11 @@ def get_tokenizer():
     return _TOKENIZER
 
 
-from utils import (
+from aobana.utils import (
     BOOK_RUBY_RE, normalize_manga_text, katakana_to_hiragana, sudachi_pieces,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested,
-    write_tokenizer_meta, ruby_index_extras, parallel_map, filtered_names,
+    write_tokenizer_meta, ruby_index_extras, parallel_map, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
+    start_output, emit, say,
     ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths,
     ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon,
 )
@@ -204,40 +204,40 @@ COMMIT_EVERY_SECONDS = 20
 
 def build_tables(conn, top):
     if top and not has_line_lengths(conn):
-        print("LENGTHS building the display-length table (once, reads the whole index)...", flush=True)
+        emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
     ensure_line_lengths(conn, DB_PATH, TABLE, "manga", paths.index_workers())
     if stop_requested():
         return
     if top and not has_ruby_lexicon(conn):
-        print("LEXICON building the ruby lexicon table (once, reads the whole index)...", flush=True)
+        emit("phase", "LEXICON building the ruby lexicon table (once, reads the whole index)...", phase="lexicon")
     ensure_ruby_lexicon(conn, TABLE, "manga", paths.index_workers())
 
 
 def run_tables():
-    print(f"Building the manga index's tables ({DB_PATH})...")
+    say(f"Building the manga index's tables ({DB_PATH})...")
     with sqlite3.connect(DB_PATH) as conn:
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (TABLE,)).fetchone() is None:
-            print("Tables ready: no manga index yet.")
+            say("Tables ready: no manga index yet.")
             return
         build_tables(conn, conn.execute(f"SELECT rowid FROM {TABLE} ORDER BY rowid DESC LIMIT 1").fetchone())
     if stop_requested():
-        print("STOPPED", flush=True)
+        emit("stopped", "STOPPED")
     else:
-        print("Tables ready.")
+        say("Tables ready.")
 
 
-def run_manga_indexer(force=False, outdated=False):
-    print(f"Starting manga indexer on {MANGA_ROOT_DIR} (force={force}, outdated={outdated})...")
+def run_manga_indexer(force=False, outdated=False, allow_removal=False):
+    say(f"Starting manga indexer on {MANGA_ROOT_DIR} (force={force}, outdated={outdated})...")
     if MANGA_ROOT_DIR is None:
-        print("ROOT_NOT_SET manga")
-        print("No manga folder is set (Library tab). Nothing was changed.")
+        emit("root_not_set", "ROOT_NOT_SET manga", media="manga")
+        say("No manga folder is set (Library tab). Nothing was changed.")
         return
     if not paths.media_enabled("manga"):
-        print("Manga is off in Settings. Nothing was changed.")
+        say("Manga is off in Settings. Nothing was changed.")
         return
     if not os.path.isdir(MANGA_ROOT_DIR):
-        print(f"ROOT_MISSING {MANGA_ROOT_DIR}")
-        print("Manga indexing aborted: the manga folder does not exist. Nothing was changed.")
+        emit("root_missing", f"ROOT_MISSING {MANGA_ROOT_DIR}", folder=MANGA_ROOT_DIR)
+        say("Manga indexing aborted: the manga folder does not exist. Nothing was changed.")
         return
     os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     excluded = []
@@ -245,7 +245,7 @@ def run_manga_indexer(force=False, outdated=False):
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         if force:
-            print("Force rebuild requested. Dropping existing tables in manga.db...")
+            say("Force rebuild requested. Dropping existing tables in manga.db...")
             for t in (TABLE, "sources", "manga_pages", "line_lengths", "ruby_lexicon"):
                 conn.execute(f"DROP TABLE IF EXISTS {t}")
             conn.commit()
@@ -287,7 +287,7 @@ def run_manga_indexer(force=False, outdated=False):
         if outdated:
             n_old = sum(1 for v in existing_files.values() if v['hash'] is None)
             if n_old:
-                print(f"OUTDATED {n_old}")
+                say(f"OUTDATED {n_old}")
         floor = top[0] if top else 0
         next_rowid = floor + 1
         replaced = []
@@ -307,9 +307,8 @@ def run_manga_indexer(force=False, outdated=False):
             for fname in filenames:
                 if fname.lower().endswith(MOKURO_EXT) and not fname.startswith('.'):
                     mokuro_paths.append(os.path.join(dirpath, fname))
-        print(f"Found {len(mokuro_paths)} .mokuro file(s) in {MANGA_ROOT_DIR}.")
-        if PROGRESS:
-            print(f"TOTAL {len(mokuro_paths)}", flush=True)
+        say(f"Found {len(mokuro_paths)} .mokuro file(s) in {MANGA_ROOT_DIR}.")
+        emit("total", f"TOTAL {len(mokuro_paths)}", quiet=True, total=len(mokuro_paths))
 
         filtered = filtered_names(paths.filtered_list(), "manga")
         current_disk_files = set()
@@ -322,11 +321,11 @@ def run_manga_indexer(force=False, outdated=False):
             current_disk_files.add(relpath)
             jobs.append((path, relpath, existing_files.get(relpath, {}).get('hash')))
         if n_filtered:
-            print(f"FILTERED {n_filtered}")
+            emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
         workers = paths.index_workers() if len(jobs) > 1 else 1
         if workers > 1:
-            print(f"Workers: {workers}")
+            say(f"Workers: {workers}")
         meta_written = False
         new_or_updated = skipped = failed = 0
         pending, last_commit = 0, time.monotonic()
@@ -335,20 +334,16 @@ def run_manga_indexer(force=False, outdated=False):
             if stop_requested():
                 stopped = True
                 break
-            if PROGRESS:
-                print(f"PROGRESS {n}/{len(jobs)} {relpath}", flush=True)
+            emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
             if kind == 'same':
                 skipped += 1
                 continue
             old = existing_files.get(relpath)
             if kind == 'error':
                 if old:
-                    deleted_rows += conn.execute(f"DELETE FROM {TABLE} WHERE source_id = ?", (old['id'],)).rowcount
-                    conn.execute("DELETE FROM sources WHERE id = ?", (old['id'],))
-                    if lexicon:
-                        drop_ruby_lexicon(conn, [old['id']])
+                    conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
                 failed += 1
-                print(f"FAILED {relpath}: {payload}")
+                emit("failed", f"FAILED {relpath}: {payload}", file=relpath, error=str(payload))
                 continue
             series, volume, n_pages, rows, file_excluded = payload
             excluded.extend(file_excluded)
@@ -379,21 +374,22 @@ def run_manga_indexer(force=False, outdated=False):
             if lexicon:
                 write_ruby_lexicon(conn, "manga", ((source_id, r[0], r[1]) for _, r in rows))
             next_rowid += len(rows)
-            print(f"Indexed manga: {series}｜{volume} ({len(rows)} blocks, {n_pages} pages)")
+            say(f"Indexed manga: {series}｜{volume} ({len(rows)} blocks, {n_pages} pages)")
             pending += 1
             if pending >= COMMIT_EVERY_FILES or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
                 flush()
                 pending, last_commit = 0, time.monotonic()
         flush()
 
-        deleted_files = set(existing_files.keys()) - current_disk_files
+        deleted_files, _ = held_removals(len(existing_files), set(existing_files.keys()) - current_disk_files,
+                                         filtered, allow_removal)
         for relpath in deleted_files:
             source_id = existing_files[relpath]['id']
             deleted_rows += conn.execute(f"DELETE FROM {TABLE} WHERE source_id = ?", (source_id,)).rowcount
             conn.execute("DELETE FROM sources WHERE id = ?", (source_id,))
             if lexicon:
                 drop_ruby_lexicon(conn, [source_id])
-            print(f"Removed {'filtered' if relpath in filtered else 'deleted'} manga: {relpath}")
+            say(f"Removed {'filtered' if relpath in filtered else 'deleted'} manga: {relpath}")
 
         if deleted_rows:
             conn.execute(f"DELETE FROM manga_pages WHERE rowid NOT IN (SELECT id FROM {TABLE}_docsize)")
@@ -403,16 +399,16 @@ def run_manga_indexer(force=False, outdated=False):
         for key, n, rels in conn.execute(
                 "SELECT title || '｜' || volume, COUNT(*), group_concat(relpath, ' | ') FROM sources "
                 "GROUP BY title, volume HAVING COUNT(*) > 1"):
-            print(f"WARNING: {n} files share the volume {key}: {rels}")
+            say(f"WARNING: {n} files share the volume {key}: {rels}")
 
         ident = write_tokenizer_meta(conn, 0)
         if new_or_updated:
-            print(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
+            say(f"Tokenizer: SudachiDict-core {ident['sudachidict_version']} "
                   f"({ident['dictionary_format']}), SudachiPy {ident['sudachipy_version']}, "
                   f"system.dic {ident['system_dic_sha256'][:12]}")
         conn.commit()
         if stopped:
-            print("STOPPED", flush=True)
+            emit("stopped", "STOPPED")
         else:
             compact_if_worth(conn, TABLE, deleted_rows, inserted_rows)
 
@@ -423,13 +419,16 @@ def run_manga_indexer(force=False, outdated=False):
             for key, reason, text in excluded:
                 log_f.write(f"[{key}] [{reason}] {text}\n")
 
-    print(f"Manga indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated volumes. Removed {len(deleted_files)} deleted."
-          + (f" Failed {failed}." if failed else ""))
+    emit("summary", f"Manga indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated volumes. Removed {len(deleted_files)} deleted."
+         + (f" Failed {failed}." if failed else ""),
+         unchanged=skipped, indexed=new_or_updated, removed=len(deleted_files), failed=failed)
 
 
 if __name__ == "__main__":
+    start_output()
     if "--tables" in sys.argv:
         if os.path.exists(DB_PATH):
             run_tables()
         sys.exit(0)
-    run_manga_indexer(force="--force" in sys.argv, outdated="--outdated" in sys.argv)
+    run_manga_indexer(force="--force" in sys.argv, outdated="--outdated" in sys.argv,
+                      allow_removal=ALLOW_REMOVAL_FLAG in sys.argv)

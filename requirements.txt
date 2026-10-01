@@ -1,5 +1,5 @@
-# Pinned on purpose: the Sudachi dictionary decides how every sentence is indexed, so never
-# upgrade these on their own.
+# Pinned on purpose. The Sudachi dictionary decides how every sentence is indexed:
+# never upgrade these on their own.
 
 Flask==3.1.3
 beautifulsoup4==4.15.0

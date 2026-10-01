@@ -7,7 +7,7 @@
 <p align="center"><b>手持ちの字幕・電子書籍・漫画が、そのまま日本語の例文集に。</b></p>
 
 <p align="center">
-  <a href="https://github.com/Wyzmic/aobana/releases/latest"><img src="https://img.shields.io/github/v/release/Wyzmic/aobana" alt="Release"></a>
+  <a href="https://github.com/Wyzmic/Aobana/releases/latest"><img src="https://img.shields.io/github/v/release/Wyzmic/Aobana" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
 </p>
 
@@ -28,6 +28,11 @@
 - **お気に入り・並べ替え・絞り込み** — 気に入った例文を保存できます。並び順は「おすすめ」「時系列順」「長い順」「短い順」「ランダム」から選べ、1つのメディアだけ・特定の作品だけに絞り込んで検索することもできます。
 - **日本語・英語の表示切り替え**、4種類のテーマ、キーボードショートカットに対応。
 
+## Anki アドオン: Aobana Reibun
+[Aobana Reibun](https://ankiweb.net/shared/info/1429349152)（例文）は、Anki のカードに日本語の例文を入れるアドオンです。Aobana を使うと、手持ちの字幕・書籍・漫画から例文を選び、ふりがな、作品名、前後の文脈を、漫画ならそのページの画像も一緒に入れます。Nadeshiko と Immersion Kit からも、スクリーンショットと音声つきの例文を入れられます。デッキ全体にまとめて入れることも、復習中のカードにホットキー1つで入れることもできます。
+
+インストールは、Anki の **ツール → アドオン** で **アドオンを入手...** を押し、コード **1429349152** を入力します。ソースとガイド: [Wyzmic/Aobana-Reibun](https://github.com/Wyzmic/Aobana-Reibun)。
+
 ## スクリーンショット
 字幕・書籍・漫画をまとめて「帰る」で検索したところ（テーマ「夜」）:
 
@@ -38,21 +43,21 @@
 ![メディアタブでエピソードを開いた画面](assets/media-haze.ja.png)
 
 ## インストール（Windows 10 / 11、64ビット版）
-1. [最新リリース](https://github.com/Wyzmic/aobana/releases/latest)から `Aobana-Setup-<バージョン>.exe` をダウンロードして実行します。コード署名をしていないため、「WindowsによってPCが保護されました」と表示されることがあります。その場合は「詳細情報」をクリックし、「実行」を押してください。
+1. [最新リリース](https://github.com/Wyzmic/Aobana/releases/latest)から `Aobana-Setup-<バージョン>.exe` をダウンロードして実行します。コード署名をしていないため、「WindowsによってPCが保護されました」と表示されることがあります。その場合は「詳細情報」をクリックし、「実行」を押してください。
 2. セットアップの案内に従います。Python などの必要なものはすべて同梱されているので、事前のインストールは不要で、オフラインでも動作します。
 3. **Aobana** を起動すると、ブラウザで `http://127.0.0.1:5000/` が開きます。初回は、使うメディアとそのフォルダの場所を確認します。
 
 フォルダはあとから設定タブで変更できます。
 
 ## インストール（macOS、Apple シリコン）
-1. [最新リリース](https://github.com/Wyzmic/aobana/releases/latest)から `Aobana-<バージョン>-macos-arm64.dmg` をダウンロードして開き、**Aobana** を「アプリケーション」フォルダにドラッグします。
+1. [最新リリース](https://github.com/Wyzmic/Aobana/releases/latest)から `Aobana-<バージョン>-macos-arm64.dmg` をダウンロードして開き、**Aobana** を「アプリケーション」フォルダにドラッグします。
 2. Aobana を開きます。Apple の署名がないため、初回は macOS に開くのを止められます。「システム設定」›「プライバシーとセキュリティ」を開き、下のほうにある Aobana の「このまま開く」をクリックしてください（ターミナルで `xattr -dr com.apple.quarantine /Applications/Aobana.app` を実行しても開けるようになります）。
 3. Aobana はターミナルのウィンドウで起動し、ブラウザで `http://127.0.0.1:5005/` が開きます（macOS では 5000 番を AirPlay レシーバーが使っているため、5000 ではありません）。ターミナルのウィンドウを閉じると終了します。
 
 ライブラリは、初回に別のフォルダを選ばない限り `書類/Aobana/Subtitles`・`書類/Aobana/Books`・`書類/Aobana/Manga` に、データベースと設定は `~/Library/Application Support/Aobana` に置かれます。フォルダは設定タブから変更できます。Intel 搭載の Mac では、ソースから実行してください。
 
 ## インストール（Linux、x86-64）
-[最新リリース](https://github.com/Wyzmic/aobana/releases/latest)には2種類あります。中身は同じです。どちらも自動でビルドとテストを行っています（Ubuntu 22.04・24.04、Fedora）が、実際の Linux デスクトップでの動作はまだ確認できていません。うまく動かない場合は [Issue](https://github.com/Wyzmic/aobana/issues) でお知らせください。
+[最新リリース](https://github.com/Wyzmic/Aobana/releases/latest)には2種類あります。中身は同じです。どちらも自動でビルドとテストを行っています（Ubuntu 22.04・24.04、Fedora）が、実際の Linux デスクトップでの動作はまだ確認できていません。うまく動かない場合は [Issue](https://github.com/Wyzmic/Aobana/issues) でお知らせください。
 - **`Aobana-<バージョン>-linux-x86_64.tar.gz`**（おすすめ）: 展開したフォルダで `./install.sh` を実行します。アプリケーションメニューに **Aobana** が、コマンドとして `aobana` が追加されます。アップデートは新しいバージョンの `install.sh` を実行し、アンインストールは `~/.local/share/aobana-app/uninstall.sh` を実行します。
 - **`Aobana-<バージョン>-x86_64.AppImage`**: ファイル1つで、インストールは不要です。実行可能にして（`chmod +x`）実行します。FUSE がないと表示された場合は、`--appimage-extract-and-run` を付けて実行してください。
 
@@ -92,7 +97,7 @@ Aobana は Android スマートフォンでも動作し、端末のブラウザ�
 
 1. **インストール** — 次のコマンドを Termux に貼り付けて実行し、ストレージへのアクセスを求められたら許可します。
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh | bash
    ```
    Termux 内に小さな Ubuntu 環境を用意し（形態素解析器の Sudachi に Android 版がないため）、そこに Python と、バージョンを固定したパッケージをインストールします。Aobana の動作に必要なファイルだけが `/storage/emulated/0/Aobana` に置かれ、Termux:Widget 用の **Aobana** ショートカットが追加されます。アップデートするときも、同じコマンドを実行するだけです。1.1 以降は、新しいバージョンが出るとページに「今すぐ更新」が表示され、押すだけで更新して再読み込みされます。
 2. **ライブラリを用意する** — パソコン版の Aobana で作成した `subs.db`・`epub.db`・`manga.db` を、上記のフォルダ内の `data/db` フォルダにコピーします（いちばん速く、検索結果もパソコンと同じになります）。または、そのフォルダの `content/Subtitles` と `content/Books`（漫画は、設定タブで漫画をオンにすると作られる `content/Manga`）にファイルを入れ、ライブラリタブで「インデックス作成」を押します（スマートフォンでは時間がかかります）。
@@ -100,18 +105,18 @@ Aobana は Android スマートフォンでも動作し、端末のブラウザ�
 
 **アンインストール** — Aobana 用の Ubuntu 環境、ショートカット、Aobana のプログラムファイルを削除します。Aobana のフォルダにはデータベース、メディア、設定だけが残るので、不要であれば手動で削除してください。
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/uninstall.sh | bash
 ```
 
 ## ソースから実行する（Windows・macOS・Linux）
 リリース版は Python 3.14 でビルド・動作確認をしています。
 ```bash
-git clone https://github.com/Wyzmic/aobana.git
+git clone https://github.com/Wyzmic/Aobana.git
 cd aobana
 pip install -r requirements.txt
-python launcher.py
+python -m aobana
 ```
-ソースから実行した場合、メディアフォルダはコードと同じ場所の `content/Subtitles`・`content/Books`・`content/Manga` になり、データベースと設定は `data/` に作成されます。フォルダは設定タブから変更できます。
+ソースから実行した場合、メディアフォルダはクローンしたフォルダの `content/Subtitles`・`content/Books`・`content/Manga` になり、データベースと設定は `data/` に作成されます。フォルダは設定タブから変更できます。
 
 `requirements.txt` のバージョン指定は変えないでください。すべての文をどう区切ってインデックスするかは Sudachi の辞書で決まるため、辞書だけを更新すると検索結果が変わってしまいます。
 
@@ -121,7 +126,7 @@ Windows 用インストーラーを自分でビルドする手順は、`release/
 `data/ruby/ruby.tsv` には、ふりがなを正しい文字の上に表示するための小さなタブ区切りの表が入っています。語全体にかかるルビ、書籍が括弧で示した読みのうち辞書で確認できたもの、`.ass` 字幕のふりがなの読みなどです。これらの語は Sudachi の辞書にまだ収録されていないため、表がなければふりがなが違う文字の上に表示されてしまいます。表示の正確さを高めるための、開発者による取り組みです。
 
 ## ご要望・不具合の報告
-追加してほしい機能のアイデアや、おかしな動作の報告を歓迎します。どちらも [Issue](https://github.com/Wyzmic/aobana/issues) からお知らせください。
+追加してほしい機能のアイデアや、おかしな動作の報告を歓迎します。どちらも [Issue](https://github.com/Wyzmic/Aobana/issues) からお知らせください。
 
 ## 謝辞
 - [Nadeshiko](https://github.com/BrigadaSOS/Nadeshiko) — 多くの機能は、この例文検索サービスを参考にしています。
@@ -133,7 +138,7 @@ Windows 用インストーラーを自分でビルドする手順は、`release/
 ## 著作権について
 - Aobana には、字幕や書籍は一切含まれていません。お使いのパソコン内のファイルをインデックスするだけのアプリです。利用する権利のあるファイルでのみご利用ください。
 - スクリーンショットでは、アプリの動作を紹介するために、開発者自身のライブラリから短い台詞や文を数点引用しています。作品名および内容の権利は、各権利者に帰属します。
-- 掲載内容の権利者の方で削除をご希望の場合は、[Issue](https://github.com/Wyzmic/aobana/issues) でお知らせください。該当の画像を差し替えます。
+- 掲載内容の権利者の方で削除をご希望の場合は、[Issue](https://github.com/Wyzmic/Aobana/issues) でお知らせください。該当の画像を差し替えます。
 - Aobana は、データの収集や外部への送信を一切行いません。
 
 ## ライセンス

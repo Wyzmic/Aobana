@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta name="aobana-boot" content="{{ boot }}">
+  <meta name="aobana-version" content="{{ version }}">
+  <meta name="aobana-handoff-pending" content="{{ '1' if handoff_pending else '' }}">
+  <meta name="aobana-termux" content="{{ '1' if termux else '' }}">
+  <script type="application/json" id="aobana-media">{{ media_boot|tojson }}</script>
+  {% if handoff %}<script type="application/json" id="aobana-handoff">{{ handoff|tojson }}</script>{% endif %}
+  <script>
+    (function () {
+      var el = document.getElementById('aobana-handoff');
+      if (!el) return;
+      try {
+        var doc = JSON.parse(el.textContent), items = doc.items || {}, stamp = String(doc.written_at);
+        if (localStorage.getItem('handoff_applied') !== stamp) {
+          for (var k in items) {
+            if (!Object.prototype.hasOwnProperty.call(items, k)) continue;
+            if (k === 'savedSentences') {
+              var raw = localStorage.getItem('savedSentences');
+              var here = JSON.parse(raw || '[]'), come = JSON.parse(items[k] || '[]');
+              if (!Array.isArray(here) || !Array.isArray(come)) continue;
+              var lines = {};
+              here.forEach(function (s) { if (s && typeof s.line === 'string') lines[s.line] = 1; });
+              var added = come.filter(function (s) { return s && typeof s.line === 'string' && !lines[s.line]; });
+              if (!added.length) continue;
+              if (here.length && localStorage.getItem('savedSentences_backup_v1') === null) localStorage.setItem('savedSentences_backup_v1', raw);
+              localStorage.setItem('savedSentences', JSON.stringify(here.concat(added)));
+            } else if (k === 'savedSentences_backup_v1') {
+              if (localStorage.getItem(k) === null) localStorage.setItem(k, items[k]);
+            } else {
+              localStorage.setItem(k, items[k]);
+            }
+          }
+          localStorage.setItem('handoff_applied', stamp);
+        }
+        fetch('/api/profile-handoff', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' }, body: JSON.stringify({ applied: doc.written_at }) }).catch(function () {});
+      } catch (e) {}
+    })();
+    (function () {
+      var get = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+      var theme = get('theme');
+      if (theme === 'dark') theme = 'night';
+      if (['paper', 'haze', 'night', 'midnight'].indexOf(theme) < 0) {
+        theme = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'paper' : 'night';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+      var lang = get('lang');
+      if (lang !== 'ja' && lang !== 'en') lang = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
+      document.documentElement.setAttribute('lang', lang);
+      if (get('furigana') === 'off') document.documentElement.classList.add('no-furigana');
+    })();
+  </script>
+  <meta name="darkreader" content="NO-DARKREADER-PLUGIN">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>露草</title>
+  <link rel="icon" type="image/svg+xml" href="/static/aobana.svg?v={{ asset_v }}">
+  <style>
+    @font-face {
+      font-family: 'Aobana Sans';
+      src: url('/static/fonts/NotoSansJP.ttf?v={{ asset_v }}') format('truetype');
+      font-weight: 100 900;
+      font-display: swap;
+    }
+  </style>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
+  <script src="/static/i18n.js?v={{ asset_v }}"></script>
+  <script src="/static/app.js?v={{ asset_v }}"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" draggable="false" onclick="cancelServerSearch(1); clearPins(); store.del('aobana_last_search'); store.del('aobana_last_media')">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <span class="brand-name"><ruby>露草<rt>あおばな</rt></ruby></span>
+    </a>
+    <nav class="nav-tabs">
+      <a class="nav-tab" data-tab="search" href="/" draggable="false" onclick="handleSearchTabClick(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <span data-i18n="tab_search">検索</span>
+      </a>
+      <a class="nav-tab" data-tab="media" href="/?tab=media" draggable="false" onclick="handleMediaTabClick(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>
+        <span data-i18n="tab_media">メディア</span>
+      </a>
+      <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+        <span data-i18n="tab_saved">お気に入り</span>
+      </a>
+      <a class="nav-tab" data-tab="library" href="/?tab=library" draggable="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5L12 16l2.5-2.5"/></svg>
+        <span data-i18n="tab_library">ライブラリ</span>
+      </a>
+      <a class="nav-tab" data-tab="settings" href="/?tab=settings" draggable="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        <span data-i18n="tab_settings">設定</span>
+      </a>
+      <a class="nav-tab" data-tab="guide" href="/?tab=guide" draggable="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
+        <span data-i18n="tab_guide">ガイド</span>
+      </a>
+    </nav>
+    <div class="topbar-right">
+      <button type="button" id="shortcuts-btn" class="dd-btn top-btn" onclick="toggleShortcutsModal()" data-i18n-title="shortcuts" data-i18n-aria="shortcuts" title="ショートカット (?)" aria-label="ショートカット (?)">
+        <span class="dd-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/></svg></span>
+      </button>
+      <div id="lang-dd"></div>
+      <div id="theme-dd"></div>
+    </div>
+    <button type="button" class="menu-btn" id="menu-btn" onclick="toggleMenu(event)" aria-expanded="false" aria-controls="topbar-menu" data-i18n-title="menu" title="メニュー">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar-menu" id="topbar-menu"><nav class="menu-tabs"></nav><div class="topbar-right menu-right"></div></div>
+  </header>
+
+  <div class="flex-row" data-tab-panel="search">
+    <div class="sidebar">
+      <div class="side-controls">
+        <div class="seg" id="media-seg-side"></div>
+        <div class="side-row">
+          <input id="folder-filter" class="folder-filter" type="text" data-i18n-placeholder="filter_folders" placeholder="作品を検索" spellcheck="false" autocomplete="off">
+          <button type="button" class="sq-btn furi-btn" onclick="toggleFurigana()" data-i18n-title="furigana" title="ふりがな">ふ</button>
+        </div>
+      </div>
+      <ul class="folder-list" id="folder-list-dynamic">
+      </ul>
+    </div>
+    <div class="main-content">
+      <form method="GET" class="search-bar" autocomplete="off" action="/" onsubmit="handleSearchSubmit(event, this)">
+        <span id="hidden-folders" hidden></span>
+        <div class="search-input-wrap">
+          <input name="q" class="search-input" data-i18n-placeholder="placeholder" placeholder="検索" value="" autofocus autocomplete="off" spellcheck="false" />
+          <span class="search-btn-box">
+            <button type="submit" class="search-btn" data-i18n-aria="tab_search" aria-label="検索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+            </button>
+          </span>
+        </div>
+        <div class="search-options">
+          <label class="exact-chip" id="multi-chip" data-i18n-title="multi_title">
+            <input type="checkbox" id="multi-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            <span data-i18n="multi">絞り込み</span>
+          </label>
+          <label class="exact-chip" id="exact-chip" data-i18n-title="exact_title">
+            <input type="checkbox" name="exact" id="exact-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            <span data-i18n="exact">完全一致</span>
+          </label>
+          <input type="hidden" name="media" id="media-input" value="all">
+          <div class="sort-dd" id="sort-select"></div>
+          <input type="hidden" name="sort" id="sort-input" value="recommended">
+        </div>
+      </form>
+
+      <div class="filter-note" id="filter-note" hidden></div>
+      <div id="history-state"></div>
+      <div class="panel cta" id="empty-library" hidden>
+        <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+        <h2 data-i18n="empty_title">ライブラリが空です</h2>
+        <p data-i18n="empty_body"></p>
+        <a class="btn primary" href="/?tab=library" data-i18n="empty_btn">ライブラリを開く</a>
+      </div>
+      <div id="main-loading">
+        <div class="spinner"></div>
+        <span data-i18n="searching">データベースを検索中...</span>
+        <span class="load-eta" id="search-eta"></span>
+        <span class="load-eta" id="search-workers-active" role="status"></span>
+      </div>
+      <div id="empty-state" data-i18n="no_results">一致する結果が見つかりませんでした。</div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <div class="page" data-tab-panel="saved" hidden>
+    <div class="media-detail-head" id="saved-head">
+      <h1 data-i18n="tab_saved">お気に入り</h1>
+      <div class="muted" id="saved-meta"></div>
+    </div>
+  </div>
+
+  <div class="page" data-tab-panel="media" hidden>
+    <div id="media-body">
+      <div class="media-toolbar-wrap">
+        <div class="media-toolbar">
+          <div class="seg" id="media-seg"></div>
+          <div class="page-dd" id="media-sort"></div>
+          <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+      <div class="media-summary" id="media-summary"></div>
+      <div class="media-list" id="media-list"></div>
+      <div class="media-more" id="media-more"></div>
+    </div>
+    <div class="panel cta" id="media-empty" hidden>
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="empty_title">ライブラリが空です</h2>
+      <p data-i18n="empty_body"></p>
+      <a class="btn primary" href="/?tab=library" data-i18n="empty_btn">ライブラリを開く</a>
+    </div>
+    <div class="media-detail-head" id="media-detail" hidden></div>
+  </div>
+
+  <div class="page doc" data-tab-panel="library" hidden>
+    <div class="panel">
+      <h1 data-i18n="lib_title">ライブラリ</h1>
+      <p class="lead" data-i18n="lib_lead"></p>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-t" data-i18n="lib_step1_t"></div><div class="step-d" data-i18n="lib_step1_d"></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-t" data-i18n="lib_step2_t"></div><div class="step-d" data-i18n="lib_step2_d"></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-t" data-i18n="lib_step3_t"></div><div class="step-d" data-i18n="lib_step3_d"></div></div>
+      </div>
+      <div class="lib-grid" id="lib-folders"></div>
+      <div class="notice" id="lib-note" hidden></div>
+      <div class="lib-run-row">
+        <button class="btn primary" id="lib-run" onclick="runIndex()" style="height:42px; padding:0 22px; font-size:1em;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          <span data-i18n="lib_run">インデックス作成</span>
+        </button>
+        <button class="btn primary" id="lib-optimize" onclick="startIndex('', false, true)" hidden style="height:42px; padding:0 22px; font-size:1em;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg>
+          <span data-i18n="lib_tables_run">最適化する</span>
+        </button>
+        <select id="lib-scope" class="lib-select" onchange="syncCheckScope()" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
+          <option value="" data-i18n="lib_scope_all">すべてのメディア</option>
+          <option value="subs" data-i18n="lib_scope_subs">字幕のみ</option>
+          <option value="epub" data-i18n="lib_scope_epub">書籍のみ</option>
+          <option value="manga" data-i18n="lib_scope_manga">漫画のみ</option>
+        </select>
+      </div>
+      <div class="notice" id="lib-outdated" hidden style="margin-top:0.8em;"></div>
+      <div id="lib-estimate"></div>
+      <div id="lib-status"></div>
+      <div class="lib-card" id="lib-workers" style="margin-top:1em;">
+        <h3 data-i18n="workers_title">並列処理</h3>
+        <p class="muted" id="workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <input type="number" id="workers-input" min="1" oninput="workersHint()">
+          <button class="btn" onclick="saveWorkers()" data-i18n="workers_save">保存</button>
+          <button class="btn" onclick="saveWorkers('auto')" data-i18n="workers_auto">おすすめに戻す</button>
+        </div>
+        <div class="notice" id="workers-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
+      <div class="lib-card" id="lib-analyse" style="margin-top:1.5em;">
+        <h3 data-i18n="an_title">ライブラリの点検</h3>
+        <div class="facts" data-i18n="an_lead"></div>
+        <div class="btns">
+          <button class="btn" id="an-run" onclick="runAnalysis()"><span data-i18n="an_run">点検する</span></button>
+        </div>
+        <div id="an-status"></div>
+        <div id="an-report"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page doc" data-tab-panel="settings" hidden>
+    <div class="panel">
+      <h1 data-i18n="tab_settings">設定</h1>
+      <div class="lib-card" id="set-media"></div>
+      <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
+      <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
+        <h3 data-i18n="search_workers_title">検索の並列処理</h3>
+        <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
+          <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
+          <label for="search-delay-input" data-i18n="search_workers_delay">追加するまでの秒数</label>
+          <input type="number" id="search-delay-input" min="0" max="60" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
+          <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
+          <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
+        </div>
+        <div class="notice" id="search-workers-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
+      <div class="lib-card" id="lib-cache" style="margin-top:1em;"></div>
+      <div class="lib-card" id="lib-favorites" style="margin-top:1em;">
+        <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
+        <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <button class="btn" onclick="exportFavorites()" data-i18n="fav_export">書き出す</button>
+          <button class="btn" onclick="document.getElementById('fav-file').click()" data-i18n="fav_import">読み込む</button>
+          <input type="file" id="fav-file" accept=".json,application/json" hidden onchange="importFavorites(this)">
+        </div>
+        <div class="notice" id="fav-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
+      <div class="lib-card" id="lib-port" style="margin-top:1em;">
+        <h3 data-i18n="port_title">ポート</h3>
+        <p class="muted" id="port-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <input type="number" id="port-input" min="1024" max="65535">
+          <button class="btn" onclick="savePort()" data-i18n="port_save">保存</button>
+        </div>
+        <div class="notice" id="port-note" hidden style="margin:0.8em 0 0;"></div>
+      </div>
+      <div class="lib-card" id="lib-reset" style="margin-top:1em;">
+        <h3 data-i18n="reset_title">設定の初期化</h3>
+        <p class="muted" data-i18n="reset_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <div class="btns">
+          <button class="btn" onclick="openReset()" data-i18n="reset_btn">初期化</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page doc" data-tab-panel="guide" hidden>
+    <div class="panel" id="guide-body"></div>
+  </div>
+
+  <div class="modal-overlay" id="shortcuts-modal" onclick="if(event.target===this)toggleShortcutsModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="sc_title">ショートカット</h3>
+        <button type="button" class="modal-close" onclick="toggleShortcutsModal()" data-i18n-title="close" title="閉じる">✕</button>
+      </div>
+      <div class="shortcut-row"><span data-i18n="sc_focus"></span><div class="shortcut-keys"><span class="kbd-key">Q</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_next"></span><div class="shortcut-keys"><span class="kbd-key">D</span> / <span class="kbd-key">↓</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_prev"></span><div class="shortcut-keys"><span class="kbd-key">A</span> / <span class="kbd-key">↑</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_context"></span><div class="shortcut-keys"><span class="kbd-key">C</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_save"></span><div class="shortcut-keys"><span class="kbd-key">S</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_furigana"></span><div class="shortcut-keys"><span class="kbd-key">F</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_help"></span><div class="shortcut-keys"><span class="kbd-key">?</span></div></div>
+      <div class="shortcut-row"><span data-i18n="sc_close"></span><div class="shortcut-keys"><span class="kbd-key">Esc</span></div></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="welcome-modal">
+    <div class="modal-card welcome big" id="welcome-card">
+     <div id="welcome-pane">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="welcome_title">露草へようこそ</h2>
+      <p data-i18n="welcome_body"></p>
+      <ol>
+        <li data-i18n-html="welcome_s0_setup" id="welcome-s0" hidden></li>
+        <li data-i18n-html="welcome_s1" id="welcome-s1"></li>
+        <li data-i18n-html="welcome_s2"></li>
+        <li data-i18n-html="welcome_s3"></li>
+      </ol>
+      <p data-i18n-html="welcome_more"></p>
+      <div class="btns" id="welcome-btns">
+        <button class="btn" onclick="closeWelcome(true)" data-i18n="welcome_guide">ガイドを読む</button>
+        <button class="btn primary" onclick="closeWelcome(false)" data-i18n="welcome_start">はじめる</button>
+      </div>
+      <div class="btns" id="welcome-setup-btns" hidden>
+        <button class="btn primary" onclick="openSetupStep()" data-i18n="setup_open">Aobana を設定する</button>
+      </div>
+     </div>
+    <div id="setup-step" hidden>
+      <h2 data-i18n="setup_title" id="setup-title">はじめの設定</h2>
+      <p data-i18n="setup_lead" id="setup-lead"></p>
+      <div id="setup-rows"></div>
+      <div class="lib-msg facts" id="setup-msg" style="margin:1em 0 1.2em; min-height:1.5em;"></div>
+      <div class="btns">
+        <button class="btn setup-first" onclick="backToWelcome()" data-i18n="setup_back">戻る</button>
+        <button class="btn setup-finish setup-first" onclick="finishSetup(true)" data-i18n="welcome_guide">ガイドを読む</button>
+        <button class="btn primary setup-finish setup-first" onclick="finishSetup(false)" data-i18n="welcome_start">はじめる</button>
+        <button class="btn primary setup-finish" id="upgrade-save" onclick="finishUpgrade()" data-i18n="upgrade_save" hidden>保存</button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="reindex-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="reindex_title">再インデックスをおすすめします</h2>
+      <p id="reindex-body"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeReindex(false)" data-i18n="reindex_later">あとで</button>
+        <button class="btn primary" onclick="closeReindex(true)" data-i18n="reindex_go">ライブラリを開く</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="recheck16-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="recheck16_title">1.6 の書籍を点検してください</h2>
+      <p data-i18n="recheck16_body"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeRecheck16(false)" data-i18n="reindex_later">あとで</button>
+        <button class="btn primary" onclick="closeRecheck16(true)" data-i18n="reindex_go">ライブラリを開く</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="checkfirst-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="checkfirst_title">インデックスの前に、ライブラリを点検しますか？</h2>
+      <p data-i18n="checkfirst_body"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeCheckFirst(false)" data-i18n="checkfirst_index">このままインデックス</button>
+        <button class="btn primary" onclick="closeCheckFirst(true)" data-i18n="checkfirst_check">先に点検する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="stop-modal">
+    <div class="modal-card welcome">
+      <h2></h2>
+      <p></p>
+      <div class="btns">
+        <button class="btn primary" onclick="closeStop(false)" data-i18n="stop_keep">続ける</button>
+        <button class="btn" onclick="closeStop(true)" data-i18n="stop_confirm">中止する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="reset-modal" onclick="if(event.target===this)closeReset(false)">
+    <div class="modal-card welcome">
+      <h2 data-i18n="reset_q">すべての設定を初期化しますか？</h2>
+      <p id="reset-body"></p>
+      <div class="btns">
+        <button class="btn" onclick="exportFavorites()" data-i18n="reset_export">お気に入りを書き出す</button>
+        <button class="btn primary" onclick="closeReset(false)" data-i18n="lib_cancel">キャンセル</button>
+        <button class="btn" onclick="closeReset(true)" data-i18n="reset_confirm">初期化する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="update-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="update_title">新しいバージョンがあります</h2>
+      <p id="update-body"></p>
+      <p id="update-more" data-i18n="update_more">GitHub のリリースページからダウンロードできます。</p>
+      <progress id="update-progress" max="100" value="0" hidden></progress>
+      <div class="update-cmd" id="update-cmd" hidden>
+        <code id="update-cmd-text"></code>
+        <button class="btn" type="button" onclick="copyUpdateCmd(this)" data-i18n="update_copy">コピー</button>
+      </div>
+      <div class="btns">
+        <button class="btn" onclick="skipUpdate()" data-i18n="update_skip">このバージョンはスキップ</button>
+        <button class="btn" onclick="closeUpdate()" data-i18n="update_later">あとで</button>
+        <a class="btn primary" id="update-link" href="https://github.com/Wyzmic/Aobana/releases/latest" target="_blank" rel="noopener" onclick="closeUpdate()" data-i18n="update_get">リリースページを開く</a>
+        <button class="btn primary" id="update-now" type="button" onclick="applyUpdate()" data-i18n="update_now" hidden>今すぐ更新</button>
+        <button class="btn primary" id="update-auto" type="button" onclick="applyAutoUpdate()" data-i18n="update_auto" hidden>自動で更新</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="whatsnew-modal">
+    <div class="modal-card welcome big">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 id="whatsnew-title"></h2>
+      <h3 class="whatsnew-sub" id="whatsnew-sub" data-i18n="whatsnew_sub">主な変更点</h3>
+      <ul class="whatsnew-list" id="whatsnew-list"></ul>
+      <p id="whatsnew-none" data-i18n="whatsnew_none" hidden></p>
+      <div class="btns">
+        <a class="btn" id="whatsnew-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
+        <button class="btn primary" type="button" onclick="closeWhatsNew()" data-i18n="close">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="changelog-modal" onclick="if (event.target === this) closeChangelog()">
+    <div class="modal-card welcome big changelog-card">
+      <h2 data-i18n="changelog">変更履歴</h2>
+      <p id="changelog-lang" data-i18n="changelog_lang" hidden></p>
+      <div id="changelog-body"></div>
+      <div class="btns">
+        <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
+        <button class="btn primary" type="button" onclick="closeChangelog()" data-i18n="close">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="task-notices" aria-live="polite"></div>
+
+  <div id="sidebar-tooltip" class="sidebar-tooltip" role="tooltip"></div>
+</body>
+</html>

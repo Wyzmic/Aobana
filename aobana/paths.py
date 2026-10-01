@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARKER_PATH = os.path.join(BASE_DIR, "aobana.installed")
 
 
@@ -92,7 +92,14 @@ def load_config():
         if cfg.get("db_dir"):
             os.makedirs(cfg["db_dir"], exist_ok=True)
         if cfg != before:
-            save_config(cfg)
+            with _CONFIG_LOCK:
+                now = _read_json(CONFIG_PATH)
+                if now.get("installed_at") != stamp:
+                    now.update({k: v for k, v in cfg.items() if k not in before or before[k] != v})
+                    for k in before.keys() - cfg.keys():
+                        now.pop(k, None)
+                    save_config(now)
+                cfg = now
     except OSError:
         pass
     return cfg
@@ -131,7 +138,24 @@ def default_media_folder(kind):
     return _source_media(MEDIA_KINDS.index(kind))
 
 
+_CONFIG_LOCK = threading.RLock()
+
+
+def update_config(fn):
+    with _CONFIG_LOCK:
+        cfg = load_config()
+        err = fn(cfg)
+        if err is None:
+            save_config(cfg)
+        return err
+
+
 def save_config(cfg):
+    with _CONFIG_LOCK:
+        _save_config(cfg)
+
+
+def _save_config(cfg):
     os.makedirs(STORE_DIR, exist_ok=True)
     tmp = f"{CONFIG_PATH}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w", encoding="utf-8") as fh:

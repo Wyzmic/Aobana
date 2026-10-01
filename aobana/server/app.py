@@ -11,23 +11,25 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open(os.devnull, 'w')
 
-import paths
+from aobana import paths
 from flask import Flask, render_template, make_response, request, jsonify, g, abort, send_file
-from engine import get_search_results, format_episode_title, format_book_title, get_formatted_title, warm_ruby_lexicon
-import engine
-import library
-import folder_picker
-import updater
-from utils import outdated_sources
+from aobana.search.engine import get_search_results, folder_prefix_where
+from aobana.search.furigana import warm_ruby_lexicon
+from aobana.search.titles import format_episode_title, format_book_title, get_formatted_title
+from aobana.search import furigana, result_cache
+from aobana.server import library
+from aobana.server import folder_picker
+from aobana.server import updater
+from aobana.utils import media_wanted, outdated_sources, parse_media
 
-app = Flask(__name__, template_folder='.', static_folder='static')
+app = Flask(__name__, template_folder='.', static_folder=os.path.join(paths.BASE_DIR, 'static'))
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
 
 
 def _asset_version():
     import hashlib
     h = hashlib.sha1()
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+    root = os.path.join(paths.BASE_DIR, "static")
     for d, _, names in sorted(os.walk(root)):
         for n in sorted(names):
             st = os.stat(os.path.join(d, n))
@@ -38,21 +40,26 @@ def _asset_version():
 ASSET_V = _asset_version()
 
 
+def _asset_v():
+    return _asset_version() if DEBUG else ASSET_V
+
+
 @app.route("/favicon.ico")
 def favicon():
     return app.send_static_file("aobana.svg")
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "1.6"
-RELEASES_URL = "https://github.com/Wyzmic/aobana/releases/latest"
-RELEASES_API = "https://api.github.com/repos/Wyzmic/aobana/releases"
+VERSION = "1.7"
+RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
+RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
-RELEASES_TAG_URL = "https://github.com/Wyzmic/aobana/releases/tag/v"
+RELEASES_TAG_URL = "https://github.com/Wyzmic/Aobana/releases/tag/v"
 update_info = {"checked": False, "latest": None, "release": None, "page_waiting": 0.0}
 TERMUX = os.environ.get("AOBANA_TERMUX") == "1"
 SELF_UPDATE = TERMUX and os.environ.get("AOBANA_UPDATER") == "1"
-TERMUX_INSTALL = "curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/install.sh | bash"
+ON_PHONE = TERMUX or bool(os.environ.get("TERMUX_VERSION"))
+TERMUX_INSTALL = "curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh | bash"
 
 
 def version_tuple(v):
@@ -76,11 +83,16 @@ def check_for_update():
         update_info["checked"] = True
 
 
-threading.Thread(target=check_for_update, daemon=True).start()
+from aobana.search.media_tab import warm_media_library
 
-threading.Thread(target=warm_ruby_lexicon, daemon=True).start()
-from engine import warm_media_library
-threading.Thread(target=warm_media_library, daemon=True).start()
+
+def start_background():
+    targets = [check_for_update, warm_ruby_lexicon, warm_media_library]
+    if os.environ.get("AOBANA_CLIENT") == "reibun":
+        update_info["checked"] = True
+        targets = [warm_ruby_lexicon]
+    for target in targets:
+        threading.Thread(target=target, daemon=True).start()
 
 def get_db():
     media = paths.media_state() if 'db_subs' not in g or 'db_epub' not in g else None
@@ -121,6 +133,11 @@ def close_db(error):
         conn = g.pop(name, None)
         if conn is not None:
             conn.close()
+
+
+@app.teardown_request
+def release_thread_resources(error):
+    furigana.release_thread_resources()
 
 active_queries = {}
 queries_lock = threading.Lock()
@@ -182,10 +199,10 @@ def index():
     exact = request.args.get("exact", "")
     media = request.args.get("media", "all")
     resp = make_response(render_template("index.html", q=q, sort=sort, exact=exact, media=media,
-                                         boot=BOOT_ID, asset_v=ASSET_V, version=VERSION,
+                                         boot=BOOT_ID, asset_v=_asset_v(), version=VERSION,
                                          handoff=library.load_profile_handoff(PORT),
                                          handoff_pending=library.handoff_pending_from(PORT),
-                                         media_boot=_media_boot()))
+                                         media_boot=_media_boot(), termux=ON_PHONE))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -195,6 +212,19 @@ def _media_boot():
             "defaults": {k: paths.default_media_folder(k) for k in paths.MEDIA_KINDS},
             "folders": {"subs": paths.subs_dir(), "books": paths.books_dir(), "manga": paths.manga_dir()},
             "picker": folder_picker.available(), "check_asked": library.check_asked()}
+
+
+def _media_unavailable(media, db_subs, db_epub, db_manga):
+    if media == "all":
+        return False
+    dbs = {"subs": db_subs, "epub": db_epub, "manga": db_manga}
+    wanted = media_wanted(media)
+    return bool(wanted) and all(dbs[m] is None for m in wanted)
+
+
+@app.route("/api/capabilities", methods=["GET"])
+def api_capabilities():
+    return jsonify({"version": VERSION, "media_sets": True})
 
 
 @app.route("/api/search", methods=["GET"])
@@ -211,13 +241,12 @@ def api_search():
     limit = request.args.get("limit", 500, type=int)
     offset = request.args.get("offset", 0, type=int)
     file_param = request.args.get("file", "")
-    media = request.args.get("media", "all")
+    media = parse_media(request.args.get("media", "all"))
     seed = request.args.get("seed", type=int)
 
     db_subs, db_epub = get_db()
     db_manga = get_manga_db()
-    if ((media == "epub" and db_epub is None) or (media == "subs" and db_subs is None)
-            or (media == "manga" and db_manga is None)):
+    if _media_unavailable(media, db_subs, db_epub, db_manga):
         return jsonify({
             "results": [], "folder_counts": {}, "global_total": 0, "all_folders": [],
             "has_more": False, "outside_media": list(dict.fromkeys([*folders, *pins]))
@@ -266,19 +295,18 @@ def api_search():
 
 @app.route("/api/search/counts", methods=["GET"])
 def api_search_counts():
-    from engine import folder_match_counts
+    from aobana.search.engine import folder_match_counts
     client_key = _client_key()
     accepted_at = time.monotonic()
     _keep_client(client_key)
     q = request.args.get("q", "")
     sort = request.args.get("sort", "recommended")
     seed = request.args.get("seed", type=int)
-    media = request.args.get("media", "all")
+    media = parse_media(request.args.get("media", "all"))
     exact = request.args.get("exact") == "on"
     db_subs, db_epub = get_db()
     db_manga = get_manga_db()
-    if ((media == "epub" and db_epub is None) or (media == "subs" and db_subs is None)
-            or (media == "manga" and db_manga is None)):
+    if _media_unavailable(media, db_subs, db_epub, db_manga):
         return jsonify({"folder_counts": {}, "all_folders": [], "global_total": 0})
     abort_flag = [False]
     mine = (_search_identity(q, sort, seed, media, exact, None, ""), abort_flag, (db_subs, db_epub, db_manga))
@@ -311,7 +339,7 @@ def api_search_counts():
 
 @app.route("/api/search/progress", methods=["GET"])
 def api_search_progress():
-    from engine import search_progress
+    from aobana.search.engine import search_progress
     client_key = _client_key()
     _keep_client(client_key)
     db_subs, db_epub = get_db()
@@ -319,7 +347,7 @@ def api_search_progress():
     q = request.args.get("q", "")
     sort = request.args.get("sort", "recommended")
     seed = request.args.get("seed", type=int)
-    media = request.args.get("media", "all")
+    media = parse_media(request.args.get("media", "all"))
     exact = request.args.get("exact") == "on"
     folders = tuple(sorted(f for f in request.args.getlist("folder") if f))
     folder = folders[0] if len(folders) == 1 else (folders or None)
@@ -383,14 +411,9 @@ def api_episodes():
     files_data = []
     
     if media in ("all", "subs") and db_subs is not None:
-        folder_prefix = folder + "/"
-        folder_prefix_win = folder + "\\"
+        where, params = folder_prefix_where("relpath", folder)
         try:
-            cur = db_subs.execute('''
-                SELECT relpath FROM sources 
-                WHERE relpath LIKE ? OR relpath LIKE ?
-                ORDER BY relpath ASC
-            ''', (f"{folder_prefix}%", f"{folder_prefix_win}%"))
+            cur = db_subs.execute(f"SELECT relpath FROM sources WHERE {where} ORDER BY relpath ASC", params)
             for row in cur:
                 relpath = row["relpath"]
                 title = get_formatted_title(db_subs, relpath)
@@ -402,22 +425,15 @@ def api_episodes():
             pass
 
     if not files_data and media in ("all", "epub") and db_epub is not None:
-        pattern = folder + "\\" + "%"
-        pattern_fwd = folder + "/" + "%"
+        where, params = folder_prefix_where("file", folder)
         try:
-            import utils
+            from aobana import utils
             if utils.has_chapters(db_epub):
-                cur_epub = db_epub.execute('''
-                    SELECT DISTINCT file FROM chapters
-                    WHERE (file >= ? AND file < ?) OR (file >= ? AND file < ?)
-                    ORDER BY file ASC
-                ''', (pattern[:-1], pattern[:-1] + "\U0010ffff", pattern_fwd[:-1], pattern_fwd[:-1] + "\U0010ffff"))
+                cur_epub = db_epub.execute(
+                    f"SELECT DISTINCT file FROM chapters WHERE {where} ORDER BY file ASC", params)
             else:
-                cur_epub = db_epub.execute('''
-                    SELECT DISTINCT file FROM epubs
-                    WHERE file LIKE ? OR file LIKE ?
-                    ORDER BY file ASC
-                ''', (pattern, pattern_fwd))
+                cur_epub = db_epub.execute(
+                    f"SELECT DISTINCT file FROM epubs WHERE {where} ORDER BY file ASC", params)
             for row in cur_epub:
                 file_key = row["file"]
                 title = format_book_title(file_key, db_epub=db_epub)
@@ -430,7 +446,7 @@ def api_episodes():
 
     db_manga = get_manga_db()
     if not files_data and media in ("all", "manga") and db_manga is not None:
-        from engine import format_manga_title
+        from aobana.search.titles import format_manga_title
         try:
             for row in db_manga.execute(
                     "SELECT volume FROM sources WHERE title = ? ORDER BY relpath ASC", (folder,)):
@@ -531,7 +547,8 @@ def api_context():
         cur = db_subs.execute(query, (rowid - window("before", 4), rowid + window("after", 4), file, rowid))
         rows = cur.fetchall()
     
-    from engine import highlight_and_furigana, analyze_query, split_negated_terms, work_key
+    from aobana.search.engine import analyze_query, split_negated_terms
+    from aobana.search.furigana import highlight_and_furigana, work_key
     
     pos_q, _ = split_negated_terms(q)
     clean_q = pos_q.strip('""“”')
@@ -572,7 +589,8 @@ def _manga_context(db_manga, rowid, file, q):
           AND source_id = (SELECT source_id FROM manga WHERE rowid = ?)
         ORDER BY rowid ASC
     """, (rowid - window("before", 4), rowid + window("after", 4), file, rowid)).fetchall()
-    from engine import highlight_and_furigana, analyze_query, split_negated_terms, work_key
+    from aobana.search.engine import analyze_query, split_negated_terms
+    from aobana.search.furigana import highlight_and_furigana, work_key
     pos_q, _ = split_negated_terms(q)
     clean_q = pos_q.strip('""“”')
     content_bases, _, readings, base_groups = analyze_query(clean_q)
@@ -595,12 +613,14 @@ def api_locate():
     if db_subs is None and db_epub is None and db_manga is None:
         return jsonify({"rows": []})
 
-    from engine import get_tagger, title_of
+    from aobana.search.furigana import tagger
+    from aobana.search.titles import title_of
     contains = " AND ".join(["instr(replace(clean_text, char(160), ' '), ?) > 0"] * len(texts))
-    tokenizer_obj, mode = get_tagger()
     forms = []
     for text in texts:
-        for word in tokenizer_obj.tokenize(text, mode):
+        with tagger() as (tokenizer_obj, mode):
+            words = tokenizer_obj.tokenize(text, mode)
+        for word in words:
             form = word.normalized_form()
             if form and any(ch.isalnum() for ch in form) and form not in forms:
                 forms.append(form)
@@ -653,8 +673,7 @@ def api_relocate():
     items = (request.get_json(silent=True) or {}).get("items", [])[:5000]
     db_subs, db_epub = get_db()
     db_manga = get_manga_db()
-    from engine import get_tagger
-    tokenizer_obj, mode = get_tagger()
+    from aobana.search.furigana import tagger
     ruby = re.compile(r'｜?([^()\s　（）]+)[（(][^()（）]*[)）]')
     out = []
     for it in items:
@@ -671,7 +690,9 @@ def api_relocate():
             continue
         text = ruby.sub(r'\1', line).replace('｜', '').strip()
         forms = []
-        for word in tokenizer_obj.tokenize(text, mode):
+        with tagger() as (tokenizer_obj, mode):
+            words = tokenizer_obj.tokenize(text, mode)
+        for word in words:
             form = word.normalized_form()
             if form and any(ch.isalnum() for ch in form) and form not in forms:
                 forms.append(form)
@@ -691,6 +712,27 @@ def api_relocate():
     return jsonify({"items": out})
 
 
+_LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]")
+
+
+def _local_authority(value, port):
+    host, sep, p = value.rpartition(":") if not value.endswith("]") else (value, "", "")
+    if not sep or not host:
+        host, p = value, ""
+    return host.lower() in _LOCAL_HOSTS and (p == "" or p == port)
+
+
+@app.before_request
+def _check_host():
+    port = str(request.environ.get("SERVER_PORT", ""))
+    if not _local_authority(request.host or "", port):
+        abort(400)
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("Origin")
+        if origin is not None and not (origin.startswith("http://") and _local_authority(origin[7:], port)):
+            abort(400)
+
+
 def _require_page():
     if request.headers.get("X-Aobana") != "1":
         abort(403)
@@ -698,7 +740,7 @@ def _require_page():
 
 @app.route("/api/media", methods=["GET"])
 def api_media():
-    from engine import get_media_library, media_library_status, media_page
+    from aobana.search.media_tab import get_media_library, media_library_status, media_page
     db_subs, db_epub = get_db()
     db_manga = get_manga_db()
     status = media_library_status(db_subs, db_epub, db_manga)
@@ -742,7 +784,7 @@ def api_library_settings_snapshot():
 
 
 def _search_cache_facts():
-    return {**engine.disk_cache_stats(), "on": engine.disk_cache_enabled()}
+    return {**result_cache.disk_cache_stats(), "on": result_cache.disk_cache_enabled()}
 
 
 @app.route("/api/search-cache", methods=["POST"])
@@ -756,7 +798,7 @@ def api_search_cache_set():
 @app.route("/api/search-cache/clear", methods=["POST"])
 def api_search_cache_clear():
     _require_page()
-    ok = engine.clear_disk_cache()
+    ok = result_cache.clear_disk_cache()
     library.save_settings_snapshot(_settings_payload())
     return jsonify({"ok": ok, "search_cache": _search_cache_facts()})
 
@@ -773,6 +815,7 @@ def api_activity():
 
 @app.route("/api/activity/dismiss", methods=["POST"])
 def api_activity_dismiss():
+    _require_page()
     library.dismiss_notice((request.get_json(silent=True) or {}).get("id"))
     return jsonify({"ok": True})
 
@@ -976,8 +1019,13 @@ def api_index_start():
     _require_page()
     body = request.get_json(silent=True) or {}
     only = body.get("only")
-    started = library.start_indexing(only if only in ("subs", "epub", "manga") else None, bool(body.get("outdated")),
-                                     tables=bool(body.get("tables")))
+    if isinstance(only, list):
+        if not only or any(not isinstance(st, str) or st not in ("subs", "epub", "manga") for st in only):
+            return jsonify({"error": "Invalid media selection."}), 400
+    elif only not in ("subs", "epub", "manga"):
+        only = None
+    started = library.start_indexing(only, bool(body.get("outdated")),
+                                     tables=bool(body.get("tables")), allow_removal=bool(body.get("allow_removal")))
     return jsonify({**library.index_status(), "started": started is True, "nothing": started == "nothing"})
 
 
@@ -1056,7 +1104,7 @@ def api_release_notes():
 
 @app.route("/api/changelog", methods=["GET"])
 def api_changelog():
-    here = os.path.dirname(os.path.abspath(__file__))
+    here = paths.BASE_DIR
     for p in (os.path.join(here, "CHANGELOG.md"), os.path.join(here, "release", "public", "CHANGELOG.md")):
         if os.path.isfile(p):
             with open(p, encoding="utf-8") as f:
@@ -1093,4 +1141,5 @@ if __name__ == "__main__":
         print("Termux を閉じるとサーバーが止まります。 / Close Termux to stop the server." if TERMUX else
               "このウィンドウを閉じるとサーバーが止まります。 / Close this window to stop the server.")
     paths.make_source_folders()
+    start_background()
     app.run(host='127.0.0.1', port=PORT, debug=DEBUG, request_handler=_QuietRequestHandler)

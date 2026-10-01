@@ -1,17 +1,18 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # 露草 / Aobana on Android: install or update, in one command, from Termux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh | bash
 #
 #   AOBANA_DIR=<folder>   where Aobana goes (default /storage/emulated/0/Aobana)
 #   AOBANA_SRC=<folder>   take the files from this copy of the repository instead of downloading
 set -e
 
 AOBANA_DIR="${AOBANA_DIR:-/storage/emulated/0/Aobana}"
-TARBALL="https://codeload.github.com/Wyzmic/aobana/tar.gz/refs/heads/main"
+TARBALL="https://codeload.github.com/Wyzmic/Aobana/tar.gz/refs/heads/main"
 DISTRO="aobana"
-PHONE_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py manga_indexer.py ass_ruby.py folder_picker.py updater.py index.html
-requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+PHONE_FILES="aobana requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+OLD_ROOT_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py
+manga_indexer.py ass_ruby.py folder_picker.py updater.py index.html __pycache__"
 OLD_CLONE_FILES=".git .gitattributes .gitignore assets release termux Aobana.bat aobana.sh
 launcher.py README.md README.ja.md"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -47,7 +48,7 @@ if [ -n "$AOBANA_SRC" ]; then
     SRC="$AOBANA_SRC"
 else
     curl -fsSL "$TARBALL" | tar -xz -C "$WORK"
-    SRC="$WORK/aobana-main"
+    SRC="$(find "$WORK" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 fi
 for f in $PHONE_FILES; do
     if [ ! -e "$SRC/$f" ]; then
@@ -102,6 +103,12 @@ for f in $PHONE_FILES; do
     mkdir -p "$(dirname "$AOBANA_DIR/$f")"
     cp -r "$SRC/$f" "$AOBANA_DIR/$f"
 done
+for f in $OLD_ROOT_FILES; do rm -rf "${AOBANA_DIR:?}/$f"; done
+cat > "$AOBANA_DIR/app.py" <<'BRIDGE'
+import os, runpy, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+runpy.run_module("aobana.server.app", run_name="__main__", alter_sys=True)
+BRIDGE
 for name in Subtitles Books; do
     if [ ! -e "$AOBANA_DIR/content/$name" ]; then
         mkdir -p "$AOBANA_DIR/content/$name" && echo "made content/$name"
@@ -134,5 +141,5 @@ Aobana is installed.
   3. Closing Termux stops the server.
 
 Update: run the same command again.
-Uninstall: curl -fsSL https://raw.githubusercontent.com/Wyzmic/aobana/main/termux/uninstall.sh | bash
+Uninstall: curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/uninstall.sh | bash
 EOF

@@ -9,9 +9,9 @@ import threading
 import time
 import urllib.request
 
-import paths
+from aobana import paths
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = paths.BASE_DIR
 UPDATE_DIR = os.path.join(paths.STORE_DIR, "update")
 UPDATE_MARKER = os.path.join(paths.STORE_DIR, "update.json")
 
@@ -48,8 +48,9 @@ def kind():
     appimage = os.environ.get("APPIMAGE")
     if appimage and os.path.isfile(appimage):
         return "appimage" if _writable(os.path.dirname(appimage)) else None
-    if os.path.basename(HERE) == "aobana-app" and os.path.isfile(os.path.join(HERE, "install.sh")) \
-            and _writable(os.path.dirname(HERE)):
+    top = os.path.dirname(HERE)
+    if os.path.basename(top) == "aobana-app" and os.path.isfile(os.path.join(top, "install.sh")) \
+            and _writable(os.path.dirname(top)):
         return "linux"
     return None
 
@@ -142,7 +143,7 @@ def _spawn_helper(target, lang):
     elif k == "appimage":
         place = os.environ["APPIMAGE"]
     else:
-        place = HERE
+        place = os.path.dirname(HERE)
     env = {key: v for key, v in os.environ.items() if key not in ("AOBANA_NO_TERMINAL", "APPIMAGE", "APPDIR")}
     subprocess.Popen(["/bin/bash", script, k, target, place, log, " ".join(pids)],
                      env=env, start_new_session=True, close_fds=True,
