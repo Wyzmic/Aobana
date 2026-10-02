@@ -462,7 +462,7 @@
     .reveal-glue { white-space: nowrap; }
     .reveal-btn svg { width: 16px; height: 16px; }
     .reveal-btn:hover, .reveal-btn:focus-visible { color: var(--link); background: var(--bg-hover); }
-    .episode-header .reveal-btn { margin: 0 10px 0 auto; position: relative; top: -1px; }
+    .episode-header .reveal-btn { margin: 0 10px 0 auto; }
     .reveal-msg { margin-left: 8px; font-size: 0.85em; }
     .episode-card > .reveal-msg { display: block; margin: 0; padding: 0 1.2em 0.9em; }
     .reveal-msg.warn { color: var(--gold); }

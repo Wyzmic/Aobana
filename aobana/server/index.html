@@ -352,7 +352,6 @@
         <button class="btn setup-first" onclick="backToWelcome()" data-i18n="setup_back">戻る</button>
         <button class="btn setup-finish setup-first" onclick="finishSetup(true)" data-i18n="welcome_guide">ガイドを読む</button>
         <button class="btn primary setup-finish setup-first" onclick="finishSetup(false)" data-i18n="welcome_start">はじめる</button>
-        <button class="btn primary setup-finish" id="upgrade-save" onclick="finishUpgrade()" data-i18n="upgrade_save" hidden>保存</button>
       </div>
     </div>
     </div>
@@ -366,17 +365,6 @@
       <div class="btns">
         <button class="btn" onclick="closeReindex(false)" data-i18n="reindex_later">あとで</button>
         <button class="btn primary" onclick="closeReindex(true)" data-i18n="reindex_go">ライブラリを開く</button>
-      </div>
-    </div>
-  </div>
-  <div class="modal-overlay" id="recheck16-modal">
-    <div class="modal-card welcome">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="recheck16_title">1.6 の書籍を点検してください</h2>
-      <p data-i18n="recheck16_body"></p>
-      <div class="btns">
-        <button class="btn" onclick="closeRecheck16(false)" data-i18n="reindex_later">あとで</button>
-        <button class="btn primary" onclick="closeRecheck16(true)" data-i18n="reindex_go">ライブラリを開く</button>
       </div>
     </div>
   </div>

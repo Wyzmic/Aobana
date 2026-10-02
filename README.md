@@ -97,7 +97,7 @@ Aobana runs on an Android phone and opens in your browser there, so a pop-up dic
    ```bash
    curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/install.sh | bash
    ```
-   It sets up a small Ubuntu inside Termux (the Sudachi analyzer has no Android build), installs Python and the pinned packages there, puts the files Aobana runs from (nothing else) in `/storage/emulated/0/Aobana`, and adds an **Aobana** shortcut for the Termux:Widget widget. Run the same command again to update; from 1.1 on, when a new version is out, the page offers **Update now**, which does that for you and reloads.
+   It sets up a small Ubuntu inside Termux (the Sudachi analyzer has no Android build), installs Python and the pinned packages there, puts the files Aobana runs from (nothing else) in `/storage/emulated/0/Aobana`, and adds an **Aobana** shortcut for the Termux:Widget widget. Run the same command again to update; from 1.4 on, when a new version is out, the page offers **Update now**, which does that for you and reloads. On an older version, run the command yourself.
 2. **Add your library** to that folder: copy `subs.db`, `epub.db` and `manga.db` into its `data/db` folder from a computer where Aobana has indexed it (fastest, and identical results), or put files in `content/Subtitles` and `content/Books` there (`content/Manga` once Manga is on in the Settings tab) and press **Index library** in the Library tab (slow on a phone).
 3. **Start** — add the Termux:Widget widget to your home screen and tap **Aobana**. The page opens in Firefox if it is installed, otherwise in your default browser. If no browser opens, allow Termux *Display over other apps* in Android's settings. Closing Termux stops Aobana.
 

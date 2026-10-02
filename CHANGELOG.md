@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.9: Open folder scrolls to the file
+
+### Enhancements
+
+- Updating from inside Aobana works from 1.4 or newer. The code that only moved files and settings from 1.3 and older is removed; on an older version, install 1.9 from the release page.
+
+### Bug Fixes
+
+- **Open folder** on Windows scrolls to the selected file, which 1.8 could leave out of view.
+- **Open folder** on a show's or manga series' page opens the deepest folder that holds all its files, so a show kept in a single season folder opens that season folder.
+- The folder icon on a title's episode and volume rows in **Media** sits level with the row's arrow.
+
 ## 1.8: Open folder from Media and Search
 
 ### Enhancements

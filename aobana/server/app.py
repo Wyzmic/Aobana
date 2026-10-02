@@ -50,7 +50,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "1.8"
+VERSION = "1.9"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -208,7 +208,7 @@ def index():
 
 def _media_boot():
     setup = paths.setup_needed()
-    return {"on": paths.media_state(), "setup": setup, "upgrade": not setup and not library.media_asked(),
+    return {"on": paths.media_state(), "setup": setup,
             "defaults": {k: paths.default_media_folder(k) for k in paths.MEDIA_KINDS},
             "folders": {"subs": paths.subs_dir(), "books": paths.books_dir(), "manga": paths.manga_dir()},
             "picker": folder_picker.available(), "check_asked": library.check_asked()}
@@ -872,17 +872,9 @@ def api_setup():
     _require_page()
     body = request.get_json(silent=True) or {}
     media = body.get("media") if isinstance(body.get("media"), dict) else {}
-    error = library.finish_setup(media, body.get("subs_dir"), body.get("books_dir"), body.get("manga_dir"),
-                                 fresh=not body.get("upgrade"))
+    error = library.finish_setup(media, body.get("subs_dir"), body.get("books_dir"), body.get("manga_dir"))
     if error:
         return jsonify({"error": error}), 400
-    return jsonify({"ok": True})
-
-
-@app.route("/api/setup/seen", methods=["POST"])
-def api_setup_seen():
-    _require_page()
-    library.mark_media_asked()
     return jsonify({"ok": True})
 
 

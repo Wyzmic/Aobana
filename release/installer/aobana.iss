@@ -160,20 +160,6 @@ Name: "startmenuicon"; Description: "{cm:StartMenuIcon}"; GroupDescription: "{cm
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [InstallDelete]
-Type: files; Name: "{autoprograms}\露草 Aobana.lnk"
-Type: files; Name: "{autodesktop}\露草 Aobana.lnk"
-Type: files; Name: "{app}\Aobana-debug.bat"
-Type: files; Name: "{app}\README.md"
-Type: files; Name: "{app}\README.ja.md"
-Type: files; Name: "{app}\requirements.txt"
-Type: files; Name: "{app}\data\ruby\ruby_decisions.tsv"
-Type: files; Name: "{app}\data\ruby\ruby_dict_merge.tsv"
-Type: files; Name: "{app}\data\ruby\ruby_whole.tsv"
-Type: files; Name: "{app}\data\ruby\ruby_trim.tsv"
-Type: files; Name: "{app}\data\ruby\gloss_ruby.tsv"
-Type: files; Name: "{app}\data\ruby\gloss_names.tsv"
-Type: files; Name: "{app}\data\ruby\unclosed_ruby.tsv"
-Type: files; Name: "{app}\data\ruby\ass_pairs.tsv"
 Type: files; Name: "{app}\app.py"
 Type: files; Name: "{app}\engine.py"
 Type: files; Name: "{app}\utils.py"

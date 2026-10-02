@@ -512,18 +512,6 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
             )
         ''')
 
-        try:
-            cur = conn.execute("SELECT sql FROM sqlite_master WHERE name='subtitles'")
-            row = cur.fetchone()
-            if row and ("context" in row[0] or "file UNINDEXED" not in row[0]):
-                raise sqlite3.OperationalError("Old schema detected")
-        except sqlite3.OperationalError:
-            say("Old database schema detected. Rebuilding FTS table...")
-            conn.execute("DROP TABLE IF EXISTS subtitles")
-            conn.execute("DROP TABLE IF EXISTS line_lengths")
-            conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
-            conn.execute("DELETE FROM sources")
-
         conn.execute('''
             CREATE VIRTUAL TABLE IF NOT EXISTS subtitles USING fts5(
                 source_id UNINDEXED,

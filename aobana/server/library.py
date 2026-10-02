@@ -369,7 +369,7 @@ def set_media(media):
     return None
 
 
-def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, fresh=True):
+def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None):
     media = {k: bool((media or {}).get(k)) for k in paths.MEDIA_KINDS}
     if not any(media.values()):
         return "none_on"
@@ -390,14 +390,12 @@ def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, fresh=Tru
     if err:
         return err
     def change(cfg):
-        if fresh:
-            for key in paths.MEDIA_DIR_KEYS.values():
-                cfg.setdefault(key, "")
-            cfg.pop("check_asked", None)
-        cfg["media_asked"] = True
+        for key in paths.MEDIA_DIR_KEYS.values():
+            cfg.setdefault(key, "")
+        cfg.pop("check_asked", None)
     paths.update_config(change)
     err = set_media(media)
-    if not err and fresh:
+    if not err:
         _forget_last_run()
         _forget_check()
     return err
@@ -407,20 +405,12 @@ def check_asked():
     return bool(paths.load_config().get("check_asked"))
 
 
-def media_asked():
-    return bool(paths.load_config().get("media_asked"))
-
-
 def _mark(key):
     def change(cfg):
         if cfg.get(key):
             return False
         cfg[key] = True
     paths.update_config(change)
-
-
-def mark_media_asked():
-    _mark("media_asked")
 
 
 def mark_check_asked():
@@ -858,9 +848,9 @@ def _reveal_target(media, folder, file, db_subs, db_epub, db_manga):
             return (split(got[0]), True, root) if got else (None, "not_indexed", None)
         from aobana.search.engine import folder_prefix_where
         where, params = folder_prefix_where("relpath", folder)
-        got = db_subs.execute(f"SELECT relpath FROM sources WHERE {where} LIMIT 1", params).fetchone()
-        if got:
-            return [folder], False, root
+        rels = [r[0] for r in db_subs.execute(f"SELECT relpath FROM sources WHERE {where}", params)]
+        if rels:
+            return _shared_folder([split(r)[:-1] for r in rels]) or [folder], False, root
         got = db_subs.execute("SELECT relpath FROM sources WHERE relpath = ?", (folder,)).fetchone()
         return (split(got[0]), True, root) if got else (None, "not_indexed", None)
     if media == "epub" and db_epub is not None:
@@ -882,10 +872,19 @@ def _reveal_target(media, folder, file, db_subs, db_epub, db_manga):
             got = db_manga.execute("SELECT relpath FROM sources WHERE title || char(92) || volume = ? LIMIT 1",
                                    (file,)).fetchone()
             return (split(got[0]), True, root) if got else (None, "not_indexed", None)
-        got = db_manga.execute("SELECT relpath FROM sources WHERE title = ? ORDER BY relpath LIMIT 1",
-                               (folder,)).fetchone()
-        return (split(got[0])[:-1][:1], False, root) if got else (None, "not_indexed", None)
+        rels = [r[0] for r in db_manga.execute("SELECT relpath FROM sources WHERE title = ?", (folder,))]
+        return (_shared_folder([split(r)[:-1] for r in rels]), False, root) if rels else (None, "not_indexed", None)
     return None, "unknown", None
+
+
+def _shared_folder(dirs):
+    shared = list(dirs[0]) if dirs else []
+    for d in dirs[1:]:
+        n = 0
+        while n < len(shared) and n < len(d) and shared[n] == d[n]:
+            n += 1
+        del shared[n:]
+    return shared
 
 
 def reveal(media, folder, file, db_subs, db_epub, db_manga):
@@ -908,11 +907,7 @@ def reveal(media, folder, file, db_subs, db_epub, db_manga):
 def _os_reveal(path):
     try:
         if sys.platform == "win32":
-            before = {hwnd for hwnd, _ in _windows_explorer_windows()}
-            explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
-            subprocess.Popen(f'"{explorer}" /select,"{path}"')
-            threading.Thread(target=_bring_windows_folder_forward, args=(os.path.dirname(path), before),
-                             daemon=True).start()
+            threading.Thread(target=_reveal_windows, args=(path,), daemon=True).start()
         elif sys.platform == "darwin":
             subprocess.Popen(["open", "-R", path])
         else:
@@ -920,6 +915,55 @@ def _os_reveal(path):
     except Exception as e:
         return f"failed:{e}"
     return None
+
+
+_REVEAL_PS = r"""
+$dir = $env:AOBANA_REVEAL_DIR; $name = $env:AOBANA_REVEAL_NAME
+$sh = New-Object -ComObject Shell.Application
+function Find {
+  foreach ($w in @($sh.Windows())) { try { if ($w.Document.Folder.Self.Path -eq $dir) { return $w } } catch {} }
+}
+$w = Find
+$new = -not $w
+if ($new) {
+  Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList ('/select,"' + (Join-Path $dir $name) + '"')
+  for ($i = 0; $i -lt 50 -and -not $w; $i++) { Start-Sleep -Milliseconds 150; $w = Find }
+  if (-not $w) { exit 1 }
+  for ($i = 0; $i -lt 30; $i++) {
+    try { if (@($w.Document.SelectedItems() | ForEach-Object { $_.Name }) -contains $name) { break } } catch {}
+    Start-Sleep -Milliseconds 150
+  }
+  Start-Sleep -Milliseconds 300
+}
+$it = $w.Document.Folder.ParseName($name)
+if ($it) { $w.Document.SelectItem($it, 29) }
+[Console]::Out.WriteLine($w.HWND); [Console]::Out.Flush()
+if ($new -and $it) { Start-Sleep -Milliseconds 700; $w.Document.SelectItem($it, 29) }
+"""
+
+
+def _reveal_windows(path):
+    import base64
+
+    env = dict(os.environ, AOBANA_REVEAL_DIR=os.path.dirname(path), AOBANA_REVEAL_NAME=os.path.basename(path))
+    try:
+        proc = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                                 "-EncodedCommand", base64.b64encode(_REVEAL_PS.encode("utf-16-le")).decode()], env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception:
+        before = {hwnd for hwnd, _ in _windows_explorer_windows()}
+        explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
+        subprocess.Popen(f'"{explorer}" /select,"{path}"')
+        _bring_windows_folder_forward(os.path.dirname(path), before)
+        return
+    out = proc.stdout.readline().strip()
+    hwnd = int(out) if out.isdigit() else 0
+    if hwnd:
+        _raise_window(hwnd)
+    try:
+        proc.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        proc.kill()
 
 
 def _windows_explorer_windows():
@@ -948,9 +992,8 @@ def _windows_explorer_windows():
     return windows
 
 
-def _bring_windows_folder_forward(path, before):
+def _raise_window(hwnd):
     import ctypes
-    import time
     from ctypes import wintypes
 
     user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -958,17 +1001,22 @@ def _bring_windows_folder_forward(path, before):
     user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
                                    ctypes.c_int, ctypes.c_int, wintypes.UINT]
     user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user32.ShowWindow(hwnd, 9)
+    user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x43)
+    user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, 0x03)
+    user32.SetForegroundWindow(hwnd)
+
+
+def _bring_windows_folder_forward(path, before):
+    import time
+
     name = os.path.basename(os.path.normpath(path)).casefold()
     for _ in range(20):
         windows = _windows_explorer_windows()
         new = [hwnd for hwnd, _ in windows if hwnd not in before]
         old_match = [hwnd for hwnd, title in windows if title.casefold() == name]
         if new or (_ >= 9 and old_match):
-            hwnd = new[0] if new else old_match[0]
-            user32.ShowWindow(hwnd, 9)
-            user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x43)
-            user32.SetWindowPos(hwnd, -2, 0, 0, 0, 0, 0x03)
-            user32.SetForegroundWindow(hwnd)
+            _raise_window(new[0] if new else old_match[0])
             return
         time.sleep(0.1)
 

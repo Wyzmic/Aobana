@@ -3062,37 +3062,6 @@ Manga folder/
       document.getElementById('setup-step').hidden = false;
       renderSetupRows();
     }
-    let upgradeOpen = false;
-    function openUpgradeSetup() {
-      upgradeOpen = true;
-      document.getElementById('welcome-pane').hidden = true;
-      document.getElementById('setup-step').hidden = false;
-      for (const [id, key] of [['setup-title', 'upgrade_title'], ['setup-lead', 'upgrade_lead']]) {
-        const el = document.getElementById(id);
-        el.dataset.i18n = key;
-        el.textContent = t(key);
-      }
-      document.querySelectorAll('#setup-step .setup-first').forEach(b => b.hidden = true);
-      document.getElementById('upgrade-save').hidden = false;
-      renderSetupRows();
-      document.getElementById('welcome-modal').classList.add('open');
-      document.documentElement.style.overflow = 'hidden';
-    }
-    async function finishUpgrade() {
-      const msg = document.getElementById('setup-msg');
-      if (!MEDIA_KINDS.some(k => setupState[k])) { msg.textContent = t('setup_pick_one'); return; }
-      const val = which => (document.querySelector(`#setup-rows input[data-which="${which}"]`) || {}).value || '';
-      const btn = document.getElementById('upgrade-save');
-      btn.disabled = true;
-      const res = await apiPost('/api/setup', { upgrade: true, media: setupState, subs_dir: val('subs'), books_dir: val('books'), manga_dir: val('manga') })
-        .catch(() => ({ error: 'network' }));
-      btn.disabled = false;
-      if (res.error) {
-        msg.innerHTML = `<span class="warn">${esc(setupError(res.error))}</span>`;
-        return;
-      }
-      window.location.reload();
-    }
     function backToWelcome() {
       document.getElementById('setup-step').hidden = true;
       document.getElementById('welcome-pane').hidden = false;
@@ -3151,7 +3120,6 @@ Manga folder/
       }
       store.set('welcomed', '1');
       store.set('reindex_told', APP_VERSION);
-      store.set('recheck_16_told', '1');
       store.set('seen_version', APP_VERSION);
       store.del('setup_again');
       window.location.href = goGuide ? '/?tab=guide' : '/?tab=library';
@@ -3159,9 +3127,7 @@ Manga folder/
     function closeWelcome(goGuide) {
       store.set('welcomed', '1');
       store.set('reindex_told', APP_VERSION);
-      store.set('recheck_16_told', '1');
       store.set('seen_version', APP_VERSION);
-      if (MEDIA_BOOT.upgrade) apiPost('/api/setup/seen', {}).catch(() => {});
       document.getElementById('welcome-modal').classList.remove('open');
       document.documentElement.style.overflow = '';
       if (goGuide) window.location.href = '/?tab=guide';
@@ -3169,19 +3135,9 @@ Manga folder/
     }
 
     async function checkReindex() {
-      if ((APP_VERSION !== '1.6' || store.get('recheck_16_told') === '1')
-          && store.get('reindex_told') === APP_VERSION) return checkForUpdate();
+      if (store.get('reindex_told') === APP_VERSION) return checkForUpdate();
       let lib = null;
       try { lib = await fetch('/api/library/outdated').then(r => r.json()); } catch (e) {}
-      if (APP_VERSION === '1.6' && store.get('recheck_16_told') !== '1' && lib) {
-        store.set('recheck_16_told', '1');
-        if (lib.has_database) {
-          document.getElementById('recheck16-modal').classList.add('open');
-          document.documentElement.style.overflow = 'hidden';
-          return;
-        }
-      }
-      if (store.get('reindex_told') === APP_VERSION) return checkForUpdate();
       const outdated = lib ? outdatedMedia(lib) : [];
       store.set('reindex_told', APP_VERSION);
       if (!outdated.length) return checkForUpdate();
@@ -3196,12 +3152,7 @@ Manga folder/
       if (goLibrary) window.location.href = '/?tab=library';
       else checkForUpdate();
     }
-    function closeRecheck16(goLibrary) {
-      document.getElementById('recheck16-modal').classList.remove('open');
-      document.documentElement.style.overflow = '';
-      if (goLibrary) window.location.href = '/?tab=library';
-      else checkReindex();
-    }
+
 
     async function checkForUpdate() {
       const boot = (document.querySelector('meta[name="aobana-boot"]') || {}).content || '';
@@ -3382,8 +3333,7 @@ Manga folder/
       afterWhatsNew();
     }
     function afterWhatsNew() {
-      if (MEDIA_BOOT.upgrade && !setupMode()) openUpgradeSetup();
-      else checkReindex();
+      checkReindex();
     }
 
     const CARET = '<svg class="dd-caret" viewBox="0 0 20 20"><path d="M5.516 7.548a.625.625 0 0 1 .884-.884l3.6 3.6 3.6-3.6a.625.625 0 1 1 .884.884l-4.042 4.042a.625.625 0 0 1-.884 0z"/></svg>';
@@ -3884,7 +3834,7 @@ Manga folder/
         const modal = document.getElementById('shortcuts-modal');
         if (modal && modal.classList.contains('open')) { toggleShortcutsModal(); return; }
         const welcome = document.getElementById('welcome-modal');
-        if (welcome && welcome.classList.contains('open')) { if (!setupMode() && !upgradeOpen) closeWelcome(false); return; }
+        if (welcome && welcome.classList.contains('open')) { if (!setupMode()) closeWelcome(false); return; }
         const reset = document.getElementById('reset-modal');
         if (reset && reset.classList.contains('open')) { closeReset(false); return; }
         const changelog = document.getElementById('changelog-modal');
