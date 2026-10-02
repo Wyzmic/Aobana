@@ -57,9 +57,9 @@ APP_FILES = [
 ]
 NOT_EXPORTED = {
     "data/ruby/ruby_splits.tsv": "a review list keyed by rowids of one index; the engine never reads it",
-    **{f"static/icons/{name}": "local launcher shortcut art; never part of the web app or release"
-       for name in ("aobana.ico", "aobana-build-1.6.ico", "aobana-latest.ico",
-                    "aobana-mattias.ico", "aobana-mattias-1.5.ico")},
+}
+NOT_EXPORTED_DIRS = {
+    "static/icons/": "local launcher shortcut art; never part of the web app or release",
 }
 TSV_COLUMNS = {"ruby.tsv": 5}
 PUBLIC_FILES = ["README.md", "README.ja.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md"]
@@ -122,7 +122,8 @@ def check_whitelist():
             dirs[:] = [d for d in dirs if d != "__pycache__"]
             for f in files:
                 rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace("\\", "/")
-                if re.match(pattern, f) and rel not in listed and rel not in NOT_EXPORTED:
+                if (re.match(pattern, f) and rel not in listed and rel not in NOT_EXPORTED
+                        and not rel.startswith(tuple(NOT_EXPORTED_DIRS))):
                     sys.exit(f"build: {rel} is not in APP_FILES - add it, or say why it stays out")
     check_imports_shipped()
     check_ruby_merged()

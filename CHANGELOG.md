@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8: Open folder from Media and Search
+
+### Enhancements
+
+- **Open folder.** A title's page in **Media** has an **Open folder** button that opens the folder holding the title. A folder icon on each episode or volume, and on each Search result, opens its folder with that file selected, ready to open in the program you choose. On Linux the folder opens without the file selected, and on Termux the buttons are hidden.
+
+### Bug Fixes
+
+- The Japanese **Guide** names Anki's menu 「ツール」, as a Japanese Anki shows it, in the Aobana Reibun section.
+
 ## 1.7: Safer indexing, duplicate selection, and organized source code
 
 ### Enhancements

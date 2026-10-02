@@ -26,7 +26,7 @@ and if one does, it offers the release page.
 - **Your own library:** subtitles (`.srt`, `.ass`, `.ssa`), e-books (`.epub`) and manga (`.mokuro`), each indexed from a folder you choose; turn off what you don't use. From an `.ass`, only the Japanese dialogue is read, with its furigana: Chinese and English lines, signs and drawings are left out. A `.mokuro` file is what [mokuro](https://github.com/kha-white/mokuro) writes when it runs OCR on manga pages; Aobana reads its text as mokuro saved it, and the images are not needed.
 - **Search that understands Japanese:** `食べる` also finds 食べた and 食べて, and the reading `たべる` works too. Exact matches, and excluding a word with `-`.
 - **Furigana:** on every sentence, from the author's own ruby where the book has it. One click turns it off.
-- **Context:** open the lines around any sentence, or read a whole episode or chapter in order from the Media tab.
+- **Context:** open the lines around any sentence, or read a whole episode or chapter in order from the Media tab. **Open folder** shows where a file is on your computer.
 - **Favorites, sorting and filters:** save sentences; sort them by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
 - **Japanese and English UI**, four themes, keyboard shortcuts.
 

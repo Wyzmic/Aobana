@@ -50,7 +50,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "1.7"
+VERSION = "1.8"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -935,6 +935,20 @@ def api_library_open():
     _require_page()
     which = (request.get_json(silent=True) or {}).get("which")
     error = library.open_folder(which)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reveal", methods=["POST"])
+def api_reveal():
+    _require_page()
+    if ON_PHONE:
+        return jsonify({"error": "phone"}), 400
+    body = request.get_json(silent=True) or {}
+    db_subs, db_epub = get_db()
+    error = library.reveal(str(body.get("media") or ""), str(body.get("folder") or ""),
+                           str(body.get("file") or ""), db_subs, db_epub, get_manga_db())
     if error:
         return jsonify({"error": error}), 400
     return jsonify({"ok": True})

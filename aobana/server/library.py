@@ -849,6 +849,79 @@ def open_folder(which):
     return _os_open(path)
 
 
+def _reveal_target(media, folder, file, db_subs, db_epub, db_manga):
+    split = lambda rel: re.split(r"[\\/]", rel)
+    if media == "subs" and db_subs is not None:
+        root = paths.subs_dir()
+        if file:
+            got = db_subs.execute("SELECT relpath FROM sources WHERE relpath = ?", (file,)).fetchone()
+            return (split(got[0]), True, root) if got else (None, "not_indexed", None)
+        from aobana.search.engine import folder_prefix_where
+        where, params = folder_prefix_where("relpath", folder)
+        got = db_subs.execute(f"SELECT relpath FROM sources WHERE {where} LIMIT 1", params).fetchone()
+        if got:
+            return [folder], False, root
+        got = db_subs.execute("SELECT relpath FROM sources WHERE relpath = ?", (folder,)).fetchone()
+        return (split(got[0]), True, root) if got else (None, "not_indexed", None)
+    if media == "epub" and db_epub is not None:
+        root = paths.books_dir()
+        if file:
+            from aobana import utils
+            table = "chapters" if utils.has_chapters(db_epub) else "epubs"
+            got = db_epub.execute(
+                f"SELECT s.relpath FROM {table} c JOIN sources s ON s.id = c.source_id WHERE c.file = ? LIMIT 1",
+                (file,)).fetchone()
+        else:
+            got = db_epub.execute(
+                "SELECT relpath FROM sources WHERE title = ? OR (title = '' AND relpath IN (?, ?)) "
+                "ORDER BY relpath LIMIT 1", (folder, folder + ".epub", folder + ".EPUB")).fetchone()
+        return (split(got[0]), True, root) if got else (None, "not_indexed", None)
+    if media == "manga" and db_manga is not None:
+        root = paths.manga_dir()
+        if file:
+            got = db_manga.execute("SELECT relpath FROM sources WHERE title || char(92) || volume = ? LIMIT 1",
+                                   (file,)).fetchone()
+            return (split(got[0]), True, root) if got else (None, "not_indexed", None)
+        got = db_manga.execute("SELECT relpath FROM sources WHERE title = ? ORDER BY relpath LIMIT 1",
+                               (folder,)).fetchone()
+        return (split(got[0])[:-1][:1], False, root) if got else (None, "not_indexed", None)
+    return None, "unknown", None
+
+
+def reveal(media, folder, file, db_subs, db_epub, db_manga):
+    if not (folder or file):
+        return "unknown"
+    parts, select, root = _reveal_target(media, folder, file, db_subs, db_epub, db_manga)
+    if parts is None:
+        return select
+    if not root or not os.path.isdir(root):
+        return "not_found"
+    base = os.path.realpath(root)
+    target = os.path.realpath(os.path.join(root, *parts)) if parts else base
+    if not _inside(target, base):
+        return "outside"
+    if not (os.path.isfile(target) if select else os.path.isdir(target)):
+        return "not_found"
+    return _os_reveal(target) if select else _os_open(target)
+
+
+def _os_reveal(path):
+    try:
+        if sys.platform == "win32":
+            before = {hwnd for hwnd, _ in _windows_explorer_windows()}
+            explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
+            subprocess.Popen(f'"{explorer}" /select,"{path}"')
+            threading.Thread(target=_bring_windows_folder_forward, args=(os.path.dirname(path), before),
+                             daemon=True).start()
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", path])
+        else:
+            return _os_open(os.path.dirname(path))
+    except Exception as e:
+        return f"failed:{e}"
+    return None
+
+
 def _windows_explorer_windows():
     import ctypes
     from ctypes import wintypes

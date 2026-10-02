@@ -906,7 +906,7 @@
         html += `
         <div class="card" id="card-${rId}">
           <div class="card-meta">
-            <div class="src">${esc(r.title || r.folder)}${r.page ? ' · ' + pageLabel(r) : ''}</div>
+            <div class="src">${srcWithReveal(r)}</div>
             <div class="chars">${r.char_count !== undefined ? esc(t('chars', { n: r.char_count })) : ''}</div>
           </div>
           <div class="file-title">
@@ -1307,7 +1307,7 @@
       mediaDetailFolder = folder;
       mediaDetailMedia = media;
       mediaDetailContentActive = false;
-      head.innerHTML = `<a class="back-link" href="/?tab=media">← ${esc(t('back_media'))}</a><h1>${esc(folder)}</h1><div id="media-detail-meta"></div>
+      head.innerHTML = `<a class="back-link" href="/?tab=media">← ${esc(t('back_media'))}</a><h1>${esc(folder)}</h1><div id="media-detail-meta"></div><div id="media-detail-reveal"></div>
         <div class="media-detail-search">
           <input id="media-detail-filter" class="folder-filter" type="text" placeholder="${esc(t('media_detail_filter_' + (media === 'all' ? 'subs' : media)))}" spellcheck="false" autocomplete="off" oninput="onMediaDetailTitleInput()" ${mediaDetailMode === 'title' ? '' : 'hidden'}>
           <form id="media-detail-form" class="media-detail-form" autocomplete="off" onsubmit="onMediaDetailContentSubmit(event)" ${mediaDetailMode === 'content' ? '' : 'hidden'}>
@@ -1360,6 +1360,10 @@
           }
           document.getElementById('media-detail-meta').innerHTML =
             `${it.author ? `<div class="muted">${esc(it.author)}</div>` : ''}<div class="media-stats">${statPills(it)}</div>`;
+          if (!ON_PHONE) {
+            document.getElementById('media-detail-reveal').innerHTML =
+              `<button type="button" class="btn" data-media="${esc(it.media)}" data-folder="${encodeURIComponent(folder)}" onclick="revealInFolder(event, this)">${esc(t('reveal'))}</button>`;
+          }
         }
         mediaDetailFiles = ep.files || [];
         renderEpisodesList(mediaDetailFiles);
@@ -1484,10 +1488,7 @@
           const tpl = document.createElement('template');
           tpl.innerHTML = `
             <div class="card episode-card" id="ep-card-${fileHash}" data-file="${safeFile}">
-                <div class="episode-header" data-file="${safeFile}" onclick="expandEpisode(this)">
-                    <div class="episode-title">${esc(item.title)}</div>
-                    <div class="episode-toggle-icon">▼</div>
-                </div>
+                ${episodeHeaderHTML(item)}
                 <div class="episode-content"></div>
             </div>`.trim();
           card = tpl.content.firstChild;
@@ -1581,6 +1582,15 @@
       }
     }
 
+    function episodeHeaderHTML(item) {
+      const safeFile = encodeURIComponent(item.file);
+      return `<div class="episode-header" data-file="${safeFile}" onclick="expandEpisode(this)">
+                    <div class="episode-title">${esc(item.title)}</div>
+                    ${mediaDetailMedia === 'epub' ? '' : revealIconHTML(mediaDetailMedia, item.file)}
+                    <div class="episode-toggle-icon">▼</div>
+                </div>`;
+    }
+
     function renderEpisodesList(filesList) {
       const resultsContainer = document.getElementById('results');
       let html = '';
@@ -1589,10 +1599,7 @@
          const safeFile = encodeURIComponent(item.file);
          html += `
             <div class="card episode-card collapsed" id="ep-card-${fileHash}">
-                <div class="episode-header" data-file="${safeFile}" onclick="expandEpisode(this)">
-                    <div class="episode-title">${esc(item.title)}</div>
-                    <div class="episode-toggle-icon">▼</div>
-                </div>
+                ${episodeHeaderHTML(item)}
                 <div class="episode-content"></div>
             </div>`;
       });
@@ -2276,6 +2283,40 @@
       return `<a class="page-link" href="/manga/page/${Number(r.rowid)}" target="aobana-manga-page" title="${esc(t('page_open'))}">${label}</a>`;
     }
 
+    const REVEAL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6A1.5 1.5 0 0 1 4.5 4.5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.2v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/></svg>';
+    function revealIconHTML(media, file) {
+      if (ON_PHONE || !['subs', 'epub', 'manga'].includes(media) || !file) return '';
+      return `<button type="button" class="reveal-btn" data-media="${esc(media)}" data-file="${encodeURIComponent(file)}" onclick="revealInFolder(event, this)" aria-label="${esc(t('reveal'))}">${REVEAL_SVG}</button>`;
+    }
+
+    function srcWithReveal(r) {
+      const title = r.title || r.folder || '';
+      const icon = revealIconHTML(r.media_type || 'subs', r.file);
+      if (!icon) return `${esc(title)}${r.page ? ' · ' + pageLabel(r) : ''}`;
+      if (r.page) return `${esc(title)} · <span class="reveal-glue">${pageLabel(r)}${icon}</span>`;
+      const chars = [...title];
+      const last = chars.pop() || '';
+      return `${esc(chars.join(''))}<span class="reveal-glue">${esc(last)}${icon}</span>`;
+    }
+
+    async function revealInFolder(event, button) {
+      if (event) event.stopPropagation();
+      const body = { media: button.dataset.media };
+      if (button.dataset.file) body.file = decodeURIComponent(button.dataset.file);
+      if (button.dataset.folder) body.folder = decodeURIComponent(button.dataset.folder);
+      const res = await apiPost('/api/reveal', body).catch(() => ({ error: 'network' }));
+      const row = button.closest('.episode-header');
+      const scope = row ? row.parentElement : button.parentElement;
+      const old = scope.querySelector(':scope > .reveal-msg');
+      if (old) old.remove();
+      if (!res.error) return;
+      const msg = document.createElement('span');
+      msg.className = 'reveal-msg warn';
+      msg.textContent = ['not_found', 'not_indexed'].includes(res.error) ? t('reveal_err_gone') : t('reveal_err', { e: res.error });
+      (row || button).after(msg);
+      setTimeout(() => msg.remove(), 6000);
+    }
+
     async function openFolder(which, button) {
       const card = button.closest('.set-media-row, .lib-card');
       const msg = card.querySelector('.lib-open-msg');
@@ -2838,11 +2879,11 @@ function startPolling() {
         <!--reibun-->
         <p>Aobana Reibun（例文）は、Anki のカードに日本語の例文を入れるアドオンです。Aobana を使うと、手持ちの字幕・書籍・漫画から例文を選び、ふりがな、作品名、前後の文脈を、漫画ならそのページの画像も一緒に入れます。Aobana が動いていなければアドオンが起動し、終わったら止めます。</p>
         <ul>
-          <li><b>まとめて入れる</b> — Anki の「Tools → Aobana Reibun → Run」でデッキ全体に、ブラウザでは選んだノートに入れます。フィールドが埋まっているときは、スキップ・置き換え・追加から選べます。</li>
+          <li><b>まとめて入れる</b> — Anki の「ツール → Aobana Reibun → Run」でデッキ全体に、ブラウザでは選んだノートに入れます。フィールドが埋まっているときは、スキップ・置き換え・追加から選べます。</li>
           <li><b>復習中に1枚ずつ</b> — <span class="kbd-key">Ctrl+Shift+W</span> を押すと、今のカードに Aobana の例文が入ります。</li>
           <li><b>ほかの2つのソース</b> — Nadeshiko（API キーが必要）と Immersion Kit（キー不要）の例文も、スクリーンショットと音声つきで入れられます（<span class="kbd-key">Ctrl+Shift+O</span>・<span class="kbd-key">Ctrl+Shift+K</span>）。</li>
         </ul>
-        <p>Anki の「ツール → アドオン」で「アドオンを入手...」を押し、上のコードを入力するとインストールできます。AnkiAutoImage をもとに作られました。</p>
+        <p>Anki の「ツール → アドオン」で「アドオンを入手...」を押し、上のコードを入力するとインストールできます。AnkiAutoImage のコードから作り始めました。</p>
 
         <h2>表示と設定</h2>
         <p>右上のボタンでショートカット一覧（?）、言語（日本語 / English）、テーマ（紙・霞・夜・深夜）を切り替えられます。</p>
@@ -2918,7 +2959,7 @@ Manga folder/
           <li><b>One card while reviewing</b>: <span class="kbd-key">Ctrl+Shift+W</span> puts an Aobana sentence on the current card.</li>
           <li><b>Two more sources</b>: Nadeshiko (needs an API key) and Immersion Kit (no key) add sentences with a screenshot and audio (<span class="kbd-key">Ctrl+Shift+O</span>, <span class="kbd-key">Ctrl+Shift+K</span>).</li>
         </ul>
-        <p>To install it, open "Tools → Add-ons" in Anki, press "Get Add-ons..." and enter the code above. It is based on AnkiAutoImage.</p>
+        <p>To install it, open "Tools → Add-ons" in Anki, press "Get Add-ons..." and enter the code above. It started from AnkiAutoImage's code.</p>
 
         <h2>Appearance and settings</h2>
         <p>The buttons at the top right show keyboard shortcuts (?), and switch language (日本語 / English) and theme (Paper, Haze, Night, Midnight).</p>
