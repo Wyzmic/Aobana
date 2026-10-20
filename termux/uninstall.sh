@@ -8,9 +8,8 @@ AOBANA_DIR="${AOBANA_DIR:-/storage/emulated/0/Aobana}"
 DISTRO="aobana"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 PD_DIR="$PREFIX/var/lib/proot-distro"
-PHONE_FILES="aobana requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
-OLD_ROOT_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py
-manga_indexer.py ass_ruby.py folder_picker.py updater.py index.html __pycache__"
+PHONE_FILES="aobana requirements.txt constraints.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+OLD_ROOT_FILES="app.py"
 
 say() { printf '\n== %s\n' "$1"; }
 
@@ -39,6 +38,8 @@ say "App files in $AOBANA_DIR"
 if [ -d "$AOBANA_DIR" ]; then
     for f in $PHONE_FILES $OLD_ROOT_FILES; do rm -rf "${AOBANA_DIR:?}/$f"; done
     rmdir "$AOBANA_DIR/data" 2>/dev/null
+    for name in Subtitles Books Manga Custom; do rmdir "$AOBANA_DIR/content/$name" 2>/dev/null; done
+    rmdir "$AOBANA_DIR/content" 2>/dev/null
     if rmdir "$AOBANA_DIR" 2>/dev/null; then
         echo "removed (nothing of yours was in it, so the folder went too)"
     else

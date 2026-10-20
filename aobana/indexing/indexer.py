@@ -1,8 +1,10 @@
 import os
 import re
 import sqlite3
+import collections
 import hashlib
 import time
+import unicodedata
 from sudachipy import tokenizer, dictionary
 from datetime import datetime
 
@@ -25,20 +27,111 @@ def get_tokenizer():
 from aobana.utils import (
     KANA_RE, KANJI_CHARS, KANJI_PATTERN,
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, RUBY_RE,
-    norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, write_tokenizer_meta, ruby_index_extras, parallel_map,
-    strip_chinese_chunks, is_chinese_text, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
+    norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, is_appledouble_name, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map,
+    strip_chinese_chunks, is_chinese_text, filtered_names, held_removals, ALLOW_REMOVAL_FLAG, name_key,
+    MEDIA_EXTS, media_walk,
     start_output, emit, say,
-    ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths,
+    ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths, token_lengths_blob,
+    write_token_lengths, stored_display_length,
     ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon,
 )
 
-HTML_TAG_RE = re.compile(r'</?(?:i|b|u|s|font)[^>]*>', re.IGNORECASE)
+HTML_TAG_RE = re.compile(r'</?(?:i|b|u|s|font|c(?=[.>])|v(?=[\s.>]))[^>]*>', re.IGNORECASE)
 BIDI_MARK_RE = re.compile(r'&(?:lrm|rlm);|[‎‏]')
+INVISIBLE_RE = re.compile('[\u202a-\u202e\u2066-\u2069\u200b\ufeff\u00ad\u2009\u3164\ufe0f]')
+CONTROL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+PUA_SPACE = {0xE4C6}
+PUA_MARKS = {0xEC00, 0xEC01, 0xE285, 0xE292, 0xE2F9, 0xE2FA, 0xE2FB, 0xE348, 0xE349}
+
+
+def _is_kanji(ch):
+    o = ord(ch)
+    return 0x3400 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF or o == 0x3005
+
+
+def private_use(line):
+    if not any(0xE000 <= ord(c) <= 0xF8FF for c in line):
+        return line
+    out = []
+    for i, c in enumerate(line):
+        o = ord(c)
+        if not 0xE000 <= o <= 0xF8FF:
+            out.append(c)
+        elif 0xF300 <= o <= 0xF6FF and unicodedata.category(chr(0x10000 + o)) == 'So':
+            out.append(chr(0x10000 + o))
+        elif o in PUA_SPACE:
+            if out and out[-1] != ' ':
+                out.append(' ')
+        elif o in PUA_MARKS:
+            pass
+        elif i and (_is_kanji(line[i - 1]) or (i + 1 < len(line) and _is_kanji(line[i + 1]))):
+            out.append('〓')
+    return ''.join(out).strip()
+
+
 HTML_ENTITIES = (('&lt;', '<'), ('&gt;', '>'), ('&amp;', '&'))
 SQUARE_BRACKETS_RE = re.compile(r'\[[^\[\]]*\]')
-TIMECODE_RE = re.compile(r'\d{2,}(?::\d{2}){2,3},[^ ]+\s*-->\s*\d{2,}(?::\d{2}){2,3},[^ ]+')
+from aobana.indexing import subtitle_input
+from aobana.indexing.subtitle_ruby import dictionary_prefixes, has_native_ruby, normalize_subtitle_ruby, source_readings
+from functools import lru_cache
+TIMECODE_RE = subtitle_input.TIMECODE_RE
 
 SIMP_CHINESE_RE = re.compile(r'[这吗呢吧啦么谁们从说话样觉视频听欢买卖错让帮确对爱关门图运无计场动时发现经还进长您她啥够钟钱馆帅步舔护见恼变樱联语弃寻伫战龙击两亚丽丝态类优恶办统层头谈论戏极气为复杂转带质压雾辈适厌连隐谓认费愿拥应废东获谢闪诚责过军预给险刚脑测实迟钝虽剑临圣请哪呗尔谅创兰鲁伙开读网电车专乐业产农风飞杀药权树桥决减满卫织续损]')
+ZH_KANA_RE = re.compile('[ぁ-ゖァ-ヺ]')
+_CJK_CHAR_RE = re.compile('[一-鿿]')
+_ZH_SPLIT_RE = re.compile('([\\s　]+)')
+ZH_CREDIT_RE = re.compile(r'(?:翻[译譯]|校[对對润潤译]|后期|日听|听写|聽寫|时间轴|时轴|時軸|压制|壓制|繁化|片源|特效|监制|总筹|字幕制作|日字|翻校|时后|校轴)\s*[：:]')
+ZH_CREDIT_JA_RE = re.compile(r'(?:後期|時間軸|監製)\s*[：:]')
+ZH_NOTE_RE = re.compile(r'(?:^|[\s　]+)[（(【\[]?\s*(?:译者?注|譯者?注|译者|譯者|注释|註釋|注|註|PS)\s*[：:]')
+
+
+def _zh_chars(text):
+    return bool(SIMP_CHINESE_RE.search(text) or CHINESE_RE.search(text) or simplified(text))
+
+
+def chinese_line(line):
+    if not ZH_KANA_RE.search(line):
+        return ("", "CHINESE") if SIMP_CHINESE_RE.search(line) or is_chinese_text(line) else (line, None)
+    if ZH_CREDIT_RE.search(line) or (ZH_CREDIT_JA_RE.search(line) and _zh_only_count(RUBY_RE.sub('', line))):
+        return "", "CHINESE"
+    m = ZH_NOTE_RE.search(line)
+    if m and _zh_chars(line[m.start():]):
+        rest = line[:m.start()].strip()
+        return (rest, "CHINESE_NOTE") if ZH_KANA_RE.search(rest) else ("", "CHINESE")
+    bare = RUBY_RE.sub('', line)
+    n = _zh_only_count(bare)
+    if n >= ZH_ONLY_IN_JAPANESE or (n >= 2 and (CHINESE_RE.search(bare) or '，' in bare)):
+        return "", "CHINESE"
+    if _zh_sentence(line):
+        return "", "CHINESE"
+    parts = _ZH_SPLIT_RE.split(line)
+    kept = [p for p in parts if not _zh_sentence(p, words=True)]
+    if len(kept) < len(parts):
+        rest = re.sub('([\\s　])[\\s　]+', r'\1', ''.join(kept)).strip()
+        return (rest, "CHINESE_PART") if ZH_KANA_RE.search(rest) else ("", "CHINESE")
+    return line, None
+
+
+ZH_ONLY_IN_JAPANESE = 4
+
+
+_ZH_QUOTED_RE = re.compile('「[^」]*」|『[^』]*』|“[^”]*”|【[^】]*】')
+
+
+def _zh_sentence(text, words=False):
+    outside = _ZH_QUOTED_RE.sub('', RUBY_RE.sub('', text))
+    if ZH_KANA_RE.search(outside):
+        return False
+    if words:
+        return bool(SIMP_CHINESE_RE.search(outside) or CHINESE_RE.search(outside))
+    return _zh_chars(outside)
+
+
+def _zh_only_count(text):
+    return sum(1 for ch in _CJK_CHAR_RE.findall(text)
+               if SIMP_CHINESE_RE.match(ch) or CHINESE_RE.match(ch) or simplified(ch))
+
+
 PROMO_URL_RE = re.compile(r'(?:https?://|www\.|(?:\.com|\.cc|\.net|\.org)(?:\b|/))', re.IGNORECASE)
 JAPANESE_CHARS_RE = re.compile(r'[\u3040-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\U00020000-\U000323AF\U0002F800-\U0002FA1F]')
 
@@ -46,23 +139,40 @@ _EXCLUDED_LOG = []
 _WAKATI_LOG = []
 _NOTES = []
 
-from aobana.utils import convert_hw_katakana, SUBS_STR_REPLACEMENTS, katakana_to_hiragana, ruby_table
+from aobana.utils import convert_hw_katakana, SUBS_STR_REPLACEMENTS, katakana_to_hiragana, ruby_table, replace_until_fixed
+from aobana.utils import CHINESE_RE, simplified
 
 _RE_REPLACEMENTS = [
     (re.compile(r'＠ルビ.*?［(.+?)[｜|](.+?)］＠'), r'\1(\2)'),
+    (re.compile(r'ルビ[上下右左]?［([^［］｜\n]+)｜([^［］｜\n]+)］'), r'｜\1(\2)'),
+    (re.compile(r'＠幅広［(.*?)］＠'), r'\1'),
     (re.compile(r'(?<![―—])[―—](?![―—])'), '――'),
     (re.compile(r'[・]{3,}'), '…'),
     (re.compile(r'~~~'), '～～～'),
     (re.compile(r'~~'),  '～～'),
     (re.compile(r'~'),   '～'),
+    (re.compile(r'⇒[\s　]*$'), ''),
 ]
+
+HW_DOT_RUN_RE = re.compile('･{3,}')
+
+DASH_RUN_RE = re.compile('[―—⸺]+')
+_JP_NEIGHBOUR = '\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u30fc'
+NAME_DOT_RE = re.compile(f'(?<=[{_JP_NEIGHBOUR}])[·‧](?=[{_JP_NEIGHBOUR}])')
+
+def finish_caption(text: str) -> str:
+    return NAME_DOT_RE.sub('・', DASH_RUN_RE.sub('――', text))
 
 def _postprocess_sentence(text: str) -> str:
     text = convert_hw_katakana(text)
-    for src, dst in SUBS_STR_REPLACEMENTS:
-        text = text.replace(src, dst)
-    for pattern, dst in _RE_REPLACEMENTS:
-        text = pattern.sub(dst, text)
+    text = HW_DOT_RUN_RE.sub('…', text)
+    for _ in range(10):
+        before = text
+        text = replace_until_fixed(text, SUBS_STR_REPLACEMENTS)
+        for pattern, dst in _RE_REPLACEMENTS:
+            text = pattern.sub(dst, text)
+        if text == before:
+            break
     return close_unclosed_ruby(text)
 
 UNCLOSED_RUBY_RE = re.compile(r'ルビ[上下右左]?［[^［］｜\n]*｜')
@@ -99,8 +209,22 @@ def bar_ruby_plain(text):
     return RUBY_RE.sub(lambda m: m.group(1) if m.group(1) else m.group(0), text)
 
 
+_LEADING_PAREN_RE = re.compile(r'\(([^()\n]+)\)')
+
+
+def opening_tag(prev, curr):
+    m = _LEADING_PAREN_RE.match(curr)
+    if not m or not prev:
+        return curr
+    joined = prev + curr
+    if any(r.start(3) - 1 == len(prev) and r.group(1) is None for r in RUBY_RE.finditer(joined)):
+        return '（' + m.group(1) + '）' + curr[m.end():]
+    return curr
+
+
 def smart_join(lines):
     if not lines: return ''
+    lines = [lines[0]] + [opening_tag(prev, curr) for prev, curr in zip(lines, lines[1:])]
     result = [lines[0]]
     for prev, curr in zip(lines, lines[1:]):
         last  = prev[-1] if prev else ''
@@ -117,17 +241,39 @@ def smart_join(lines):
             result.append(curr)
     return ''.join(result)
 
-def clean_line(line, relpath):
+@lru_cache(maxsize=4096)
+def _native_reading(base):
+    return katakana_to_hiragana(''.join(t.reading_form() for t in
+        get_tokenizer().tokenize(base, tokenizer.Tokenizer.SplitMode.C)))
+
+
+@lru_cache(maxsize=4096)
+def _native_prefixes(base, tail):
+    tok = get_tokenizer()
+    return dictionary_prefixes(base, tail, lambda text: tok.tokenize(text, mode))
+
+
+def clean_line(line, relpath, native_aliases=None):
     folder = re.split(r"[\\/]", relpath)[0]
     line = BIDI_MARK_RE.sub('', line)
+    line = INVISIBLE_RE.sub('', line).replace('\u00a0', ' ')
+    line = private_use(CONTROL_RE.sub('', line))
     for entity, char in HTML_ENTITIES:
         line = line.replace(entity, char)
+    native_notes = []
+    line = normalize_subtitle_ruby(line, lookup=_native_reading, aliases=native_aliases,
+                                   notes=native_notes, prefixes=_native_prefixes)
+    for kind, base, reading in native_notes:
+        _NOTES.append(f'NATIVE_RUBY_{kind.upper()} {relpath}: {base} / {reading}')
     line, chinese = strip_chinese_chunks(line)
     for chunk in chinese:
         _EXCLUDED_LOG.append((folder, "CHINESE_PART", chunk))
-    if SIMP_CHINESE_RE.search(line) or is_chinese_text(line):
-        _EXCLUDED_LOG.append((folder, "CHINESE", line))
+    kept, why = chinese_line(line)
+    if why:
+        _EXCLUDED_LOG.append((folder, why, line))
+    if not kept:
         return ""
+    line = kept
     if PROMO_URL_RE.search(line) and not JAPANESE_CHARS_RE.search(line):
         _EXCLUDED_LOG.append((folder, "URL_PROMO", line))
         return ""
@@ -142,14 +288,14 @@ def clean_line(line, relpath):
         elif char == '}':
             if skip > 0: skip -= 1
         elif skip == 0: result.append(char)
-    cleaned_text = _postprocess_sentence(''.join(result).strip())
+    cleaned_text = _postprocess_sentence(''.join(result).strip()).strip()
     if UNCLOSED_RUBY_RE.search(cleaned_text):
         _NOTES.append(f"UNCLOSED_RUBY {relpath}: {cleaned_text}")
     return cleaned_text
 
 def is_music_only_line(line):
     s = re.sub(r'[\u202A-\u202E\u200B-\u200F\u2066-\u2069  ]', '', line)
-    return bool(re.fullmatch(r'[♪♬〜～]+', s))
+    return bool(re.fullmatch(r'[♪♬♫♩🎵〽〜～]+', s))
 
 def is_line_number(line): return line.strip().isdigit()
 def is_timecode(line): return bool(TIMECODE_RE.fullmatch(line.strip())) or bool(TIMECODE_RE.search(line))
@@ -198,7 +344,30 @@ def assess_and_clean_wakati(lines, relpath=""):
 
     return lines, False
 
+WHOLE_BRACKET_RE = re.compile(r'\[([^\[\]]*)\]')
+
+
+def bracket_wrapped(srt_content):
+    total = wrapped = 0
+    for raw in srt_content.splitlines():
+        s = raw.strip()
+        if not s or is_line_number(s) or is_timecode(s) or not JAPANESE_CHARS_RE.search(s):
+            continue
+        total += 1
+        wrapped += bool(WHOLE_BRACKET_RE.fullmatch(s))
+    return wrapped >= 20 and wrapped >= 0.8 * total
+
+
+def _timecode_follows(lines, i):
+    for k in range(i + 1, len(lines)):
+        if lines[k]:
+            return is_timecode(lines[k])
+    return False
+
+
 def extract_lines_grouped_by_timecode(srt_content, relpath):
+    native_aliases = source_readings(srt_content)
+    unwrap = bracket_wrapped(srt_content)
     lines = []
     group_texts = []
     current_timecode = None
@@ -207,16 +376,18 @@ def extract_lines_grouped_by_timecode(srt_content, relpath):
         if current_timecode is not None and group_texts:
             joined = _merge_group(group_texts)
             if not is_music_only_line(joined):
-                if lines and bar_ruby_plain(lines[-1]) == bar_ruby_plain(joined):
+                plain = bar_ruby_plain(joined)
+                if lines and bar_ruby_plain(lines[-1]) == plain and (lines[-1] == joined or plain in (lines[-1], joined)):
                     if len(joined) > len(lines[-1]):
                         lines[-1] = joined
                 else:
                     lines.append(joined)
 
-    for raw_line in srt_content.splitlines():
-        line = raw_line.strip()
+    stripped = [raw.strip() for raw in srt_content.splitlines()]
+    for i, line in enumerate(stripped):
         if not line: continue
-        if is_line_number(line): continue
+        if is_line_number(line) and _timecode_follows(stripped, i):
+            continue
         if is_timecode(line):
             flush()
             current_timecode = line
@@ -227,48 +398,53 @@ def extract_lines_grouped_by_timecode(srt_content, relpath):
             folder = re.split(r"[\\/]", relpath)[0]
             _EXCLUDED_LOG.append((folder, "SYMBOL/JUNK", line))
             continue
-            
-        cleaned = clean_line(line, relpath)
+        if unwrap:
+            m = WHOLE_BRACKET_RE.fullmatch(line)
+            if m:
+                line = m.group(1).strip()
+                if not line:
+                    continue
+
+        cleaned = clean_line(line, relpath, native_aliases)
         if cleaned: group_texts.append(cleaned)
 
     flush()
     cleaned_lines, _ = assess_and_clean_wakati(lines, relpath)
     return cleaned_lines
 
-SUB_EXTS = ('.srt', '.ass', '.ssa')
+SUB_EXTS = MEDIA_EXTS["subs"]
 ASS_TAG_RE = re.compile(r'\{[^}]*\}')
 ASS_GAIJI_RE = re.compile(r'\[外:[0-9A-Fa-f]+\]')
-ASS_TIME_RE = re.compile(r'(\d+):(\d{2}):(\d{2})[.:](\d{1,3})')
+ASS_TIME_RE = re.compile(r'(-?\d+)\s*:\s*(-?\d+)\s*:\s*(-?\d+)\s*[.:]\s*(-?)(\d+)')
+ASS_V4_FIELDS = ['layer', 'start', 'end', 'style', 'name', 'marginl', 'marginr', 'marginv', 'effect', 'text']
+ASS_RESET_RE = re.compile(r'\\r([^\\}]*)')
+ASS_SEG_RE = re.compile(r'(\{[^}]*\})|([^{]+)')
 ASS_RUBY_STYLE_RE = re.compile(r'rubi|ruby|furigana', re.IGNORECASE)
+ASS_RUBY_STYLE_SHARE = 0.75
 ASS_CREDIT_STYLE_RE = re.compile(r'staff|credit|製作|制作|注釋|注释|^cmt', re.IGNORECASE)
 KANA_RE_ASS = re.compile(r'[ぁ-ゖァ-ヺー]')
+ASS_KANJI_RE = re.compile(r'[一-鿿々]')
 KANA_ONLY_RE = re.compile(r'[ぁ-ゖァ-ヺー\s　]+')
+ASS_GLOSS_RE = re.compile(r'[ぁ-ゖァ-ヺー一-鿿々〆]{1,20}(?:\[[^\]]*\])?\s*[:：][\s(\-…~.]*[A-Za-z0-9]')
+LATIN_RE = re.compile(r'[A-Za-z]')
 ASS_KANA_SHARE = 0.2
 
 
 def read_subtitle_text(path):
-    if not path.lower().endswith(('.ass', '.ssa')):
-        with open(path, encoding='utf-8', errors='ignore') as f:
-            return f.read()
-    with open(path, 'rb') as f:
-        raw = f.read()
-    if raw[:2] in (b'\xff\xfe', b'\xfe\xff'):
-        return raw.decode('utf-16', errors='ignore')
-    for enc in ('utf-8-sig', 'cp932'):
-        try:
-            return raw.decode(enc)
-        except UnicodeDecodeError:
-            pass
-    return raw.decode('utf-8', errors='ignore')
+    return subtitle_input.read(path)['text']
 
 
 def _ass_time(s):
     m = ASS_TIME_RE.match(s.strip())
     if not m:
         return None
-    h, mi, se, frac = m.groups()
-    ms = int(frac.ljust(3, '0')[:3])
+    h, mi, se, neg, frac = m.groups()
+    ms = int(frac.ljust(3, '0')[:3]) * (-1 if neg else 1)
     return ((int(h) * 60 + int(mi)) * 60 + int(se)) * 1000 + ms
+
+
+def _ass_shown(start, end):
+    return end > max(start, 0)
 
 
 def _srt_time(ms):
@@ -280,14 +456,74 @@ def _srt_time(ms):
 
 def _ass_last_tag(tags, name):
     found = re.findall(r'\\' + name + r'(-?[\d.]+)', tags)
-    return float(found[-1]) if found else None
+    if not found:
+        return None
+    try:
+        return subtitle_input.number(found[-1])
+    except ValueError:
+        return None
+
+
+def _ass_expand_resets(raw, style, style_geom):
+    def expand(m):
+        geom = style_geom.get((m[1].strip() or style).lower())
+        if not geom:
+            return m[0]
+        size, scx, scy, spacing = geom
+        return f"{m[0]}\\fs{size:g}\\fscx{scx:g}\\fscy{scy:g}\\fsp{spacing:g}"
+    return ASS_TAG_RE.sub(lambda b: ASS_RESET_RE.sub(expand, b[0]), raw)
+
+
+def _ass_text_small(raw, base):
+    fs = fscy = None
+    seen = False
+    for tag, text in ASS_SEG_RE.findall(raw):
+        if tag:
+            fs = _ass_last_tag(tag, 'fs') if _ass_last_tag(tag, 'fs') is not None else fs
+            fscy = _ass_last_tag(tag, 'fscy') if _ass_last_tag(tag, 'fscy') is not None else fscy
+            continue
+        if not re.sub(r'\\[Nnh]|\s', '', text):
+            continue
+        seen = True
+        if not ((fscy is not None and fscy < 100) or (fs is not None and base and fs < base * 0.75)):
+            return False
+    return seen
+
+
+def _ass_event_lines(content, stats=None):
+    section = None
+    for line in content.splitlines():
+        s = line.strip()
+        if s.startswith('[') and s.endswith(']'):
+            section = s.lower()
+        if section == '[events]' and s.lower().startswith('format:'):
+            header, marker, value = s.partition('Dialogue:')
+            if marker:
+                fields = [f.strip().lower() for f in header.partition(':')[2].split(',')]
+                standard = fields in (ASS_V4_FIELDS, ['marked'] + ASS_V4_FIELDS[1:])
+                parts = value.split(',', len(fields) - 1)
+                if standard and len(parts) == len(fields):
+                    event = dict(zip(fields, parts))
+                    start, end = _ass_time(event['start']), _ass_time(event['end'])
+                    if start is not None and end is not None and _ass_shown(start, end):
+                        if stats is not None:
+                            stats['glued-header-repaired'] += 1
+                        yield header
+                        yield marker + value
+                        continue
+        yield line
+
+
+def _gloss_side(text):
+    rest = re.split(r'[:：]', text, maxsplit=1)[1]
+    return len(LATIN_RE.findall(rest)) > len(JAPANESE_CHARS_RE.findall(rest))
 
 
 def parse_ass_events(content, stats=None):
-    section, fields, style_size = None, None, {}
+    section, fields, style_size, style_geom = None, None, {}, {}
     style_fields = None
     events = []
-    for line in content.splitlines():
+    for line in _ass_event_lines(content, stats):
         s = line.strip()
         if s.startswith('[') and s.endswith(']'):
             section = s.lower()
@@ -296,35 +532,47 @@ def parse_ass_events(content, stats=None):
             continue
         key, _, value = s.partition(':')
         key = key.strip().lower()
-        if section in ('[v4+ styles]', '[v4 styles]'):
+        if section in ('[v4+ styles]', '[v4 styles]') and key in ('format', 'style'):
             if key == 'format':
                 style_fields = [f.strip().lower() for f in value.split(',')]
-            elif key == 'style' and style_fields:
+            elif style_fields:
                 vals = [v.strip() for v in value.split(',')]
                 row = dict(zip(style_fields, vals))
                 try:
-                    style_size[row.get('name', '').lower()] = float(row.get('fontsize', ''))
+                    name = row.get('name', '').lower()
+                    style_size[name] = float(row.get('fontsize', ''))
+                    style_geom[name] = (style_size[name], float(row.get('scalex', 100) or 100),
+                                        float(row.get('scaley', 100) or 100), float(row.get('spacing', 0) or 0))
                 except ValueError:
                     pass
-        elif section == '[events]':
-            if key == 'format':
-                fields = [f.strip().lower() for f in value.split(',')]
-            elif key == 'dialogue' and fields:
-                parts = value.split(',', len(fields) - 1)
-                if len(parts) < len(fields):
-                    continue
-                ev = dict(zip(fields, parts))
-                start, end = _ass_time(ev.get('start', '')), _ass_time(ev.get('end', ''))
-                if start is None or end is None:
-                    continue
-                raw = ev.get('text', '')
-                tags = ''.join(ASS_TAG_RE.findall(raw))
-                text = ASS_TAG_RE.sub('', raw)
-                text = text.replace('\\N', '\n').replace('\\n', '\n').replace('\\h', ' ')
-                text = ASS_GAIJI_RE.sub('', text)
-                text = '\n'.join(t.strip() for t in text.split('\n') if t.strip())
-                events.append({'start': start, 'end': end, 'raw': raw, 'tags': tags,
-                               'style': ev.get('style', '').strip(), 'text': text, 'drop': None})
+        elif section == '[events]' and key == 'format':
+            fields = [f.strip().lower() for f in value.split(',')]
+        elif key == 'dialogue' and (section == '[events]' or not fields):
+            use = fields or ASS_V4_FIELDS
+            parts = value.split(',', len(use) - 1)
+            if len(parts) < len(use):
+                continue
+            ev = dict(zip(use, parts))
+            start, end = _ass_time(ev.get('start', '')), _ass_time(ev.get('end', ''))
+            if start is None or end is None or end <= 0:
+                if stats is not None:
+                    stats['bad-time' if start is None or end is None else 'before-start'] += 1
+                continue
+            if not _ass_shown(start, end):
+                if stats is not None:
+                    stats['zero-duration'] += 1
+                continue
+            start = max(start, 0)
+            raw = ev.get('text', '')
+            if '\\r' in raw:
+                raw = _ass_expand_resets(raw, ev.get('style', '').strip(), style_geom)
+            tags = ''.join(ASS_TAG_RE.findall(raw))
+            text = ASS_TAG_RE.sub('', raw)
+            text = text.replace('\\N', '\n').replace('\\n', '\n').replace('\\h', ' ')
+            text = ASS_GAIJI_RE.sub('', text)
+            text = '\n'.join(t.strip() for t in text.split('\n') if t.strip())
+            events.append({'start': start, 'end': end, 'raw': raw, 'tags': tags,
+                           'style': ev.get('style', '').strip(), 'text': text, 'drop': None})
 
     cjk, kana = {}, {}
     for ev in events:
@@ -334,19 +582,21 @@ def parse_ass_events(content, stats=None):
             if KANA_RE_ASS.search(ev['text']):
                 kana[st] = kana.get(st, 0) + 1
     japanese = {st for st, n in cjk.items() if kana.get(st, 0) / n >= ASS_KANA_SHARE}
+    with_kanji = collections.Counter(ev['style'].lower() for ev in events if ASS_KANJI_RE.search(ev['text']))
+    main = max((st for st in japanese if st in style_size), key=lambda st: (with_kanji[st], style_size[st]), default=None)
+    largest = style_size[main] if main else None
 
     for ev in events:
         st, text, tags = ev['style'].lower(), ev['text'], ev['tags']
         p = _ass_last_tag(tags, 'p')
-        fscy = _ass_last_tag(tags, 'fscy')
-        fs = _ass_last_tag(tags, 'fs')
         base = style_size.get(st) or style_size.get('*' + st) or style_size.get('default')
-        small = (fscy is not None and fscy < 100) or (fs is not None and base and fs < base * 0.75)
+        small = _ass_text_small(ev['raw'], base)
         if p:
             ev['drop'] = 'drawing'
         elif not text:
             ev['drop'] = 'empty'
-        elif ASS_RUBY_STYLE_RE.search(st):
+        elif (ASS_RUBY_STYLE_RE.search(st)
+              and (largest is None or st not in style_size or style_size[st] < largest * ASS_RUBY_STYLE_SHARE)):
             ev['drop'] = 'ruby-style'
         elif small and KANA_ONLY_RE.fullmatch(text):
             ev['drop'] = 'ruby-small'
@@ -356,8 +606,13 @@ def parse_ass_events(content, stats=None):
             ev['drop'] = 'not-japanese-style'
         elif not JAPANESE_CHARS_RE.search(text):
             ev['drop'] = 'no-japanese'
+        elif ASS_GLOSS_RE.match(text) and _gloss_side(text):
+            ev['drop'] = 'gloss'
         if stats is not None:
             stats[ev['drop'] or 'kept'] += 1
+    if any(ev['drop'] == 'ruby-style' and ev['raw'].count('\\pos(') > 1 for ev in events):
+        from aobana.indexing import ass_ruby
+        ass_ruby.split_caption_rows(events, stats)
     return events
 
 
@@ -386,10 +641,16 @@ def get_clean_text_for_mecab(line: str) -> str:
 
 
 def analyze_with_sudachi(clean_text: str):
+    return analyze_tokens(clean_text)[:2]
+
+
+def analyze_tokens(clean_text: str):
     base_forms = []
     readings = []
+    surfaces = []
     for word in get_tokenizer().tokenize(clean_text, mode):
         base_forms.append(word.normalized_form())
+        surfaces.append(word.surface())
         
         kana = word.reading_form()
         if kana:
@@ -397,38 +658,58 @@ def analyze_with_sudachi(clean_text: str):
         else:
             readings.append(word.surface())
             
-    return " ".join(base_forms), " ".join(readings)
+    return " ".join(base_forms), " ".join(readings), token_lengths_blob(surfaces)
 
 def compute_file_hash(path):
     h = hashlib.sha256()
     with open(path, 'rb') as f:
         for chunk in iter(lambda: f.read(8192), b''):
+            control.check_stop()
             h.update(chunk)
     return h.hexdigest()
 
 def kept_lines(path, relpath):
-    content = read_subtitle_text(path)
-    if path.lower().endswith(('.ass', '.ssa')):
+    return parse_subtitle(path, relpath)[0]
+
+
+def parse_subtitle(path, relpath):
+    info = subtitle_input.read(path)
+    content = info['text']
+    info['native_ruby'] = has_native_ruby(content)
+    if info['format'] == 'ass':
         content = ass_to_srt(content)
-    return extract_lines_grouped_by_timecode(content, relpath)
+    note_start = len(_NOTES)
+    lines = [finish_caption(line) for line in extract_lines_grouped_by_timecode(content, relpath)]
+    info['native_ruby_unresolved'] = sum(note.startswith('NATIVE_RUBY_') and not note.startswith('NATIVE_RUBY_LEFT_RB')
+                                         for note in _NOTES[note_start:])
+    if not any(JAPANESE_CHARS_RE.search(line) for line in lines):
+        lines = []
+    info['status'] = 'readable' if lines else 'no_japanese'
+    for warning in info['warnings']:
+        _NOTES.append(f"WARNING {relpath}: {warning}")
+    if not lines:
+        _NOTES.append(f"EMPTY {relpath}: no Japanese dialogue")
+    return lines, info
 
 
 def index_rows(flat_lines, relpath):
     rows = []
-    for line in flat_lines:
-        clean_text = get_clean_text_for_mecab(line)
+    for i, line in enumerate(flat_lines):
+        if i % 128 == 0:
+            control.check_stop()
+        clean_text = fold_compat(get_clean_text_for_mecab(line))
         if len(clean_text.encode('utf-8')) > SUDACHI_MAX_BYTES:
             _EXCLUDED_LOG.append((re.split(r"[\\/]", relpath)[0], "TOO_LONG", clean_text[:200]))
             _NOTES.append(f"TOO_LONG {relpath}: {len(clean_text.encode('utf-8'))} bytes")
             continue
-        base_forms, readings = analyze_with_sudachi(clean_text)
+        base_forms, readings, lens = analyze_tokens(clean_text)
 
         extracted_rubies = [m[2] for m in RUBY_RE.findall(line)]
         if extracted_rubies:
             base_forms, readings = ruby_index_extras(line, RUBY_RE, base_forms, readings)
             line = RUBY_RE.sub(clean_ruby_match, line)
 
-        rows.append((line, clean_text, base_forms, readings))
+        rows.append((line, clean_text, base_forms, readings, lens))
     return rows
 
 
@@ -441,7 +722,8 @@ def _prepare(job):
         file_hash = compute_file_hash(path)
         if file_hash == known_hash:
             return ('same', relpath, file_hash, None)
-        rows = index_rows(kept_lines(path, relpath), relpath)
+        rows = [r + (stored_display_length(r[0], "subs"), kanji_table.tokens(r[1]))
+                for r in index_rows(kept_lines(path, relpath), relpath)]
     except Exception as e:
         return ('error', relpath, None, f"{type(e).__name__}: {e}")
     return ('rows', relpath, file_hash, (rows, list(_EXCLUDED_LOG), list(_WAKATI_LOG), list(_NOTES)))
@@ -451,18 +733,25 @@ COMMIT_EVERY_FILES = 200
 COMMIT_EVERY_SECONDS = 20
 
 
+from aobana.indexing import run_control as control, source_ranges, kanji_table, rebuild as rebuilding
+from aobana.indexing.preparation import prepare_changed
+
 def build_lexicon(conn, top):
     if top and not has_ruby_lexicon(conn):
         emit("phase", "LEXICON building the ruby lexicon table (once, reads the whole index)...", phase="lexicon")
     ensure_ruby_lexicon(conn, "subtitles", "subs", paths.index_workers())
 
 
+@control.owned(lambda: DB_PATH)
 def build_tables():
     say(f"Building the subtitle index's tables ({DB_PATH})...")
-    with sqlite3.connect(DB_PATH) as conn:
+    with control.connection(DB_PATH) as conn:
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'subtitles'").fetchone() is None:
             say("Tables ready: no subtitle index yet.")
             return
+        control.phase('migration')
+        if not source_ranges.ensure(conn, stop_requested, control.CURRENT.publish):
+            raise control.Stopped()
         top = conn.execute("SELECT rowid FROM subtitles ORDER BY rowid DESC LIMIT 1").fetchone()
         if top and not has_line_lengths(conn):
             emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
@@ -470,12 +759,18 @@ def build_tables():
         if stop_requested():
             emit("stopped", "STOPPED")
             return
+        control.check_stop()
         build_lexicon(conn, top)
+        control.check_stop()
+        kanji_table.build(conn, "subtitles")
+        control.check_stop()
     say("Tables ready.")
 
 
-def run_indexer(force=False, outdated=False, allow_removal=False):
-    say(f"Starting indexer on {ROOT_DIR} (force={force}, outdated={outdated})...")
+@control.owned(lambda: DB_PATH)
+def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False):
+    say(f"Starting indexer on {ROOT_DIR} (force={force}, outdated={outdated}, rebuild={rebuild})...")
+    roots = paths.index_roots('subs', ROOT_DIR, paths.media_roots('subs'))
     _EXCLUDED_LOG.clear()
     _WAKATI_LOG.clear()
     if ROOT_DIR is None:
@@ -485,22 +780,43 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
     if not paths.media_enabled("subs"):
         say("Subtitles are off in Settings. Nothing was changed.")
         return
-    if not os.path.isdir(ROOT_DIR):
-        emit("root_missing", f"ROOT_MISSING {ROOT_DIR}", folder=ROOT_DIR)
+    if any(not os.path.isdir(root) for root in roots):
+        missing = next(root for root in roots if not os.path.isdir(root))
+        emit("root_missing", f"ROOT_MISSING {missing}", folder=missing)
         say("Indexing aborted: the subtitle folder does not exist. Nothing was changed.")
         return
     os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
-    excluded, wakati = [], []
+    excluded = control.StreamLog(os.path.join(paths.logs_dir(), 'excluded_lines.txt'),
+                                 lambda r: f'[{r[0]}] [{r[1]}] {r[2]}')
+    wakati = control.StreamLog(os.path.join(paths.logs_dir(), 'wakati_normalized.txt'),
+                               lambda r: f'[{r[0]}] {r[1]} lines normalized (mean chunk: {r[2]:.2f} chars)')
 
-    with sqlite3.connect(DB_PATH) as conn:
+    db, old_files, failed_keys, result = DB_PATH, {}, [], None
+    if rebuild:
+        old_files = rebuilding.old_sources(DB_PATH)
+        db = rebuilding.path(DB_PATH)
+        rebuilding.discard(DB_PATH)
+        say(f"REBUILD a new index beside the old one ({len(old_files)} files indexed)")
+    with control.connection(db) as conn:
         conn.row_factory = sqlite3.Row
 
+        forced_pending = None
+        if force:
+            from aobana.indexing import pending_reindex
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name='sources'").fetchone():
+                forced_pending = pending_reindex.validated(conn)
         if force:
             say("Force rebuild requested. Dropping existing tables...")
             conn.execute("DROP TABLE IF EXISTS subtitles")
             conn.execute("DROP TABLE IF EXISTS line_lengths")
+            conn.execute("DROP TABLE IF EXISTS token_lengths")
             conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
             conn.execute("DROP TABLE IF EXISTS sources")
+            conn.execute("DROP TABLE IF EXISTS source_ranges")
+            conn.execute("DROP TABLE IF EXISTS _source_range_checkpoint")
+            conn.execute("DROP TABLE IF EXISTS _source_ranges_stage")
+            conn.execute("DELETE FROM meta WHERE k='source_ranges_version'") if conn.execute("SELECT 1 FROM sqlite_master WHERE name='meta'").fetchone() else None
+            kanji_table.drop(conn, "subtitles")
             conn.commit()
 
         conn.execute('''
@@ -526,65 +842,79 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
         conn.commit()
 
         ensure_format_column(conn)
+        from aobana.utils import report_outdated
+        report_outdated(conn, 'subs')
         conn.commit()
         cur = conn.execute("SELECT id, relpath, file_hash, index_format FROM sources")
-        existing_files = {row['relpath']: {'id': row['id'], 'hash': None if outdated and is_outdated('subs', row['relpath'], row['index_format']) else row['file_hash']}
+        existing_files = {name_key(row['relpath']): {'id': row['id'], 'name': row['relpath'], 'hash': None if outdated and is_outdated('subs', row['relpath'], row['index_format']) else row['file_hash']}
                           for row in cur}
+        pending_doc, pending_jobs = None, []
+        if not force and not rebuild:
+            from aobana.indexing import pending_reindex
+            pending_doc, pending_jobs = pending_reindex.validated(conn)
+        elif forced_pending:
+            pending_doc, pending_jobs = forced_pending
         deleted_rows = inserted_rows = 0
-        if outdated:
-            n_old = sum(1 for v in existing_files.values() if v['hash'] is None)
-            if n_old:
-                say(f"OUTDATED {n_old}")
+        control.phase('migration')
+        if not source_ranges.ensure(conn, stop_requested, control.CURRENT.publish):
+            raise control.Stopped()
         top = conn.execute("SELECT rowid FROM subtitles ORDER BY rowid DESC LIMIT 1").fetchone()
         if top and not has_line_lengths(conn):
             emit("phase", "LENGTHS building the display-length table (once, reads the whole index)...", phase="lengths")
-        ensure_line_lengths(conn, DB_PATH, "subtitles", "subs", paths.index_workers())
+        ensure_line_lengths(conn, db, "subtitles", "subs", paths.index_workers())
         lengths = has_line_lengths(conn)
+        control.check_stop()
         build_lexicon(conn, top)
+        control.check_stop()
         lexicon = has_ruby_lexicon(conn)
+        kanji = kanji_table.build(conn, "subtitles")
+        control.check_stop()
         floor = top[0] if top else 0
         next_rowid = floor + 1
-        replaced = []
-
         def flush():
-            nonlocal deleted_rows
-            if replaced:
-                marks = ",".join("?" * len(replaced))
-                deleted_rows += conn.execute(f"DELETE FROM subtitles WHERE rowid <= ? AND source_id IN ({marks})",
-                                             [floor] + replaced).rowcount
-                replaced.clear()
+            control.check_stop()
             conn.commit()
+            if pending_doc and pending_commits:
+                pending_reindex.committed(pending_doc,pending_commits)
+                pending_commits.clear()
+            control.committed(new_or_updated, skipped, removed)
 
+        pending_names = {name_key(job[1]) for job in pending_jobs}
+        pending_commits = set()
+        removed = 0
         current_disk_files = set()
         new_or_updated = 0
         skipped = 0
         failed = 0
 
         srt_paths, ignored = [], 0
-        for dirpath, _, filenames in os.walk(ROOT_DIR):
-            for fname in filenames:
-                if not fname.lower().endswith(SUB_EXTS):
-                    if not fname.startswith('.'):
-                        ignored += 1
-                    continue
-                srt_paths.append((dirpath, fname))
+        control.phase('traversal')
+        roots_by_path = {}
+        from aobana.utils import media_walk_roots
+        for source_root, dirpath, kept, other in media_walk_roots(roots, "subs"):
+            control.check_stop()
+            ignored += other
+            srt_paths.extend((dirpath, fname) for fname in kept)
+            roots_by_path.update({os.path.join(dirpath, fname): source_root for fname in kept})
         if ignored:
             emit("ignored_other", f"IGNORED_OTHER {ignored}", count=ignored)
         emit("total", f"TOTAL {len(srt_paths)}", quiet=True, total=len(srt_paths))
 
         filtered = filtered_names(paths.filtered_list(), "subs")
         jobs, n_filtered = [], 0
-        for dirpath, fname in srt_paths:
+        for dirpath, fname in sorted(srt_paths):
+            control.check_stop()
             path = os.path.join(dirpath, fname)
-            relpath = sub_relpath(path, ROOT_DIR)
-            if relpath in filtered:
+            relpath = sub_relpath(path, roots_by_path[path])
+            key = name_key(relpath)
+            if key in filtered:
                 n_filtered += 1
                 continue
-            if relpath in current_disk_files:
+            if key in current_disk_files:
                 emit("skipped_clash", f"SKIPPED_CLASH {fname}", file=fname)
                 continue
-            current_disk_files.add(relpath)
-            jobs.append((path, relpath, existing_files.get(relpath, {}).get('hash')))
+            current_disk_files.add(key)
+            jobs.append((path, relpath, None if key in pending_names else existing_files.get(key, {}).get('hash')))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -594,8 +924,9 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
         meta_written = False
         pending, last_commit = 0, time.monotonic()
         stopped = False
+        control.phase('preparation', total=len(jobs))
         for n, (kind, relpath, file_hash, payload) in enumerate(
-                parallel_map(_prepare, jobs, workers, chunksize=4), 1):
+                prepare_changed(_prepare, jobs, workers, compute_file_hash, stop=stop_requested), 1):
             if stop_requested():
                 stopped = True
                 break
@@ -603,14 +934,18 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
             if kind == 'same':
                 skipped += 1
                 continue
-            old = existing_files.get(relpath)
+            old = existing_files.get(name_key(relpath))
             if kind == 'error':
-                if old:
+                if old and name_key(relpath) not in pending_names:
                     conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
                 failed += 1
+                if rebuilding.transient(payload):
+                    failed_keys.append(name_key(relpath))
                 emit("failed", f"FAILED {relpath}: {payload}", file=relpath, error=str(payload))
                 continue
+            control.phase('writing', n-1, len(jobs))
             rows, file_excluded, file_wakati, notes = payload
+            rows = list(rows)
             excluded.extend(file_excluded)
             wakati.extend(file_wakati)
             for note in notes:
@@ -620,11 +955,11 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
                 meta_written = True
             if old:
                 source_id = old['id']
-                replaced.append(source_id)
+                deleted_rows += source_ranges.delete(conn, source_id)
                 if lexicon:
                     drop_ruby_lexicon(conn, [source_id])
-                conn.execute("UPDATE sources SET file_hash = ?, indexed_at = ?, index_format = ? WHERE id = ?",
-                             (file_hash, datetime.now(), INDEX_FORMAT['subs'], source_id))
+                conn.execute("UPDATE sources SET relpath = ?, file_hash = ?, indexed_at = ?, index_format = ? WHERE id = ?",
+                             (relpath, file_hash, datetime.now().isoformat(' '), INDEX_FORMAT['subs'], source_id))
             else:
                 cur = conn.execute("INSERT INTO sources (relpath, file_hash, index_format) VALUES (?, ?, ?)",
                                    (relpath, file_hash, INDEX_FORMAT['subs']))
@@ -632,32 +967,57 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
             new_or_updated += 1
             inserted_rows += conn.executemany(
                 "INSERT INTO subtitles(rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?);",
-                [(next_rowid + i, source_id, relpath) + r for i, r in enumerate(rows)]
+                ((next_rowid + i, source_id, relpath) + r[:4] for i, r in enumerate(rows))
             ).rowcount
             if lengths:
-                write_line_lengths(conn, ((next_rowid + i, r[0]) for i, r in enumerate(rows)), "subs")
+                write_line_lengths(conn, ((next_rowid + i, r[5]) for i, r in enumerate(rows)), "subs", computed=True)
+            write_token_lengths(conn, ((next_rowid + i, r[4]) for i, r in enumerate(rows)))
+            if kanji:
+                kanji_table.write(conn, "subtitles", ((next_rowid + i, r[6]) for i, r in enumerate(rows)), computed=True)
             if lexicon:
                 write_ruby_lexicon(conn, "subs", ((source_id, relpath, r[0]) for r in rows))
+            source_ranges.record(conn, source_id, next_rowid, len(rows))
             next_rowid += len(rows)
             say(f"Indexed: {relpath}")
+            if name_key(relpath) in pending_names:
+                pending_commits.add(relpath)
             pending += 1
             if pending >= COMMIT_EVERY_FILES or time.monotonic() - last_commit >= COMMIT_EVERY_SECONDS:
                 flush()
                 pending, last_commit = 0, time.monotonic()
+        control.check_stop()
         flush()
 
         deleted_files, _ = held_removals(len(existing_files), set(existing_files.keys()) - current_disk_files,
                                          filtered, allow_removal)
-        for relpath in deleted_files:
+        control.phase('removals', total=len(deleted_files))
+        removal_pending, removal_time = 0, time.monotonic()
+        for relpath in sorted(deleted_files):
+            control.check_stop()
             source_id = existing_files[relpath]['id']
-            deleted_rows += conn.execute("DELETE FROM subtitles WHERE source_id = ?", (source_id,)).rowcount
+            deleted_rows += source_ranges.delete(conn, source_id)
             conn.execute("DELETE FROM sources WHERE id = ?", (source_id,))
             if lexicon:
                 drop_ruby_lexicon(conn, [source_id])
+            removed += 1
+            removal_pending += 1
+            control.CURRENT.publish(phase='removals', phase_done=removed, phase_total=len(deleted_files))
+            if removal_pending >= COMMIT_EVERY_FILES or time.monotonic() - removal_time >= COMMIT_EVERY_SECONDS:
+                flush()
+                removal_pending, removal_time = 0, time.monotonic()
             say(f"Removed {'filtered' if relpath in filtered else 'deleted'} file: {relpath}")
 
-        if deleted_rows and lengths:
-            drop_orphan_lengths(conn, "subtitles")
+        if rebuild and not stopped:
+            gone, held = held_removals(len(old_files), set(old_files) - current_disk_files, filtered, allow_removal)
+            removed = len(gone)
+            why = rebuilding.refused(old_files, failed_keys, held)
+            result = 'refused' if why else 'rebuilt'
+            if why:
+                say(f"REBUILD_REFUSED {why}: the old index is kept and updated instead.")
+
+        if pending_doc:
+            pending_commits.update(i['name'] for i in pending_doc['items'] if name_key(i['name']) in filtered)
+        flush()
 
         ident = write_tokenizer_meta(conn, 0)
         if new_or_updated:
@@ -665,41 +1025,43 @@ def run_indexer(force=False, outdated=False, allow_removal=False):
                   f"({ident['dictionary_format']}), SudachiPy {ident['sudachipy_version']}, "
                   f"system.dic {ident['system_dic_sha256'][:12]}")
 
-        conn.commit()
+        flush()
         if stopped:
             emit("stopped", "STOPPED")
         else:
             compact_if_worth(conn, "subtitles", deleted_rows, inserted_rows)
-    
-    if excluded:
-        log_path = os.path.join(paths.logs_dir(), "excluded_lines.txt")
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        with open(log_path, "w", encoding="utf-8") as log_f:
-            for folder, reason, text in excluded:
-                log_f.write(f"[{folder}] [{reason}] {text}\n")
 
-    if wakati:
-        log_path = os.path.join(paths.logs_dir(), "wakati_normalized.txt")
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        with open(log_path, "w", encoding="utf-8") as log_f:
-            for relp, count, mean_c in wakati:
-                log_f.write(f"[{relp}] {count} lines normalized (mean chunk: {mean_c:.2f} chars)\n")
+    excluded.close()
+    wakati.close()
 
-    emit("summary", f"Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated files. Removed {len(deleted_files)} deleted files."
+    if rebuild:
+        conn.close()
+        if result == 'rebuilt':
+            from aobana.indexing import pending_reindex
+            doc = pending_reindex.load()
+            pending_reindex.committed(doc, {i['name'] for i in doc['items']})
+            open(rebuilding.done_path(DB_PATH), 'w').close()
+        else:
+            rebuilding.discard(DB_PATH)
+        if result == 'refused':
+            return result
+
+    emit("summary", f"Indexing complete! Skipped {skipped} unchanged files. Indexed {new_or_updated} new/updated files. Removed {removed} deleted files."
          + (f" Failed {failed}." if failed else ""),
-         unchanged=skipped, indexed=new_or_updated, removed=len(deleted_files), failed=failed)
-    if wakati:
-        total_wakati_lines = sum(c for _, c, _ in wakati)
-        say(f"Wakati-Gaki Normalization: Encountered and normalized {len(wakati)} file(s) ({total_wakati_lines} lines).")
-    else:
-        say("Wakati-Gaki Normalization: 0 wakati-spaced files encountered.")
+         unchanged=skipped, indexed=new_or_updated, removed=removed, failed=failed)
+    return result
 
 if __name__ == "__main__":
     import sys
+    from aobana.indexing.process_tree import cli_owner
+    cli_owner('aobana.indexing.indexer')
     start_output()
     force_rebuild = "--force" in sys.argv
     if "--tables" in sys.argv:
         if os.path.exists(DB_PATH):
             build_tables()
         sys.exit(0)
-    run_indexer(force=force_rebuild, outdated="--outdated" in sys.argv, allow_removal=ALLOW_REMOVAL_FLAG in sys.argv)
+    if rebuilding.FLAG in sys.argv:
+        rebuilding.main(run_indexer, DB_PATH, sys.argv, ALLOW_REMOVAL_FLAG in sys.argv)
+    else:
+        run_indexer(force=force_rebuild, outdated="--outdated" in sys.argv, allow_removal=ALLOW_REMOVAL_FLAG in sys.argv)

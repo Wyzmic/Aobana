@@ -82,6 +82,9 @@ def _fail(code):
 
 
 def _run(release, asset, lang, current, exit_soon):
+    want = str(asset.get("digest") or "")
+    if not want.startswith("sha256:"):
+        return _fail("verify")
     try:
         shutil.rmtree(UPDATE_DIR, ignore_errors=True)
         os.makedirs(UPDATE_DIR, exist_ok=True)
@@ -101,9 +104,8 @@ def _run(release, asset, lang, current, exit_soon):
                 status["done"] += len(chunk)
     except Exception:
         return _fail("download")
-    want = str(asset.get("digest") or "")
     if (asset.get("size") and os.path.getsize(target) != int(asset["size"])) or \
-            (want.startswith("sha256:") and want[7:].lower() != digest.hexdigest()):
+            want[7:].lower() != digest.hexdigest():
         shutil.rmtree(UPDATE_DIR, ignore_errors=True)
         return _fail("verify")
     try:

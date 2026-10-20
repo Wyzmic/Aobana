@@ -3,6 +3,7 @@ import re
 import unicodedata
 
 from aobana import paths
+from aobana.indexing.subtitle_input import number, sanitize_ass
 from aobana.utils import ALPHA_CHARS, RUBY_RE, katakana_to_hiragana, ruby_merge_key, ruby_table
 
 POS = re.compile(r"\\pos\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)")
@@ -118,11 +119,12 @@ def styles(content):
 
 
 def visible(raw):
+    raw = sanitize_ass(raw, set())
     out, fs, fscx, fsp = [], None, None, None
     for tag, text in SEG.findall(raw):
         if tag:
             for name, val in SIZE_TAG.findall(tag):
-                v = float(val)
+                v = number(val)
                 if name == "fscx":
                     fscx = v
                 elif name == "fs":
@@ -724,6 +726,98 @@ def ruby_text(base, reading):
     s = f"｜{base}({reading})"
     m = RUBY_RE.fullmatch(s)
     return s if m and m.group(1) == base and m.group(3) == reading else None
+
+
+def _fragments(raw):
+    out, x, y = [], None, None
+    for tag, text in SEG.findall(raw):
+        if tag:
+            m = POS.search(tag)
+            if m:
+                x, y = float(m.group(1)), float(m.group(2))
+            continue
+        text = re.sub(r"\\[Nnh]", "", text).strip()
+        if text and x is not None:
+            out.append((x, y, text))
+    return out
+
+
+def _units(text):
+    return sum(1 if is_half(c) else 2 for c in text)
+
+
+def _rows(raw):
+    rows = collections.defaultdict(list)
+    for x, y, text in _fragments(raw):
+        rows[y].append((x, text))
+    if len(rows) < 2:
+        return None
+    return [sorted(rows[y]) for y in sorted(rows)]
+
+
+def _run_at(chars, x, unit):
+    for n, (c, left, piece) in enumerate(chars):
+        if left <= x < left + (1 if is_half(c) else 2) * unit:
+            kind = KANJI if KANJI.match(c) else LATIN_OR_DIGIT if LATIN_OR_DIGIT.match(c) else None
+            if not kind:
+                return None
+            i, j = n, n + 1
+            while i > 0 and chars[i - 1][2] == piece and kind.match(chars[i - 1][0]):
+                i -= 1
+            while j < len(chars) and chars[j][2] == piece and kind.match(chars[j][0]):
+                j += 1
+            return i, j
+    return None
+
+
+def split_caption_rows(events, stats=None):
+    from aobana.indexing.indexer import KANA_ONLY_RE, JAPANESE_CHARS_RE
+    found = []
+    for ev in events:
+        if ev["drop"] != "ruby-style" or len(POS.findall(ev["raw"])) < 2:
+            continue
+        rows = _rows(ev["raw"])
+        if not rows:
+            continue
+        reading = [all(KANA_ONLY_RE.fullmatch(t) for _, t in row) for row in rows]
+        reading[-1] = False
+        if all(reading[n] or all(KANA_ONLY_RE.fullmatch(t) for _, t in row) for n, row in enumerate(rows)):
+            continue
+        found.append((ev, rows, reading))
+    if not found:
+        return
+    ratios = sorted((b[0] - a[0]) / _units(a[1]) for _, rows, reading in found for n, row in enumerate(rows)
+                    if not reading[n] for a, b in zip(row, row[1:]) if b[0] > a[0])
+    unit = ratios[len(ratios) // 2] if ratios else None
+    for ev, rows, reading in found:
+        lines, pending = [], []
+        for n, row in enumerate(rows):
+            if reading[n]:
+                pending += row
+                continue
+            chars = [(c, x + _units(t[:k]) * unit if unit else None, p)
+                     for p, (x, t) in enumerate(row) for k, c in enumerate(t)]
+            rubies = {}
+            if unit:
+                for x, r in pending:
+                    span = _run_at(chars, x, unit)
+                    if span and span not in rubies:
+                        rubies[span] = r
+            pending = []
+            text, n0 = [], 0
+            for (i, j), r in sorted(rubies.items()):
+                ruby = ruby_text("".join(c for c, _, _ in chars[i:j]), r.replace(" ", "　"))
+                text.append("".join(c for c, _, _ in chars[n0:i]) + (ruby or "".join(c for c, _, _ in chars[i:j])))
+                n0 = j
+            text.append("".join(c for c, _, _ in chars[n0:]))
+            lines.append("".join(text))
+        text = "\n".join(lines)
+        if not JAPANESE_CHARS_RE.search(text):
+            continue
+        ev.update(text=text, tags=POS.sub("", ev["tags"]), drop=None)
+        if stats is not None:
+            stats["ruby-style"] -= 1
+            stats["ruby-split"] += 1
 
 
 def annotate(ev, rubies):

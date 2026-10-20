@@ -10,11 +10,13 @@ import threading
 
 from aobana.utils import (
     ALPHA_CHARS, BOOK_RUBY_RE, DISPLAY_NONWORD_RE, DISPLAY_PUNCT_RE, GlossRuby, KANJI_CHARS,
-    RUBY_RE, SPACED_RUBY_PREV_RE, build_ruby_lexicon, has_ruby_lexicon, katakana_to_hiragana,
+    RUBY_RE, SPACED_RUBY_PREV_RE, SubsGlossRuby, build_ruby_lexicon, fold_compat, has_ruby_lexicon, katakana_to_hiragana,
     load_ruby_decisions, load_ruby_merges, load_ruby_trims, ruby_merge_key, ruby_reading,
     split_spaced_ruby, sudachi_pieces, work_folder,
 )
 from aobana import paths
+from aobana.indexing.subtitle_ruby import dictionary_prefixes, normalize_subtitle_ruby
+from aobana.indexing.ass_ruby import spelled
 
 
 _TAGGER_POOL = queue.LifoQueue()
@@ -62,10 +64,13 @@ _LEXICON_OPEN = {}
 _LEXICON_OPEN_LOCK = threading.Lock()
 _LEXICON_MEMO_MAX = 50_000
 _DB_PATHS = (('subs', paths.subs_db, 'subtitles'), ('epub', paths.epub_db, 'epubs'),
-             ('manga', paths.manga_db, 'manga'))
+             ('manga', paths.manga_db, 'manga'), ('custom', paths.custom_db, 'custom'))
 
 
 def work_key(media: str, file: str) -> tuple:
+    if media == 'custom':
+        from aobana.search.result_cache import _result_folder
+        return (media, _result_folder(media, file))
     return (media, work_folder(file))
 
 
@@ -138,6 +143,11 @@ def release_thread_resources():
     _close_ended_lexicon_tables()
 
 
+def forget_lexicon_memo():
+    if getattr(_LEXICON_LOCAL, 'memo', None):
+        _LEXICON_LOCAL.memo = {}
+
+
 def drop_lexicon(close_live=False):
     global _RUBY_LEXICON
     _LEXICON_GEN[0] += 1
@@ -157,8 +167,11 @@ def drop_lexicon(close_live=False):
 
 
 def warm_ruby_lexicon():
-    if _lexicon_tables() is None:
-        get_ruby_lexicon()
+    try:
+        if _lexicon_tables() is None:
+            get_ruby_lexicon()
+    finally:
+        release_thread_resources()
 
 
 def _lexicon_lookup(conns, media, folder, word):
@@ -179,6 +192,18 @@ def _lexicon_lookup(conns, media, folder, word):
     return memo[key]
 
 
+def _lexicon_alone(conns, media, folder, word):
+    memo = _LEXICON_LOCAL.memo
+    key = ('alone', media, folder, word)
+    if key not in memo:
+        if len(memo) > _LEXICON_MEMO_MAX:
+            memo.clear()
+        memo[key] = {r for (r,) in conns[media].execute(
+            "SELECT DISTINCT reading FROM ruby_lexicon WHERE base = ? AND folder = ? AND alone = 1",
+            (word, folder))} if media in conns else set()
+    return memo[key]
+
+
 _SUDACHI_READINGS = {}
 _SUDACHI_READINGS_MAX = 50_000
 
@@ -196,7 +221,7 @@ def _sudachi_reading(word: str) -> str:
 def ruby_evidence(work):
     conns = _lexicon_tables()
     if conns is None:
-        by_work, corpus = get_ruby_lexicon()
+        by_work, corpus, _ = get_ruby_lexicon()
 
         def readings(word):
             return by_work.get((work, word), set()), corpus.get(word, set())
@@ -265,10 +290,18 @@ _DISPLAY_NONWORD_RE = DISPLAY_NONWORD_RE
 
 def calculate_display_length(line: str, media: str = 'subs') -> int:
     if not line: return 0
+    if media == 'subs':
+        line = normalize_subtitle_ruby(line, lookup=_sudachi_reading, prefixes=_native_prefixes)
     processed = display_ruby_re(media).sub(r'\1\2', line)
     processed = _DISPLAY_PUNCT_RE.sub('', processed)
     processed = _DISPLAY_NONWORD_RE.sub('', processed)
     return len(processed)
+
+
+@functools.lru_cache(maxsize=4096)
+def _native_prefixes(base, tail):
+    with tagger() as (tok, mode):
+        return dictionary_prefixes(base, tail, lambda text: tok.tokenize(text, mode))
 
 def detect_script(query):
     has_kanji = bool(re.search(rf'[{KANJI_CHARS}]', query))
@@ -367,10 +400,33 @@ def merge_dict_ruby(clean_text: str, spans: list) -> list:
     return out
 
 
+_RUBY_KANA_BASES = None
+
+def kana_base_prefix(gap: str, base: str, furi: str) -> str:
+    global _RUBY_KANA_BASES
+    if _RUBY_KANA_BASES is None:
+        _RUBY_KANA_BASES = {}
+        for whole, key in load_ruby_merges(RUBY_TABLES_PATH, 'ruby_kana_base'):
+            _RUBY_KANA_BASES.setdefault(key, []).append(whole)
+        for wholes in _RUBY_KANA_BASES.values():
+            wholes.sort(key=len, reverse=True)
+    for whole in _RUBY_KANA_BASES.get(ruby_merge_key(furi), ()):
+        if len(whole) > len(base) and whole.endswith(base) and gap.endswith(whole[:-len(base)]):
+            return whole[:-len(base)]
+    return ''
+
+
 _RUBY_WHOLE = None
 _RUBY_TRIMS = None
 
-def ruby_base_trim(base: str, furi: str) -> int:
+def katakana_tail_attested(tail: str, furi: str, work) -> bool:
+    if spelled(tail, furi) or re.fullmatch(r'[0-9０-９]+', tail):
+        return True
+    key = ruby_merge_key(furi)
+    return any(rank < 2 and ruby_merge_key(r) == key for r, rank in ruby_evidence(work)(tail))
+
+
+def ruby_base_trim(base: str, furi: str, work=None) -> int:
     global _RUBY_WHOLE, _RUBY_TRIMS
     if _RUBY_TRIMS is None:
         _RUBY_TRIMS = load_ruby_trims(RUBY_TABLES_PATH)
@@ -409,7 +465,8 @@ def ruby_base_trim(base: str, furi: str) -> int:
                                 return len(base) - tail_len
                             first_long = first_long or tail_len
                     return len(base) - (first_long or tail_len)
-                return len(base) - len(last)
+                if work is None or detect_script(furi) != 'katakana' or katakana_tail_attested(last, furi, work):
+                    return len(base) - len(last)
 
     if len(base) > 1 and len(furi) == 1 and '一' <= base[-1] <= '鿿':
         return len(base) - 1
@@ -441,6 +498,30 @@ def gloss_sudachi_evidence(base: str, gloss: str, okuri: str = ""):
     return None
 
 
+def gloss_kanji_list_cut(base: str, gloss: str):
+    from aobana.search import reading
+    key = ruby_merge_key(gloss)
+    for cut in range(len(base)):
+        splits = reading.split_tries(base[cut:], key)
+        if splits and len(splits) == 1:
+            break
+    else:
+        return None
+    if cut == 0 or re.search(r'[・ 　]', gloss):
+        return cut
+    if re.fullmatch(r'[ァ-ヺ]', gloss) or (len(base) == 2 and any(
+            len(r) >= 2 and key.startswith(r) for r in reading.kanji_readings(base[0]))):
+        return None
+    with tagger() as (tokenizer_obj, mode):
+        tokens = list(tokenizer_obj.tokenize(base, mode))
+    begins = [t.begin() for t in tokens]
+    if cut in begins:
+        return cut
+    inside = max(i for i, b in enumerate(begins) if b < cut)
+    word = katakana_to_hiragana("".join(t.reading_form() for t in tokens[inside:]))
+    return cut if ruby_merge_key(word).endswith(key) else None
+
+
 _GLOSS_RUBY = None
 _GLOSS_DECIDED = None
 _GLOSS_KANA_RE = re.compile(r'[ァ-ヺー・]+(?:[ 　]+[ァ-ヺー・]+)*|[ぁ-ゖー・]+(?:[ 　]+[ぁ-ゖー・]+)*')
@@ -463,7 +544,17 @@ def gloss_span(base: str, gloss: str, okuri: str = ""):
     if written:
         cuts += [next(c for c in range(len(base) + 1) if written.startswith(base[c:]))]
     cuts = [c for c in cuts if c < len(base)]
-    return min(cuts) if cuts else None
+    cut = min(cuts) if cuts else gloss_kanji_list_cut(base, gloss)
+    if cut and _one_word(base) and not ruby_merge_key(_sudachi_reading(base)).endswith(key):
+        return 0
+    return cut
+
+
+def _one_word(text: str) -> bool:
+    from sudachipy import tokenizer
+    with tagger() as (tokenizer_obj, _):
+        toks = tokenizer_obj.tokenize(text, tokenizer.Tokenizer.SplitMode.C)
+    return len(toks) == 1 and not toks[0].is_oov()
 
 
 def gloss_is_ruby(base: str, gloss: str, okuri: str = "") -> bool:
@@ -480,9 +571,17 @@ def _accept_gloss(m) -> bool:
 
 
 _BOOK_DISPLAY_RUBY = GlossRuby(_accept_gloss)
+_SUBS_DRAWN_RUBY = SubsGlossRuby(_accept_gloss)
+
+
+def drawn_ruby_re(media: str):
+    return _SUBS_DRAWN_RUBY if media == 'subs' else display_ruby_re(media)
 
 
 def display_ruby_re(media: str):
+    if media == 'custom':
+        from aobana.utils import ruby_re_for
+        return ruby_re_for('custom')
     if media == 'epub':
         return _BOOK_DISPLAY_RUBY
     return BOOK_RUBY_RE if media == 'manga' else RUBY_RE
@@ -492,21 +591,27 @@ _TOKEN_PAREN_RE = re.compile(r'(?<=.)[（(]')
 _PAREN_POS = ('補助記号', '括弧開', '*', '*', '*', '*')
 
 
-def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = True, bold: bool = False, base_groups: list = None, readings: list = None, work: tuple = None) -> str:
-    if not text: return text
-    tag = "mark" if mark else "b"
-    if bold: tag = "b"
-    
+def token_base(w):
+    base = w['lemma'] if w['lemma'] else w['surface']
+    return base.split('-')[0] if '-' in base else base
+
+
+def line_analysis(text: str, work: tuple = None) -> dict:
+    if not work or work[0] == 'subs':
+        text = normalize_subtitle_ruby(text, lookup=_sudachi_reading, prefixes=_native_prefixes)
+
     ruby_spans = []
     clean_text = ""
     last_idx = 0
-    for m in display_ruby_re(work[0] if work else 'subs').finditer(text):
+    media = work[0] if work else 'subs'
+    for m in drawn_ruby_re(media).finditer(text):
         gap = text[last_idx:m.start()]
         base = m.group(1) or m.group(2)
         furi = ruby_reading(m)
+        gloss = m.group(0).endswith('）')
 
         split = None
-        if not m.group(1):
+        if not m.group(1) and not (gloss and media == 'subs'):
             pm = SPACED_RUBY_PREV_RE.search(gap)
             split = pm and spaced_ruby_split(pm.group(1), base, furi, work)
             if split:
@@ -520,11 +625,14 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
         clean_text += gap
         base_start = len(clean_text)
 
-        if not m.group(1) and not split:
-            if work and work[0] == 'epub':
+        prefix = '' if m.group(1) or split or gloss or media != 'subs' else kana_base_prefix(gap, base, furi)
+        if prefix:
+            base_start -= len(prefix)
+        elif not m.group(1) and not split:
+            if media == 'epub' or gloss:
                 cut = gloss_span(base, m.group(3), _gloss_okuri(m))
             else:
-                cut = ruby_base_trim(base, furi)
+                cut = ruby_base_trim(base, furi, work or ('subs', ''))
             clean_text += base[:cut]
             base_start = len(clean_text)
             base = base[cut:]
@@ -539,21 +647,10 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
         last_idx = m.end()
 
     clean_text += text[last_idx:]
+    shown_text = clean_text
+    clean_text = fold_compat(clean_text)
     ruby_spans = merge_mono_ruby(clean_text, ruby_spans)
     ruby_spans = merge_dict_ruby(clean_text, ruby_spans)
-
-    extended_bases = set(content_bases)
-    exact_matches = []
-    phonetic_matches = []
-    furi_matches = []
-
-    if q:
-        idx = 0
-        while True:
-            start = clean_text.find(q, idx)
-            if start == -1: break
-            exact_matches.append((start, start + len(q)))
-            idx = start + 1
 
     words_data = []
     idx = 0
@@ -572,7 +669,7 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                            'reading': '', 'pos': '補助記号', 'pos_full': _PAREN_POS,
                            'start': start + paren.start(), 'end': end}
                 surface = surface[:paren.start()]
-            words_data.append({
+            word = {
                 'surface': surface,
                 'lemma': token.normalized_form(),
                 'dict_form': token.dictionary_form(),
@@ -581,10 +678,42 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                 'pos_full': pos_full,
                 'start': start,
                 'end': start + len(surface)
-            })
+            }
+            if bracket:
+                word['cut'] = bracket['surface']
+            words_data.append(word)
             if bracket:
                 words_data.append(bracket)
             idx = end
+    return {'clean_text': clean_text, 'shown_text': shown_text, 'ruby_spans': ruby_spans, 'words': words_data}
+
+
+def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = True, bold: bool = False, base_groups: list = None, readings: list = None, work: tuple = None, reading_terms: tuple = None, mark_guessed: bool = False) -> str:
+    if not text: return text
+    tag = "mark" if mark else "b"
+    if bold: tag = "b"
+
+    analysis = line_analysis(text, work)
+    clean_text, ruby_spans, words_data = analysis['clean_text'], analysis['ruby_spans'], analysis['words']
+    shown_text = analysis['shown_text']
+
+    extended_bases = set(content_bases)
+    exact_matches = []
+    phonetic_matches = []
+    furi_matches = []
+
+    if q:
+        idx = 0
+        while True:
+            start = clean_text.find(q, idx)
+            if start == -1: break
+            exact_matches.append((start, start + len(q)))
+            idx = start + 1
+
+    term_matched, term_unmatched, term_guessed = [], [], []
+    if reading_terms:
+        from aobana.search.reading import matched_spans
+        term_matched, term_unmatched, term_guessed = matched_spans(analysis, reading_terms, work)
 
     if readings and q and not re.search(rf'[{KANJI_CHARS}]', q):
         kana_bases = {katakana_to_hiragana(b) for b in content_bases
@@ -610,10 +739,6 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                 w['reading_match'] = True
 
     char_hl = ['none'] * len(clean_text)
-
-    def token_base(w):
-        base = w['lemma'] if w['lemma'] else w['surface']
-        return base.split('-')[0] if '-' in base else base
 
     if base_groups is None:
         single_bases = extended_bases
@@ -642,6 +767,21 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                 for w in run:
                     w['is_match'] = True
                     w['hl'] = "main"
+
+    if reading_terms:
+        from aobana.search.reading import Overlaps
+        matched_at, unmatched_at = Overlaps(term_matched), Overlaps(term_unmatched)
+
+        def inside(w):
+            return any(a <= w['start'] and w['end'] <= b for a, b in matched_at.over(w['start'], w['end']))
+
+        for w in words_data:
+            if w['end'] > w['start'] and inside(w):
+                w['is_match'], w['hl'] = True, "main"
+            elif unmatched_at.any_over(w['start'], w['end']) and not matched_at.any_over(w['start'], w['end']):
+                w['is_match'], w['hl'] = False, "none"
+        exact_matches = [m for m in exact_matches if not unmatched_at.any_over(m[0], m[1])]
+        exact_matches += term_matched
 
     def anchor_kind(w):
         p = w['pos_full']
@@ -737,6 +877,11 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
         else:
             in_hl = False
             char_hl[i] = 'none'
+    if mark_guessed:
+        for start, end in term_guessed:
+            for i in range(start, end):
+                if char_hl[i] == 'main':
+                    char_hl[i] = 'main-guess'
 
     out = []
     ruby_at = {}
@@ -746,12 +891,13 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
     current_hl = "none"
     
     def close_hl():
-        if current_hl == "main": return f"</{tag}>"
+        if current_hl in ("main", "main-guess"): return f"</{tag}>"
         if current_hl in ("tail", "tail-p"): return "</span>"
         return ""
 
     def open_hl(hl):
         if hl == "main": return f"<{tag}>"
+        if hl == "main-guess": return f'<{tag} class="hl-guess">'
         if hl == "tail": return '<span class="hl-tail">'
         if hl == "tail-p": return '<span class="hl-tail-p">'
         return ""
@@ -772,7 +918,7 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                     out.append(close_hl())
                     out.append(open_hl(hl))
                     current_hl = hl
-                c = clean_text[j]
+                c = shown_text[j]
                 out.append(HTML_ESCAPE_MAP.get(c, c))
             out.append(close_hl())
             current_hl = "none"
@@ -788,7 +934,7 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
             out.append(open_hl(hl))
             current_hl = hl
 
-        c = clean_text[i]
+        c = shown_text[i]
         out.append(HTML_ESCAPE_MAP.get(c, c))
         i += 1
 

@@ -84,8 +84,8 @@ en.DbCaption=Databases
 ja.DbCaption=データベースの保存先
 en.DbDescription=Where should Aobana keep its databases?
 ja.DbDescription=データベースをどこに保存しますか？
-en.DbText=Aobana keeps its databases (subs.db, epub.db and manga.db), which hold the index, in this folder. Keep the suggestion, or choose a folder that already holds Aobana databases to use them as they are. Indexing writes here, so the folder must be writable.
-ja.DbText=Aobana はインデックスを入れたデータベース（subs.db・epub.db・manga.db）をこのフォルダに保存します。このままでもかまいません。すでに Aobana のデータベースがあるフォルダを選ぶと、それをそのまま使います。インデックス作成はここに書き込むため、書き込めるフォルダを選んでください。
+en.DbText=Aobana keeps its databases (subs.db, epub.db, manga.db and custom.db), which hold the index, in this folder. Keep the suggestion, or choose a folder that already holds Aobana databases to use them as they are. Indexing writes here, so the folder must be writable.
+ja.DbText=Aobana はインデックスを入れたデータベース（subs.db・epub.db・manga.db・custom.db）をこのフォルダに保存します。このままでもかまいません。すでに Aobana のデータベースがあるフォルダを選ぶと、それをそのまま使います。インデックス作成はここに書き込むため、書き込めるフォルダを選んでください。
 en.DbFound=Found in this folder: %1. Aobana will use these databases.
 ja.DbFound=このフォルダにあります: %1。このデータベースを使います。
 en.DbNone=No databases in this folder yet: indexing creates them.
@@ -100,6 +100,8 @@ en.DirNeedsAdmin=Setup cannot write to this folder without administrator rights:
 ja.DirNeedsAdmin=このフォルダには管理者権限がないと書き込めません:%n%n%1%n%nセットアップを管理者として再起動しますか？（すべてのユーザー用にインストールします）
 en.MediaInApp=Chosen in Aobana at its first start: the media you use, and their folders.
 ja.MediaInApp=初回起動時に Aobana の中で、使うメディアとそのフォルダを選びます。
+en.MediaKept=Kept as chosen in Aobana: the media you use, and their folders.
+ja.MediaKept=Aobana で選んだ、使うメディアとそのフォルダをそのまま使います。
 en.FinishedSetup=Nothing is indexed yet. Start Aobana and press "Set up Aobana" to choose what you use.
 ja.FinishedSetup=まだ何もインデックスされていません。Aobana を起動し、「Aobana を設定する」を押して使うメディアを選んでください。
 en.FinishedEmpty=Nothing is indexed yet. Put your files in the folders, then press "Index library" in the Library tab.
@@ -124,14 +126,24 @@ en.UninstSettingsNote=%1%nSettings (config.json), logs, and the files kept for u
 ja.UninstSettingsNote=%1%n設定（config.json）、ログ、アップデートの一時ファイルです。
 en.UninstIndex=Databases and caches
 ja.UninstIndex=データベースとキャッシュ
-en.UninstIndexNote=%1 (%2)%nThe databases (subs.db, epub.db, manga.db), the library check's results, the files left out of the index, and the search cache. Without them, the library has to be indexed again.
-ja.UninstIndexNote=%1（%2）%nデータベース（subs.db・epub.db・manga.db）、ライブラリの点検の結果、インデックスしないファイルの一覧、検索キャッシュです。削除すると、インデックス作成をやり直す必要があります。
-en.UninstIndexNoteNoDb=%1 (%2)%nThe library check's results, the files left out of the index, and the search cache. There are no databases (subs.db, epub.db, manga.db) here.
-ja.UninstIndexNoteNoDb=%1（%2）%nライブラリの点検の結果、インデックスしないファイルの一覧、検索キャッシュです。データベース（subs.db・epub.db・manga.db）はありません。
-en.UninstSubs=The subtitles folder and everything in it
-ja.UninstSubs=字幕フォルダとその中身すべて
-en.UninstBooks=The books folder and everything in it
-ja.UninstBooks=書籍フォルダとその中身すべて
+en.UninstIndexNote=%1 (%2)%nThe databases (subs.db, epub.db, manga.db, custom.db), the library check's results, the files left out of the index, and the search cache. Without them, the library has to be indexed again.
+ja.UninstIndexNote=%1（%2）%nデータベース（subs.db・epub.db・manga.db・custom.db）、ライブラリの点検の結果、インデックスしないファイルの一覧、検索キャッシュです。削除すると、インデックス作成をやり直す必要があります。
+en.UninstIndexNoteNoDb=%1 (%2)%nThe library check's results, the files left out of the index, and the search cache. There are no databases (subs.db, epub.db, manga.db, custom.db) here.
+ja.UninstIndexNoteNoDb=%1（%2）%nライブラリの点検の結果、インデックスしないファイルの一覧、検索キャッシュです。データベース（subs.db・epub.db・manga.db・custom.db）はありません。
+en.UninstKnown=Known words
+ja.UninstKnown=既知語
+en.UninstKnownNote=The known-word lists i+1 uses. Without them, the lists have to be loaded again.
+ja.UninstKnownNote=i+1 で使う既知語リストです。削除すると、リストを読み込み直す必要があります。
+en.UninstMedia=The media folders and everything in them
+ja.UninstMedia=メディアのフォルダとその中身すべて
+en.UninstSubs=Subtitles folder
+ja.UninstSubs=字幕フォルダ
+en.UninstBooks=Books folder
+ja.UninstBooks=書籍フォルダ
+en.UninstManga=Manga folder
+ja.UninstManga=漫画フォルダ
+en.UninstCustom=Custom folder
+ja.UninstCustom=カスタムフォルダ
 en.UninstFolderNote=%1 (%2 files, %3)
 ja.UninstFolderNote=%1（%2 ファイル、%3）
 en.UninstKept=Always kept, because these are folders you chose, not Aobana's own:
@@ -140,8 +152,14 @@ en.UninstKeptSubs=Subtitles: %1
 ja.UninstKeptSubs=字幕: %1
 en.UninstKeptBooks=Books: %1
 ja.UninstKeptBooks=書籍: %1
+en.UninstKeptManga=Manga: %1
+ja.UninstKeptManga=漫画: %1
+en.UninstKeptCustom=Custom: %1
+ja.UninstKeptCustom=カスタム: %1
 en.UninstKeptIndex=Databases: %1
 ja.UninstKeptIndex=データベース: %1
+en.UninstBackups=Also kept: the original subtitles saved before "Convert to UTF-8" (%1). Delete that folder yourself when you no longer need them.
+ja.UninstBackups=「UTF-8 に変換」の前の元の字幕も残します（%1）。不要になったら、このフォルダを手動で削除してください。
 en.UninstBrowser=Favorites and display settings are stored by your browser. Clearing the site data for 127.0.0.1 in the browser removes them.
 ja.UninstBrowser=お気に入りと表示設定はブラウザに保存されています。ブラウザで 127.0.0.1 のサイトデータを消去すると削除されます。
 en.UninstAll=Tick &all
@@ -210,6 +228,7 @@ var
   Prefill: array[0..3] of String;
   PrefillDir: String;
   FromExisting: Boolean;
+  ConfigSetUp: Boolean;
   WasUpgrade: Boolean;
   OldMarker: String;
 
@@ -349,6 +368,12 @@ begin
       Found := Found + ', ';
     Found := Found + 'manga.db';
   end;
+  if FileExists(Dir + 'custom.db') then
+  begin
+    if Found <> '' then
+      Found := Found + ', ';
+    Found := Found + 'custom.db';
+  end;
   if Found <> '' then
     DbNote.Caption := FmtMessage(CustomMessage('DbFound'), [Found])
   else
@@ -377,46 +402,64 @@ begin
     Result := Utf8Decode(Raw);
 end;
 
-function JsonField(Text, Key: String; var Value: String; var IsStr: Boolean): Boolean;
+function JsonStringAt(Text: String; var P: Integer; var Value: String): Boolean;
 var
-  P: Integer;
   C: String;
 begin
-  Result := False;
   Value := '';
-  IsStr := False;
+  P := P + 1;
+  while (P <= Length(Text)) and (Text[P] <> '"') do
+  begin
+    C := Text[P];
+    if (C = '\') and (P < Length(Text)) then
+    begin
+      P := P + 1;
+      C := Text[P];
+      if C = 'n' then C := #10
+      else if C = 't' then C := #9
+      else if C = 'r' then C := #13
+      else if (C = 'u') and (P + 4 <= Length(Text)) then
+      begin
+        C := Chr(StrToIntDef('$' + Copy(Text, P + 1, 4), 63));
+        P := P + 4;
+      end;
+    end;
+    Value := Value + C;
+    P := P + 1;
+  end;
+  Result := P <= Length(Text);
+  P := P + 1;
+end;
+
+function JsonValueAt(Text, Key: String): Integer;
+var
+  P: Integer;
+begin
+  Result := 0;
   P := Pos('"' + Key + '"', Text);
   if P = 0 then
     Exit;
   P := P + Length(Key) + 2;
   while (P <= Length(Text)) and ((Text[P] = ' ') or (Text[P] = #9) or (Text[P] = #13) or (Text[P] = #10) or (Text[P] = ':')) do
     P := P + 1;
-  if P > Length(Text) then
+  if P <= Length(Text) then
+    Result := P;
+end;
+
+function JsonField(Text, Key: String; var Value: String; var IsStr: Boolean): Boolean;
+var
+  P: Integer;
+begin
+  Result := False;
+  Value := '';
+  IsStr := False;
+  P := JsonValueAt(Text, Key);
+  if P = 0 then
     Exit;
   if Text[P] = '"' then
   begin
     IsStr := True;
-    P := P + 1;
-    while (P <= Length(Text)) and (Text[P] <> '"') do
-    begin
-      C := Text[P];
-      if (C = '\') and (P < Length(Text)) then
-      begin
-        P := P + 1;
-        C := Text[P];
-        if C = 'n' then C := #10
-        else if C = 't' then C := #9
-        else if C = 'r' then C := #13
-        else if (C = 'u') and (P + 4 <= Length(Text)) then
-        begin
-          C := Chr(StrToIntDef('$' + Copy(Text, P + 1, 4), 63));
-          P := P + 4;
-        end;
-      end;
-      Value := Value + C;
-      P := P + 1;
-    end;
-    Result := P <= Length(Text);
+    Result := JsonStringAt(Text, P, Value);
   end
   else
   begin
@@ -436,6 +479,54 @@ begin
   Result := False;
   if JsonField(Text, 'subs_dir', Subs, IsStr) then Result := True else Subs := '';
   if JsonField(Text, 'books_dir', Books, IsStr) then Result := True else Books := '';
+end;
+
+function JsonFolders(Text, Kind: String; var Folders: TArrayOfString): Boolean;
+var
+  P, N: Integer;
+  S: String;
+  IsStr: Boolean;
+begin
+  SetArrayLength(Folders, 0);
+  N := 0;
+  P := JsonValueAt(Text, Kind + '_dirs');
+  Result := P > 0;
+  if Result then
+  begin
+    if Text[P] <> '[' then
+      Exit;
+    P := P + 1;
+    while (P <= Length(Text)) and (Text[P] <> ']') do
+      if Text[P] = '"' then
+      begin
+        if not JsonStringAt(Text, P, S) then
+          Exit;
+        if Trim(S) <> '' then
+        begin
+          SetArrayLength(Folders, N + 1);
+          Folders[N] := RemoveBackslashUnlessRoot(Trim(S));
+          N := N + 1;
+        end;
+      end
+      else
+        P := P + 1;
+    Exit;
+  end;
+  Result := JsonField(Text, Kind + '_dir', S, IsStr);
+  if Result and IsStr and (Trim(S) <> '') then
+  begin
+    SetArrayLength(Folders, 1);
+    Folders[0] := RemoveBackslashUnlessRoot(Trim(S));
+  end;
+end;
+
+function NamesMedia(Text: String): Boolean;
+var
+  Folders: TArrayOfString;
+begin
+  Result := (JsonValueAt(Text, 'media') > 0) or JsonFolders(Text, 'subs', Folders) or
+            JsonFolders(Text, 'books', Folders) or JsonFolders(Text, 'manga', Folders) or
+            JsonFolders(Text, 'custom', Folders);
 end;
 
 function WritesFolders(): Boolean;
@@ -662,6 +753,7 @@ begin
   WasUpgrade := FileExists(MarkerPath());
   OldMarker := ReadText(MarkerPath());
   Cfg := ReadText(ExpandConstant('{localappdata}\Aobana\config.json'));
+  ConfigSetUp := NamesMedia(Cfg);
   FromExisting := ReadFolders(Cfg, S, B);
   if not FromExisting then
     FromExisting := ReadFolders(OldMarker, S, B);
@@ -797,7 +889,9 @@ function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoType
   MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
 begin
   Result := MemoDirInfo + NewLine + NewLine + CustomMessage('ReadyMedia') + NewLine;
-  if not WritesFolders() then
+  if not WritesFolders() and ConfigSetUp then
+    Result := Result + Space + CustomMessage('MediaKept') + NewLine
+  else if not WritesFolders() then
     Result := Result + Space + CustomMessage('MediaInApp') + NewLine
   else if FoldersPerAccount() then
     Result := Result + Space + CustomMessage('FinishedMediaPerUser') + NewLine
@@ -859,7 +953,9 @@ begin
     ShowDbNote(nil);
   if CurPageID <> wpFinished then
     Exit;
-  if not WritesFolders() then
+  if not WritesFolders() and ConfigSetUp then
+    Media := CustomMessage('MediaKept') + #13#10
+  else if not WritesFolders() then
     Media := CustomMessage('MediaInApp') + #13#10
   else if FoldersPerAccount() then
     Media := CustomMessage('FinishedMediaPerUser') + #13#10
@@ -867,9 +963,10 @@ begin
     Media := FmtMessage(CustomMessage('FinishedMedia'), [Shown(MediaPage.Values[0]), Shown(MediaPage.Values[1])]) + #13#10;
   Data := RemoveBackslashUnlessRoot(DbPage.Values[0]);
   Tail := '';
-  if not WritesFolders() then
+  if not WritesFolders() and not ConfigSetUp then
     Tail := #13#10#13#10 + CustomMessage('FinishedSetup')
-  else if not FileExists(Data + '\subs.db') and not FileExists(Data + '\epub.db') and not FileExists(Data + '\manga.db') then
+  else if not FileExists(Data + '\subs.db') and not FileExists(Data + '\epub.db') and not FileExists(Data + '\manga.db')
+          and not FileExists(Data + '\custom.db') then
     Tail := #13#10#13#10 + CustomMessage('FinishedEmpty')
   else if FromExisting and FoldersChanged() then
     Tail := #13#10#13#10 + CustomMessage('FinishedReindex');
@@ -886,10 +983,46 @@ const
   ATTR_REPARSE = $400;
 
 var
-  UStore, UDb, USubs, UBooks: String;
-  UOffer: array[0..3] of Boolean;
-  UChosen: array[0..3] of Boolean;
-  UBoxes: array[0..3] of TNewCheckBox;
+  UStore, UDb, UKnown: String;
+  UMedia: array[0..3] of String;
+  URoots: array[0..3] of TArrayOfString;
+  UOffer: array[0..6] of Boolean;
+  UChosen: array[0..6] of Boolean;
+  UBoxes: array[0..6] of TNewCheckBox;
+  UMediaBox: TNewCheckBox;
+  USyncing: Boolean;
+
+function MediaKind(K: Integer): String;
+begin
+  case K of
+    0: Result := 'subs';
+    1: Result := 'books';
+    2: Result := 'manga';
+  else
+    Result := 'custom';
+  end;
+end;
+
+function MediaFolderName(K: Integer): String;
+begin
+  case K of
+    0: Result := 'Subtitles';
+    1: Result := 'Books';
+    2: Result := 'Manga';
+  else
+    Result := 'Custom';
+  end;
+end;
+
+function Overlaps(A, B: String): Boolean;
+begin
+  Result := False;
+  if (Trim(A) = '') or (Trim(B) = '') then
+    Exit;
+  A := AnsiLowercase(AddBackslash(RemoveBackslashUnlessRoot(Trim(A))));
+  B := AnsiLowercase(AddBackslash(RemoveBackslashUnlessRoot(Trim(B))));
+  Result := (Pos(A, B) = 1) or (Pos(B, A) = 1);
+end;
 
 procedure DirStats(Dir: String; var Files: Integer; var Bytes: Int64);
 var
@@ -934,7 +1067,7 @@ end;
 function HasIndex(Dir: String): Boolean;
 begin
   Result := (Dir <> '') and (FileExists(AddBackslash(Dir) + 'subs.db') or FileExists(AddBackslash(Dir) + 'epub.db')
-             or FileExists(AddBackslash(Dir) + 'manga.db'));
+             or FileExists(AddBackslash(Dir) + 'manga.db') or FileExists(AddBackslash(Dir) + 'custom.db'));
 end;
 
 function OwnDb(): Boolean;
@@ -962,18 +1095,27 @@ begin
   DirStats(UDb, Files, Result);
 end;
 
+function KeptInStore(Name: String): Boolean;
+begin
+  Result := (Name = '.') or (Name = '..') or (CompareText(Name, 'db') = 0) or
+    (CompareText(Name, 'backups') = 0) or (UOffer[2] and (CompareText(Name, 'known-words') = 0));
+end;
+
+function UBackups(): String;
+begin
+  Result := AddBackslash(UStore) + 'backups';
+end;
+
 function StoreHasSettings(): Boolean;
 var
   FR: TFindRec;
-  Own: Boolean;
 begin
   Result := False;
   if not FindFirst(UStore + '\*', FR) then
     Exit;
   try
     repeat
-      Own := (FR.Name = '.') or (FR.Name = '..') or (CompareText(FR.Name, 'db') = 0);
-      if not Own then
+      if not KeptInStore(FR.Name) then
         Result := True;
     until Result or not FindNext(FR);
   finally
@@ -981,39 +1123,95 @@ begin
   end;
 end;
 
+function MediaOffered(K: Integer): Boolean;
+var
+  J, I: Integer;
+  Roots: TArrayOfString;
+begin
+  Result := DirExists(UMedia[K]) and not Overlaps(UMedia[K], UStore) and not Overlaps(UMedia[K], UDb);
+  for J := 0 to 3 do
+  begin
+    Roots := URoots[J];
+    for I := 0 to GetArrayLength(Roots) - 1 do
+      if Overlaps(UMedia[K], Roots[I]) and not ((J = K) and SameFolder(Roots[I], UMedia[K])) then
+        Result := False;
+  end;
+end;
+
 procedure LocateData();
 var
-  Cfg, Marker, S, B: String;
+  Cfg, Marker, Line: String;
   IsStr: Boolean;
+  K, I: Integer;
+  Roots: TArrayOfString;
 begin
   UStore := ExpandConstant('{localappdata}\Aobana');
+  UKnown := UStore + '\known-words';
   Cfg := ReadText(UStore + '\config.json');
   Marker := ReadText(MarkerPath());
   if not (JsonField(Cfg, 'db_dir', UDb, IsStr) and IsStr and (UDb <> '')) then
     if not (JsonField(Marker, 'db_dir', UDb, IsStr) and IsStr and (UDb <> '')) then
       UDb := UStore + '\db';
-  if not ReadFolders(Cfg, S, B) then
-    if not ReadFolders(Marker, S, B) then
-    begin
-      S := DefaultMedia('Subtitles');
-      B := DefaultMedia('Books');
-    end;
-  USubs := RemoveBackslashUnlessRoot(Trim(S));
-  UBooks := RemoveBackslashUnlessRoot(Trim(B));
+  Line := '';
+  for K := 0 to 3 do
+  begin
+    UMedia[K] := DefaultMedia(MediaFolderName(K));
+    if not JsonFolders(Cfg, MediaKind(K), Roots) then
+      if not JsonFolders(Marker, MediaKind(K), Roots) then
+        SetArrayLength(Roots, 0);
+    URoots[K] := Roots;
+    Line := Line + ' ' + MediaKind(K) + '=';
+    for I := 0 to GetArrayLength(Roots) - 1 do
+      Line := Line + Roots[I] + ';';
+  end;
+  UOffer[2] := DirExists(UKnown) and not IsEmptyDir(UKnown);
   UOffer[0] := StoreHasSettings();
   UOffer[1] := OwnDb() and not IsEmptyDir(UDb);
-  UOffer[2] := IsDefaultMedia(USubs, 0) and DirExists(USubs);
-  UOffer[3] := IsDefaultMedia(UBooks, 1) and DirExists(UBooks);
-  Log('Uninstall data: store=' + UStore + ' db=' + UDb + ' subs=' + USubs + ' books=' + UBooks);
+  for K := 0 to 3 do
+    UOffer[3 + K] := MediaOffered(K);
+  Log('Uninstall data: store=' + UStore + ' db=' + UDb + Line);
 end;
 
 procedure TickAllClick(Sender: TObject);
 var
   I: Integer;
 begin
-  for I := 0 to 3 do
+  USyncing := True;
+  for I := 0 to 6 do
     if UOffer[I] then
       UBoxes[I].Checked := True;
+  if UMediaBox <> nil then
+    UMediaBox.Checked := True;
+  USyncing := False;
+end;
+
+procedure MediaAllClick(Sender: TObject);
+var
+  K: Integer;
+begin
+  if USyncing then
+    Exit;
+  USyncing := True;
+  for K := 3 to 6 do
+    if UOffer[K] then
+      UBoxes[K].Checked := UMediaBox.Checked;
+  USyncing := False;
+end;
+
+procedure MediaRowClick(Sender: TObject);
+var
+  K: Integer;
+  All: Boolean;
+begin
+  if USyncing or (UMediaBox = nil) then
+    Exit;
+  All := True;
+  for K := 3 to 6 do
+    if UOffer[K] and not UBoxes[K].Checked then
+      All := False;
+  USyncing := True;
+  UMediaBox.Checked := All;
+  USyncing := False;
 end;
 
 function AddLabel(Form: TSetupForm; Top, Left: Integer; S: String; Gray, Bold: Boolean; Gap: Integer): Integer;
@@ -1036,17 +1234,22 @@ begin
   Result := Text.Top + Text.Height + Gap;
 end;
 
-function AddChoice(Form: TSetupForm; I, Top: Integer; Caption, Note: String; Checked: Boolean): Integer;
+function AddBox(Form: TSetupForm; Top, Left: Integer; Caption: String): TNewCheckBox;
 begin
-  UBoxes[I] := TNewCheckBox.Create(Form);
-  UBoxes[I].Parent := Form;
-  UBoxes[I].Left := ScaleX(24);
-  UBoxes[I].Top := Top;
-  UBoxes[I].Width := Form.ClientWidth - ScaleX(48);
-  UBoxes[I].Height := ScaleY(20);
-  UBoxes[I].Caption := Caption;
-  UBoxes[I].Checked := Checked;
-  Result := AddLabel(Form, Top + ScaleY(21), ScaleX(44), Note, True, False, ScaleY(12));
+  Result := TNewCheckBox.Create(Form);
+  Result.Parent := Form;
+  Result.Left := Left;
+  Result.Top := Top;
+  Result.Width := Form.ClientWidth - Left - ScaleX(24);
+  Result.Height := ScaleY(20);
+  Result.Caption := Caption;
+  Result.Checked := False;
+end;
+
+function AddChoice(Form: TSetupForm; I, Top, Left: Integer; Caption, Note: String): Integer;
+begin
+  UBoxes[I] := AddBox(Form, Top, Left, Caption);
+  Result := AddLabel(Form, Top + ScaleY(21), Left + ScaleX(20), Note, True, False, ScaleY(12));
 end;
 
 function FolderNote(Dir: String): String;
@@ -1060,11 +1263,34 @@ begin
   Result := FmtMessage(CustomMessage('UninstFolderNote'), [Dir, IntToStr(Files), SizeText(Bytes)]);
 end;
 
+function MediaRowCaption(K: Integer): String;
+begin
+  case K of
+    0: Result := CustomMessage('UninstSubs');
+    1: Result := CustomMessage('UninstBooks');
+    2: Result := CustomMessage('UninstManga');
+  else
+    Result := CustomMessage('UninstCustom');
+  end;
+end;
+
+function MediaKeptLine(K: Integer; Folder: String): String;
+begin
+  case K of
+    0: Result := FmtMessage(CustomMessage('UninstKeptSubs'), [Folder]);
+    1: Result := FmtMessage(CustomMessage('UninstKeptBooks'), [Folder]);
+    2: Result := FmtMessage(CustomMessage('UninstKeptManga'), [Folder]);
+  else
+    Result := FmtMessage(CustomMessage('UninstKeptCustom'), [Folder]);
+  end;
+end;
+
 function ChooseRemovals(): Boolean;
 var
   Form: TSetupForm;
-  Top, I, W: Integer;
+  Top, Left, I, K, W, Media: Integer;
   Kept, Note: String;
+  Roots: TArrayOfString;
   Line: TBevel;
   AllButton, NextButton, CancelButton: TNewButton;
 begin
@@ -1074,25 +1300,47 @@ begin
     Top := AddLabel(Form, ScaleY(18), ScaleX(24), CustomMessage('UninstHeading'), False, True, ScaleY(6));
     Top := AddLabel(Form, Top, ScaleX(24), CustomMessage('UninstIntro'), False, False, ScaleY(16));
     if UOffer[0] then
-      Top := AddChoice(Form, 0, Top, CustomMessage('UninstSettings'),
-        FmtMessage(CustomMessage('UninstSettingsNote'), [UStore]), False);
+      Top := AddChoice(Form, 0, Top, ScaleX(24), CustomMessage('UninstSettings'),
+        FmtMessage(CustomMessage('UninstSettingsNote'), [UStore]));
     if UOffer[1] then
     begin
       if HasIndex(UDb) then
         Note := CustomMessage('UninstIndexNote')
       else
         Note := CustomMessage('UninstIndexNoteNoDb');
-      Top := AddChoice(Form, 1, Top, CustomMessage('UninstIndex'), FmtMessage(Note, [UDb, SizeText(DbBytes())]), False);
+      Top := AddChoice(Form, 1, Top, ScaleX(24), CustomMessage('UninstIndex'), FmtMessage(Note, [UDb, SizeText(DbBytes())]));
     end;
     if UOffer[2] then
-      Top := AddChoice(Form, 2, Top, CustomMessage('UninstSubs'), FolderNote(USubs), False);
-    if UOffer[3] then
-      Top := AddChoice(Form, 3, Top, CustomMessage('UninstBooks'), FolderNote(UBooks), False);
+      Top := AddChoice(Form, 2, Top, ScaleX(24), CustomMessage('UninstKnown'),
+        FolderNote(UKnown) + #13#10 + CustomMessage('UninstKnownNote'));
+    Media := 0;
+    for K := 0 to 3 do
+      if UOffer[3 + K] then
+        Media := Media + 1;
+    UMediaBox := nil;
+    Left := ScaleX(24);
+    if Media >= 2 then
+    begin
+      UMediaBox := AddBox(Form, Top, Left, CustomMessage('UninstMedia'));
+      UMediaBox.OnClick := @MediaAllClick;
+      Top := Top + ScaleY(26);
+      Left := ScaleX(44);
+    end;
+    for K := 0 to 3 do
+      if UOffer[3 + K] then
+      begin
+        Top := AddChoice(Form, 3 + K, Top, Left, MediaRowCaption(K), FolderNote(UMedia[K]));
+        if UMediaBox <> nil then
+          UBoxes[3 + K].OnClick := @MediaRowClick;
+      end;
     Kept := '';
-    if (USubs <> '') and not UOffer[2] and DirExists(USubs) then
-      Kept := Kept + #13#10 + FmtMessage(CustomMessage('UninstKeptSubs'), [USubs]);
-    if (UBooks <> '') and not UOffer[3] and DirExists(UBooks) then
-      Kept := Kept + #13#10 + FmtMessage(CustomMessage('UninstKeptBooks'), [UBooks]);
+    for K := 0 to 3 do
+    begin
+      Roots := URoots[K];
+      for I := 0 to GetArrayLength(Roots) - 1 do
+        if DirExists(Roots[I]) and not (UOffer[3 + K] and SameFolder(Roots[I], UMedia[K])) then
+          Kept := Kept + #13#10 + MediaKeptLine(K, Roots[I]);
+    end;
     if not OwnDb() and HasIndex(UDb) then
       Kept := Kept + #13#10 + FmtMessage(CustomMessage('UninstKeptIndex'), [UDb]);
     if Kept <> '' then
@@ -1101,6 +1349,8 @@ begin
       Top := AddLabel(Form, Top, ScaleX(24), CustomMessage('UninstKept'), False, False, ScaleY(2));
       Top := AddLabel(Form, Top, ScaleX(44), Copy(Kept, 3, Length(Kept)), True, False, ScaleY(12));
     end;
+    if DirExists(UBackups()) then
+      Top := AddLabel(Form, Top, ScaleX(24), FmtMessage(CustomMessage('UninstBackups'), [UBackups()]), True, False, ScaleY(14));
     Top := AddLabel(Form, Top, ScaleX(24), CustomMessage('UninstBrowser'), True, False, ScaleY(14));
 
     Line := TBevel.Create(Form);
@@ -1126,16 +1376,20 @@ begin
     W := Form.CalculateButtonWidth([AllButton.Caption, NextButton.Caption, CancelButton.Caption]);
     Form.ClientHeight := Top + ScaleY(23 + 12);
     AllButton.SetBounds(ScaleX(24), Top, W, ScaleY(23));
-    AllButton.Visible := UOffer[0] or UOffer[1] or UOffer[2] or UOffer[3];
+    AllButton.Visible := False;
+    for I := 0 to 6 do
+      if UOffer[I] then
+        AllButton.Visible := True;
     CancelButton.SetBounds(Form.ClientWidth - ScaleX(24) - W, Top, W, ScaleY(23));
     NextButton.SetBounds(CancelButton.Left - ScaleX(8) - W, Top, W, ScaleY(23));
     Form.ActiveControl := NextButton;
     Form.Position := poScreenCenter;
     Result := Form.ShowModal() = mrOk;
     if Result then
-      for I := 0 to 3 do
+      for I := 0 to 6 do
         UChosen[I] := UOffer[I] and UBoxes[I].Checked;
   finally
+    UMediaBox := nil;
     Form.Free();
   end;
 end;
@@ -1146,12 +1400,13 @@ var
   I: Integer;
 begin
   P := ',' + Lowercase(ExpandConstant('{param:REMOVE}')) + ',';
-  UChosen[0] := (Pos(',all,', P) > 0) or (Pos(',settings,', P) > 0);
-  UChosen[1] := (Pos(',all,', P) > 0) or (Pos(',index,', P) > 0);
-  UChosen[2] := (Pos(',all,', P) > 0) or (Pos(',subs,', P) > 0);
-  UChosen[3] := (Pos(',all,', P) > 0) or (Pos(',books,', P) > 0);
+  UChosen[0] := Pos(',settings,', P) > 0;
+  UChosen[1] := Pos(',index,', P) > 0;
+  UChosen[2] := Pos(',known,', P) > 0;
   for I := 0 to 3 do
-    UChosen[I] := UChosen[I] and UOffer[I];
+    UChosen[3 + I] := Pos(',' + MediaKind(I) + ',', P) > 0;
+  for I := 0 to 6 do
+    UChosen[I] := (UChosen[I] or (Pos(',all,', P) > 0)) and UOffer[I];
 end;
 
 function InitializeUninstall(): Boolean;
@@ -1243,14 +1498,12 @@ var
   FR: TFindRec;
   Doomed: TArrayOfString;
   I, N: Integer;
-  Own: Boolean;
 begin
   N := 0;
   if FindFirst(UStore + '\*', FR) then
     try
       repeat
-        Own := (FR.Name = '.') or (FR.Name = '..') or (CompareText(FR.Name, 'db') = 0);
-        if not Own then
+        if not KeptInStore(FR.Name) then
         begin
           SetArrayLength(Doomed, N + 1);
           Doomed[N] := AddBackslash(UStore) + FR.Name;
@@ -1272,10 +1525,12 @@ end;
 
 procedure RemoveChosen();
 var
-  Left: String;
+  Left, Line: String;
+  K: Integer;
+  Media: Boolean;
 begin
   Left := '';
-  if UChosen[0] and UChosen[1] then
+  if UChosen[0] and UChosen[1] and (UChosen[2] or not UOffer[2]) and not DirExists(UBackups()) then
   begin
     DelTree(UStore, True, True, True);
     NoteLeft(UStore, Left);
@@ -1289,22 +1544,28 @@ begin
       DelTree(UDb, True, True, True);
       NoteLeft(UDb, Left);
     end;
+    if UChosen[2] then
+    begin
+      DelTree(UKnown, True, True, True);
+      NoteLeft(UKnown, Left);
+    end;
     RemoveDir(UStore);
   end;
-  if UChosen[2] then
-  begin
-    DeleteFolder(USubs);
-    NoteLeft(USubs, Left);
-  end;
-  if UChosen[3] then
-  begin
-    DeleteFolder(UBooks);
-    NoteLeft(UBooks, Left);
-  end;
-  if UChosen[2] or UChosen[3] then
+  Media := False;
+  for K := 0 to 3 do
+    if UChosen[3 + K] then
+    begin
+      DeleteFolder(UMedia[K]);
+      NoteLeft(UMedia[K], Left);
+      Media := True;
+    end;
+  if Media then
     RemoveEmptyFolder(ExpandConstant('{userdocs}\Aobana'));
-  Log('Uninstall removed: settings=' + IntToStr(Ord(UChosen[0])) + ' index=' + IntToStr(Ord(UChosen[1])) +
-      ' subs=' + IntToStr(Ord(UChosen[2])) + ' books=' + IntToStr(Ord(UChosen[3])));
+  Line := 'Uninstall removed: settings=' + IntToStr(Ord(UChosen[0])) + ' index=' + IntToStr(Ord(UChosen[1])) +
+          ' known=' + IntToStr(Ord(UChosen[2]));
+  for K := 0 to 3 do
+    Line := Line + ' ' + MediaKind(K) + '=' + IntToStr(Ord(UChosen[3 + K]));
+  Log(Line);
   if (Left <> '') and not UninstallSilent() then
     MsgBox(FmtMessage(CustomMessage('UninstLeft'), [Left]), mbError, MB_OK);
 end;

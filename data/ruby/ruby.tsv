@@ -12,6 +12,7 @@ ruby_decisions	大阪代表	大金	おおがね	B
 ruby_decisions	今	一向聴	イーシャンテン	B
 ruby_decisions	中村	元	ナカムラハジメ	ナカムラ|ハジメ
 ruby_decisions	小林	隆	コバヤシタカシ	コバヤシ|タカシ
+ruby_decisions	今様	今様歌	いまようか	B
 gloss_names	prev	base	reading	decision
 gloss_names	中村	元	ナカムラ・ハジメ	ナカムラ|ハジメ
 gloss_names	井上	優	いのうえまさる	いのうえ|まさる
@@ -4484,6 +4485,7 @@ ruby_dict_merge	𣑥衾	たくぶすま
 ruby_whole	base	reading
 ruby_whole	阿笠博士	あがさひろし
 ruby_whole	虚閃	セロ
+ruby_whole	蛙吹	あすい
 ruby_whole	勇音	いさね
 ruby_whole	喰種	グール
 ruby_whole	之芭	のば
@@ -4521,6 +4523,7 @@ ruby_whole	間桐桜	まとうさくら
 ruby_whole	二牙	フーガ
 ruby_whole	心美	ここみ
 ruby_whole	羽赫	うかく
+ruby_whole	九頭	くず
 ruby_whole	土茶	とさ
 ruby_whole	壊相	えそう
 ruby_whole	恵利美	えりみ
@@ -4528,7 +4531,6 @@ ruby_whole	権八郎	ごんぱちろう
 ruby_whole	炎舞	えんぶ
 ruby_whole	空喜	うろぎ
 ruby_whole	駆藤	くどう
-ruby_whole	九頭	くず
 ruby_whole	五月	さつき
 ruby_whole	八巻	やまき
 ruby_whole	尾赫	びかく
@@ -4571,6 +4573,7 @@ ruby_whole	全州	チョンジュ
 ruby_whole	再不斬	ザブザ
 ruby_whole	准三后	じゅさんごう
 ruby_whole	千鹿谷	ちがや
+ruby_whole	吾里	ごり
 ruby_whole	変若水	おちみず
 ruby_whole	大人気	おとなげ
 ruby_whole	実山椒	みざんしょう
@@ -4585,19 +4588,19 @@ ruby_whole	御霊	みたま
 ruby_whole	戦乙女	ヴァルキリー
 ruby_whole	打根	うちね
 ruby_whole	拌三絲	ばんさんすー
-ruby_whole	斉衰	しさい
 ruby_whole	日間賀島	ひまかじま
 ruby_whole	晴華	はるか
 ruby_whole	有難山	ありがたやま
 ruby_whole	東治	とうじ
 ruby_whole	毒竜	ヒドラ
 ruby_whole	水餃子	すいぎょうざ
+ruby_whole	河嶽	かがく
 ruby_whole	海底落下	ブルーホール
 ruby_whole	無問題	モウマンタイ
-ruby_whole	王仁	わに
 ruby_whole	直刃	すぐは
 ruby_whole	石竜子	トカゲ
 ruby_whole	砂土原	さどはら
+ruby_whole	私庭	してい
 ruby_whole	緊急発進	スクランブル
 ruby_whole	臥王鵡角	がおうむかく
 ruby_whole	蒼月草	そうげつそう
@@ -4605,6 +4608,8 @@ ruby_whole	蓬壷	ほうこ
 ruby_whole	言祝	ことほ
 ruby_whole	辰鼓楼	しんころう
 ruby_whole	鬼滅	きめつ
+ruby_whole	斉衰	しさい
+ruby_whole	王仁	わに
 ruby_trim	base	reading	cut
 ruby_trim	四楓	しほう	0
 ruby_trim	太不佐支	タフサギ	0
@@ -4651,6 +4656,11 @@ ruby_trim	呉恵利央	くれえりお	0
 ruby_trim	梨鶴奈	りずな	0
 ruby_trim	普良巢	ふらす	0
 ruby_trim	遣手婆	ばばあ	2
+ruby_trim	土茶噛	トサが	0
+ruby_trim	映画連動特別編	スペシャル	4
+ruby_trim	最強合体技	コンボ	2
+ruby_trim	一味大追撃戦	チェイス	3
+ruby_trim	盲目的文刃	もんじん	3
 gloss_ruby	base	reading
 gloss_ruby	一	いつ
 gloss_ruby	一円融合	いちえんゆうごう
@@ -4711,7 +4721,6 @@ gloss_ruby	丹	に
 gloss_ruby	主上	しゅじょう
 gloss_ruby	之	これ
 gloss_ruby	乾霊	けんれい
-gloss_ruby	争	いかで
 gloss_ruby	事	こと
 gloss_ruby	事	つかえ
 gloss_ruby	事無酒	ことなぐし
@@ -4832,7 +4841,6 @@ gloss_ruby	列聖	れっせい
 gloss_ruby	初土	はつに
 gloss_ruby	初穂	はつほ
 gloss_ruby	別	べつ
-gloss_ruby	利	くぼさ
 gloss_ruby	制	のり
 gloss_ruby	前妻	こなみ
 gloss_ruby	創	はじ
@@ -5320,7 +5328,6 @@ gloss_ruby	松宮観山	まつみやかんざん
 gloss_ruby	松本	マツモト
 gloss_ruby	柃	いちさかき
 gloss_ruby	柊	ヒイラギ
-gloss_ruby	柔	にこや
 gloss_ruby	柱	はしら
 gloss_ruby	柳父章	ヤナブ・アキラ
 gloss_ruby	栄	えい
@@ -5754,7 +5761,6 @@ gloss_ruby	詞章	ししょう
 gloss_ruby	詠	ながめごと
 gloss_ruby	詩歌	しいか
 gloss_ruby	詭激	きげき
-gloss_ruby	詳	つまびらか
 gloss_ruby	誅	ちゅう
 gloss_ruby	誉	ほまれ
 gloss_ruby	誠	まこと
@@ -5974,6 +5980,95 @@ unclosed_ruby	ルビ上［３｜サード	３	サード
 unclosed_ruby	ルビ上［灰熊銃｜グリズリー・マグナム	灰熊銃	グリズリー・マグナム
 unclosed_ruby	ルビ右［４｜フォース	４	フォース
 unclosed_ruby	ルビ上［炸裂｜さくれつ	炸裂	さくれつ
+unclosed_ruby	ルビ下［風｜かぜ	風	かぜ
+unclosed_ruby	ルビ上［夕日紅｜ゆうひ くれない	夕日紅	ゆうひくれない
+unclosed_ruby	ルビ上［猿飛｜さるとび	猿飛	さるとび
+unclosed_ruby	ルビ下［木ノ葉隠｜このはがくれ	木ノ葉隠	このはがくれ
+unclosed_ruby	ルビ上［火影｜ほかげ	火影	ほかげ
+unclosed_ruby	ルビ上［風影｜かぜかげ	風影	かぜかげ
+unclosed_ruby	ルビ上［砂隠｜すながくれ	砂隠	すながくれ
+unclosed_ruby	ルビ上［忍｜しのび	忍	しのび
+unclosed_ruby	ルビ下［塵｜ちり	塵	ちり
+unclosed_ruby	ルビ下［中忍｜ちゅうにん	中忍	ちゅうにん
+unclosed_ruby	ルビ上［生門｜せいもん	生門	せいもん
+unclosed_ruby	ルビ上［日向｜ひゅうが	日向	ひゅうが
+unclosed_ruby	ルビ上［白眼｜びゃくがん	白眼	びゃくがん
+unclosed_ruby	ルビ下［砂分身｜すなぶんしん	砂分身	すなぶんしん
+unclosed_ruby	ルビ上［我愛羅｜があら	我愛羅	があら
+unclosed_ruby	ルビ下［滝隠｜たきがくれ	滝隠	たきがくれ
+unclosed_ruby	ルビ上［琵琶｜びわ	琵琶	びわ
+unclosed_ruby	ルビ上［法力｜ほうりき	法力	ほうりき
+unclosed_ruby	ルビ上［影法師｜かげほうし	影法師	かげほうし
+unclosed_ruby	ルビ下［忍｜しのび	忍	しのび
+unclosed_ruby	ルビ上［法力封印｜ほうりきふういん	法力封印	ほうりきふういん
+unclosed_ruby	ルビ上［仙除離吸｜せんのりきゅう	仙除離吸	せんのりきゅう
+unclosed_ruby	ルビ上［守鶴｜しゅかく	守鶴	しゅかく
+unclosed_ruby	ルビ上［人｜と	人	と
+unclosed_ruby	ルビ上［分福｜ぶんぷく	分福	ぶんぷく
+unclosed_ruby	ルビ上［人柱力｜じんちゅうりき	人柱力	じんちゅうりき
+unclosed_ruby	ルビ上［卑怯｜ひきょう	卑怯	ひきょう
+unclosed_ruby	ルビ上［不知火｜しらぬい	不知火	しらぬい
+unclosed_ruby	ルビ上［木ノ葉旋風｜このはれっぷう	木ノ葉旋風	このはれっぷう
+unclosed_ruby	ルビ上［秋道｜あｋみち	秋道	あきみち
+unclosed_ruby	ルビ上［忍界｜にんかい	忍界	にんかい
+unclosed_ruby	ルビ上［中忍｜ちゅうにん	中忍	ちゅうにん
+unclosed_ruby	ルビ上［親父｜おやじ	親父	おやじ
+unclosed_ruby	ルビ上［八門遁甲｜はちもんとんこう	八門遁甲	はちもんとんこう
+unclosed_ruby	ルビ上［下忍｜げにん	下忍	げにん
+unclosed_ruby	ルビ下［点穴｜てんけつ	点穴	てんけつ
+unclosed_ruby	ルビ下［霧｜きり	霧	きり
+unclosed_ruby	ルビ下［忍刀七人衆｜しのびがたなしちにんしゅう	忍刀七人衆	しのびがたなしちにんしゅう
+unclosed_ruby	ルビ上［枇杷十蔵｜びわ じゅうぞう	枇杷十蔵	びわじゅうぞう
+unclosed_ruby	ルビ上［上忍｜じょうにん	上忍	じょうにん
+unclosed_ruby	ルビ上［波風｜なみかぜ	波風	なみかぜ
+unclosed_ruby	ルビ上［夕象｜セキゾウ	夕象	セキゾウ
+unclosed_ruby	ルビ上［五影｜ごかげ	五影	ごかげ
+unclosed_ruby	ルビ上［八門｜はちもん	八門	はちもん
+unclosed_ruby	ルビ上［壱足｜いっそく	壱足	いっそく
+unclosed_ruby	ルビ下［夕象｜セキゾウ	夕象	セキゾウ
+unclosed_ruby	ルビ上［弐足｜にそく	弐足	にそく
+unclosed_ruby	ルビ上［死門｜しもん	死門	しもん
+unclosed_ruby	ルビ上［遁甲｜とんこう	遁甲	とんこう
+unclosed_ruby	ルビ下［稀｜まれ	稀	まれ
+unclosed_ruby	ルビ上［神威｜かむい	神威	かむい
+unclosed_ruby	ルビ上［景門｜けいもん	景門	けいもん
+unclosed_ruby	ルビ上［参足｜さんそく	参足	さんそく
+unclosed_ruby	ルビ上［肆足｜よんそく	肆足	よんそく
+unclosed_ruby	ルビ上［伍促｜ごそく	伍促	ごそく
+unclosed_ruby	ルビ上［柱間｜はしらま	柱間	はしらま
+unclosed_ruby	ルビ上［大筒木｜おおつつき	大筒木	おおつつき
+unclosed_ruby	ルビ上［安寧秩序｜あんねいちつじょ	安寧秩序	あんねいちつじょ
+unclosed_ruby	ルビ上［悪｜わり	悪	わり
+unclosed_ruby	ルビ上［輪廻眼｜りんねがん	輪廻眼	りんねがん
+unclosed_ruby	ルビ上［怖｜こえ	怖	こえ
+unclosed_ruby	ルビ上［忍宗｜にんしゅう	忍宗	にんしゅう
+unclosed_ruby	ルビ上［六道仙人｜りくどうせんにん	六道仙人	りくどうせんにん
+unclosed_ruby	ルビ上［長門｜ながと	長門	ながと
+unclosed_ruby	ルビ上［神樹｜しんじゅ	神樹	しんじゅ
+unclosed_ruby	ルビ下［怖｜こえ	怖	こえ
+unclosed_ruby	ルビ上［卯｜うさぎ	卯	うさぎ
+unclosed_ruby	ルビ上［十尾｜じゅうび	十尾	じゅうび
+unclosed_ruby	ルビ上［憑｜つ	憑	つ
+unclosed_ruby	ルビ下［仙力｜せんりき	仙力	せんりき
+unclosed_ruby	ルビ上［蝦蟇｜がま	蝦蟇	がま
+unclosed_ruby	ルビ下［瀕死｜ひんし	瀕死	ひんし
+unclosed_ruby	ルビ上［掟｜おきて	掟	おきて
+unclosed_ruby	ルビ上［万華鏡写輪眼｜まんげきょうしゃりんがん	万華鏡写輪眼	まんげきょうしゃりんがん
+unclosed_ruby	ルビ上［咆哮｜ほうこう	咆哮	ほうこう
+unclosed_ruby	ルビ下［凌駕｜りょうが	凌駕	りょうが
+unclosed_ruby	ルビ上［地爆天星｜ちばくてんせい	地爆天星	ちばくてんせい
+unclosed_ruby	ルビ上［尾獣｜びじゅう	尾獣	びじゅう
+unclosed_ruby	ルビ上［無限月読｜むげんつくよみ	無限月読	むげんつくよみ
+unclosed_ruby	ルビ上［千手｜せんじゅ	千手	せんじゅ
+unclosed_ruby	ルビ下［千手柱間｜せんじゅ はしらま	千手柱間	せんじゅはしらま
+unclosed_ruby	ルビ上［扉間｜とびらま	扉間	とびらま
+unclosed_ruby	ルビ上［木ノ葉｜このは	木ノ葉	このは
+unclosed_ruby	ルビ下［天照｜あまてらす	天照	あまてらす
+unclosed_ruby	ルビ上［外道魔像｜げどうまぞう	外道魔像	げどうまぞう
+unclosed_ruby	ルビ上［口寄｜くちよせ	口寄	くちよせ
+unclosed_ruby	ルビ上［暁｜あかつき	暁	あかつき
+unclosed_ruby	ルビ上［厨｜ちゅう	厨	ちゅう
+unclosed_ruby	ルビ上［贅沢｜ぜいたく	贅沢	ぜいたく
 ass_pairs	base	reading
 ass_pairs	×	ばつ
 ass_pairs	Ⅲ	スリー
@@ -7063,3 +7158,5051 @@ ass_pairs	ＸＸＸ	トリプルエックス
 ass_pairs	ＹＯ	ヨー
 ass_pairs	ｆｏｏｔ	フット
 ass_pairs	ｔ	トン
+rb_readings	base	tail	reading
+rb_readings	10	とうを	とう
+rb_readings	10	とお	とお
+rb_readings	10	とお　ひ	とお
+rb_readings	1000	いっせんまんボルトだぁー	いっせん
+rb_readings	1000	いっせんまんボルトォー	いっせん
+rb_readings	110番	ひゃくとうばん	ひゃくとうばん
+rb_readings	42	フォーティーツー	ふぉーてぃーつー
+rb_readings	777	スリーセブンの	すりーせぶん
+rb_readings	A quiet sleep	ア クワイエット スリープ フカフカの	あくわいえっとすりーぷ
+rb_readings	CUCINA　EIGO	クッチーナ エイゴ	くっちーなえいご
+rb_readings	GUND	ガンド	がんど
+rb_readings	GUND	ガンドアーム	がんど
+rb_readings	GUND	ガンドフォーマット	がんど
+rb_readings	Nagisa	ナギサ	なぎさ
+rb_readings	Sonezaki	ソネザキ	そねざき
+rb_readings	VS	たい	たい
+rb_readings	VS	たいカメール	たい
+rb_readings	We	ウイ	うい
+rb_readings	everybody	エブリバディ	えぶりばでぃ
+rb_readings	hands up	ヘンズアップ	へんずあっぷ
+rb_readings	α	アルファなのニャ	あるふぁ
+rb_readings	Ⅱ	ツー	つー
+rb_readings	Ⅲ	スリーってロックグループの ボーカル	すりー
+rb_readings	Ⅳ	フィア	ふぃあ
+rb_readings	Ⅳ	フォー	ふぉー
+rb_readings	Ⅴ	ファイブ	ふぁいぶ
+rb_readings	Ⅵ	シックス	しっくす
+rb_readings	√５	ルートファイブ	るーとふぁいぶ
+rb_readings	、	てん	てん
+rb_readings	の突入隊	とつにゅうたいを	とつにゅうたい
+rb_readings	エ藤	えとうって おうちよ	えとう
+rb_readings	一	いっしょ	いっしょ
+rb_readings	一	はじめ	はじめ
+rb_readings	一向聴	イーシャンテンだ	いーしゃんてん
+rb_readings	一押	ひとおし	ひとお
+rb_readings	一押	ひとおしできれば ノゾミに	ひとお
+rb_readings	一月	ひとつきちょっと	ひとつき
+rb_readings	一本背負	いっぽんぜおいだ	いっぽんぜお
+rb_readings	一枝	いちえださんと	いちえだ
+rb_readings	一樹	かずき	かずき
+rb_readings	一番	いっちゃん	いっちゃん
+rb_readings	一発逆転	いっぱつぎゃくてん	いっぱつぎゃくてん
+rb_readings	一突	ひとつきは	ひとつ
+rb_readings	一蹴	ひとけりで	ひとけ
+rb_readings	一重	かずえ	かずえ
+rb_readings	一隻	いっせきの	いっせき
+rb_readings	七	ニャニャびょーし	-
+rb_readings	七川	ななかわ	ななかわ
+rb_readings	七本槍	しちほんやりとうたわれた	しちほんやり
+rb_readings	丈	じょう	じょう
+rb_readings	丈	ぶ	ぶ
+rb_readings	三ヶ日町	みっかびちょう	みっかびちょう
+rb_readings	三好麻子	みよし まこさん	みよしまこ
+rb_readings	三島	さんとうさ	さんとう
+rb_readings	三年柿八衛門	さんねんかきはちえもん	さんねんかきはちえもん
+rb_readings	三所	さんしょ	さんしょ
+rb_readings	三拍子	さんびょうし そろってますね	さんびょうし
+rb_readings	三星	みつぼしデパートと	みつぼし
+rb_readings	三昧	ざんまいが	ざんまい
+rb_readings	三本坂	さんぼんざかで	さんぼんざか
+rb_readings	三杉 淳	みすぎ じゅん	みすぎじゅん
+rb_readings	三杉 淳	みすぎ じゅんの	みすぎじゅん
+rb_readings	三枝	さえぐさ	さえぐさ
+rb_readings	三枝	さえぐささん	さえぐさ
+rb_readings	三枝夕夏 IN db	さえぐさ ゆうか イン デシベル	さえぐさゆうかいんでしべる
+rb_readings	三橋	みつはし	みつはし
+rb_readings	三段壁	さんだんべきで	さんだんべき
+rb_readings	三段壁	さんだんべきを	さんだんべき
+rb_readings	三水	さみず	さみず
+rb_readings	三池苗子	みいけ なえこ	みいけなえこ
+rb_readings	三池苗子	みいけ なえこさんだった	みいけなえこ
+rb_readings	三瓶	みへいさんと	みへい
+rb_readings	三瓶康夫	みへい やすお	みへいやすお
+rb_readings	三葉	みつば	みつば
+rb_readings	上	かみ	かみ
+rb_readings	上京	かみぎょう	かみぎょう
+rb_readings	上住	うえすみだ	うえすみ
+rb_readings	上住貞伍	うえすみ ていごさん	うえすみていご
+rb_readings	上南	じょうなん	じょうなん
+rb_readings	上宮	うえみや	うえみや
+rb_readings	上手	うわてだわね	うわて
+rb_readings	上終	かみはて	かみはて
+rb_readings	下	もと あなたも	もと
+rb_readings	下	もとで	もと
+rb_readings	下	もとに	もと
+rb_readings	下笠	しもがさ	しもがさ
+rb_readings	下笠穂奈美	しもがさ ほなみ	しもがさほなみ
+rb_readings	下部	しもべなのさ	しもべ
+rb_readings	与	あえた	あ
+rb_readings	世迷言	よまいごとを	よまいごと
+rb_readings	中	ちゅうって	ちゅう
+rb_readings	中	ちゅうという	ちゅう
+rb_readings	中京	なかぎょう	なかぎょう
+rb_readings	中岳	なかだけ	なかだけ
+rb_readings	中島川	なかしまがわには	なかしまがわ
+rb_readings	中戸呂	なかとろ	なかとろ
+rb_readings	中条勝則	ちゅうじょう かつのりさん	ちゅうじょうかつのり
+rb_readings	中目頼策	なかめ らいさくさんの マンションを	なかめらいさく
+rb_readings	中道	なかみちってお	なかみち
+rb_readings	丸金	まるがねローンに	まるがね
+rb_readings	丹原山	たんばらさんを トラヴァースすることになった	たんばらさん
+rb_readings	丹沢道貴	たんざわ みちきさんまで	たんざわみちき
+rb_readings	主	あるじ	あるじ
+rb_readings	主	あるじ ウラヤマ	あるじ
+rb_readings	主	あるじか	あるじ
+rb_readings	主	あるじだ	あるじ
+rb_readings	主	あるじだった	あるじ
+rb_readings	主	あるじで かなりの	あるじ
+rb_readings	主	あるじである	あるじ
+rb_readings	主	あるじですから	あるじ
+rb_readings	主	あるじですからね	あるじ
+rb_readings	主	あるじということに	あるじ
+rb_readings	主	あるじの	あるじ
+rb_readings	主	あるじも どういう	あるじ
+rb_readings	主	あるじをなくし	あるじ
+rb_readings	久	きゅうちゃんだし	きゅう
+rb_readings	久	きゅうちゃんらしいし	きゅう
+rb_readings	久住舞子	くずみ まいこさんですよ	くずみまいこ
+rb_readings	久更津	くさらづ	くさらづ
+rb_readings	久米平	くめひら	くめひら
+rb_readings	乏	ぼう	ぼう
+rb_readings	乙	おと	おと
+rb_readings	乙沢	おとざわ	おとざわ
+rb_readings	乙沢	おとざわさん	おとざわ
+rb_readings	九条	くじょう	くじょう
+rb_readings	乞	ごいの	ご
+rb_readings	乱舞璃	らんぶり	らんぶり
+rb_readings	二ツ橋	ふたつばし	ふたつばし
+rb_readings	二垣佳貴	にがき よしたかさんが	にがきよしたか
+rb_readings	二塚	につか	につか
+rb_readings	二川肇	ふたがわ はじめさん	ふたがわはじめ
+rb_readings	二表	におもての	におもて
+rb_readings	互	ご	ご
+rb_readings	互	たびい これからの	たび
+rb_readings	五井	いつい	いつい
+rb_readings	五人囃子	ごにんばやしに	ごにんばやし
+rb_readings	五十日	ごとおび	ごとおび
+rb_readings	五十日	ごとおびで	ごとおび
+rb_readings	五岳	ごがくっていうんだ	ごがく
+rb_readings	人	と	と
+rb_readings	人	とさんかい	と
+rb_readings	人	とだ	と
+rb_readings	人	にん	にん
+rb_readings	人気	ひとけがなく	ひとけ
+rb_readings	人気	ひとけのない	ひとけ
+rb_readings	人気	ひとけのないどこか	ひとけ
+rb_readings	人気	ひとけのないビーチとかに ふらふら	ひとけ
+rb_readings	人気	ひとけのないフロントから	ひとけ
+rb_readings	人気	ひとけのなさそうな	ひとけ
+rb_readings	人稼業	とかぎょう	とかぎょう
+rb_readings	人見松一郎	ひとみ しょういちろうさんという	ひとみしょういちろう
+rb_readings	人身御供	ひとみごくうじゃないすか	ひとみごくう
+rb_readings	仁地村	にじむらが	にじむら
+rb_readings	今日	こんにちがあるのです	こんにち
+rb_readings	今日	こんにちに	こんにち
+rb_readings	今日	こんにちの あらゆるシステム	こんにち
+rb_readings	介	かい	かい
+rb_readings	仕	つかまつり	つかまつ
+rb_readings	仕掛	じかけけのネオンサインのように	じかけ
+rb_readings	仕掛	じかけで マグマの	じか
+rb_readings	他人様	ひとさまを	ひとさま
+rb_readings	仙台堀	せんだいぼりってのは	せんだいぼり
+rb_readings	仙台堀川	せんだいぼりがわのほうへ	せんだいぼりがわ
+rb_readings	代	よ	よ
+rb_readings	仰	こうの	こう
+rb_readings	仲仏	なかほとけ	なかほとけ
+rb_readings	伊勢川剛三	いせがわ ごうぞう	いせがわごうぞう
+rb_readings	伊東基伝	いとう もとひろさん	いとうもとひろ
+rb_readings	伏	ぶせされていた	ぶ
+rb_readings	伏	ぶせして	ぶ
+rb_readings	伏	ぶせして ゲットするのよ	ぶ
+rb_readings	伏	ぶせすれば	ぶ
+rb_readings	伏	ぶせるポケモンじゃ	ぶ
+rb_readings	会	おうた	お
+rb_readings	会	おうたからやって	お
+rb_readings	会	おうたが	お
+rb_readings	会	おうたこと あらへんのに	お
+rb_readings	会	おうたことあるんやけど	お
+rb_readings	会	おうたら	お
+rb_readings	会	おうたり	お
+rb_readings	会	おうたんや	お
+rb_readings	会	おうたガキやんけ	お
+rb_readings	会	おうて	お
+rb_readings	会	おうて すぐに	お
+rb_readings	会	おうてきたんやろ	お
+rb_readings	会	おうてくれへんやと	お
+rb_readings	会	おうてしまうんや	お
+rb_readings	会	おうてたんやないかって	お
+rb_readings	会	おうてみて よう	お
+rb_readings	会	おうてるやないか	お
+rb_readings	伝家宝刀	でんかのほうとう	でんかのほうとう
+rb_readings	伴場	ばんば	ばんば
+rb_readings	伴場	ばんばさん	ばんば
+rb_readings	伴場創吾	ばんば そうごさんは	ばんばそうご
+rb_readings	伴場幸哉	ばんば ゆきやさん	ばんばゆきや
+rb_readings	伴場頼太	ばんば らいたさんと	ばんばらいた
+rb_readings	伴場頼太	ばんば らいたさんを	ばんばらいた
+rb_readings	伴蔵	ばんぞう	ばんぞう
+rb_readings	伴蔵	ばんぞうさんも どこか	ばんぞう
+rb_readings	伴野	ばんのロベール	ばんの
+rb_readings	伴野貞悟	ばんの ていごさん	ばんのていご
+rb_readings	伸	のばすと	の
+rb_readings	伸	のばせ	の
+rb_readings	伺	うかごうて えらい すんまへん	うかご
+rb_readings	但馬牛	たじまぎゅうなどを	たじまぎゅう
+rb_readings	佐原徳郎	さはら とくろうさん	さはらとくろう
+rb_readings	佐塚	さづかさん	さづか
+rb_readings	佐塚	さづかさんは	さづか
+rb_readings	佐竹好実	さたけ よしみさんも	さたけよしみ
+rb_readings	何	なにか	なに
+rb_readings	何人	なんびとたりとも	なんびと
+rb_readings	何人	なんぴとたりとも	なんぴと
+rb_readings	何人	なんぴとも その	なんぴと
+rb_readings	何時	なんどきでも	なんどき
+rb_readings	併	あわせ	あわ
+rb_readings	使	つこうたからヘットヘトや	つこ
+rb_readings	使	つこうたことを	つこ
+rb_readings	使	つこうたってや	つこ
+rb_readings	使	つこうたら	つこ
+rb_readings	使	つこうたんや	つこ
+rb_readings	使	つこうて	つこ
+rb_readings	使	つこうてしもたんですわ	つこ
+rb_readings	使	つこうてたの ちゃんと	つこ
+rb_readings	使	つこうてはったか	つこ
+rb_readings	使	つこうてはったみたいで きれいに	つこ
+rb_readings	使	つここてる	つこ
+rb_readings	使	つここてるビニールひもを	つこ
+rb_readings	使	つこた	つこ
+rb_readings	使	つこた ロープを	つこ
+rb_readings	使	つこたことは	つこ
+rb_readings	使	つこたのは	つこ
+rb_readings	使	つこたやと	つこ
+rb_readings	使	つこたら	つこ
+rb_readings	使	つこたらな	つこ
+rb_readings	使	つこたんは	つこ
+rb_readings	使	つこたんやろな	つこ
+rb_readings	使	つこたトリックも	つこ
+rb_readings	使	つこて	つこ
+rb_readings	使	つこて あの	つこ
+rb_readings	使	つこて うまいこと	つこ
+rb_readings	使	つこて うまいこと ごまかした	つこ
+rb_readings	使	つこて たたりに	つこ
+rb_readings	使	つこてた	つこ
+rb_readings	使	つこてた あんたに	つこ
+rb_readings	使	つこてたかどうか	つこ
+rb_readings	使	つこてたっちゅうんは ほんまか	つこ
+rb_readings	使	つこてたとは	つこ
+rb_readings	使	つこてたカツラ かぶって	つ
+rb_readings	使	つこてもうてるからな	つこ
+rb_readings	使	つこてる	つこ
+rb_readings	使	つこてるやと	つこ
+rb_readings	使	つこてんねやからな	つこ
+rb_readings	依頼主	いらいぬしたち	いらいぬし
+rb_readings	侮	あなどれない	あなど
+rb_readings	侮	あなどれないぞ	あなど
+rb_readings	侮	あなどれません	あなど
+rb_readings	侮	あなどれれませんね	あなどれ
+rb_readings	侮	あなどれんぞ	あなど
+rb_readings	侵	しん	しん
+rb_readings	俊也	しゅんや	しゅんや
+rb_readings	俊也	しゅんやの	しゅんや
+rb_readings	俊秀	としひで	としひで
+rb_readings	保本	やすもとひかるさんが	やすもとひかる
+rb_readings	保比呂	やすひろ	やすひろ
+rb_readings	保波倫子	ほなみ りんこさんが	ほなみりんこ
+rb_readings	保谷泰輔	ほうや たいすけさんの	ほうやたいすけ
+rb_readings	信一	のぶかずさん	のぶかず
+rb_readings	信一	のぶかずさんが	のぶかず
+rb_readings	信吉	のぶよし	のぶよし
+rb_readings	信次	のぶつぐは	のぶつぐ
+rb_readings	信義	のぶよしさんが	のぶよし
+rb_readings	修哲	しゅうてつのみんなも	しゅうてつ
+rb_readings	修子	しゅうこ	しゅうこ
+rb_readings	修子	しゅうこさんが	しゅうこ
+rb_readings	倒	たおせたのに	たお
+rb_readings	倒	たおせたら	たお
+rb_readings	倒	たおせない	たお
+rb_readings	倒	たおせないのか	たお
+rb_readings	倒	たおせないまま バトルは	たお
+rb_readings	倒	たおせないよな ああ	たお
+rb_readings	倒	たおせなかったあなただからこそ	たお
+rb_readings	倒	たおせなかったんだぞ	たお
+rb_readings	倒	たおせぬ	たお
+rb_readings	倒	たおせるトレーナーは どこにいるのか	たお
+rb_readings	倒	たおせん	たお
+rb_readings	倒	たおれに	たお
+rb_readings	倒	どう	どう
+rb_readings	倒	どうくさいのが	どう
+rb_readings	倒	どうなのよね	どう
+rb_readings	倒	どうを	どう
+rb_readings	倫子	りんこが	りんこ
+rb_readings	偉	い	い
+rb_readings	偉	えれえ	えれ
+rb_readings	偉	えれえよな ボクは	えれ
+rb_readings	偏	へん	へん
+rb_readings	偏	へんに	へん
+rb_readings	偵	てい	てい
+rb_readings	偶	ぐう	ぐう
+rb_readings	偶	ぐん	ぐん
+rb_readings	偽	ぎ	ぎ
+rb_readings	傍若無人	ぼうじゃくぶじんにも	ぼうじゃくぶじん
+rb_readings	傑	けっ	けっ
+rb_readings	傑	けつ	けつ
+rb_readings	備前千鶴	びぜん ちづるさんと	びぜんちづる
+rb_readings	催	さい	さい
+rb_readings	催	さいいたします	さい
+rb_readings	催	さいする バトル	さい
+rb_readings	催	さいするんだ	さい
+rb_readings	催	さいするバトルトーナメント	さい
+rb_readings	催	さいでございます	さい
+rb_readings	催	さいのバトル	さい
+rb_readings	催	さいのバトルクラブの	さい
+rb_readings	催	さいを	さい
+rb_readings	傳川	でんかわさんの	でんかわ
+rb_readings	傳川源佑	でんかわ げんすけさんが	でんかわげんすけ
+rb_readings	傾	けい	けい
+rb_readings	僧上寺	そうじょうじ	そうじょうじ
+rb_readings	償	つぐってください	つぐ
+rb_readings	元	げん	げん
+rb_readings	元次	げんじ	げんじ
+rb_readings	元次	げんじさんが	げんじ
+rb_readings	元興寺赤右衛門	がごぜ あかえもん	がごぜあかえもん
+rb_readings	兄	あんちゃん	あん
+rb_readings	兄	にい	にい
+rb_readings	兄	にいが	にい
+rb_readings	兄	にいと	にい
+rb_readings	兄	にいに	にい
+rb_readings	兄	にいには	にい
+rb_readings	兄	にいも イッペイ	にい
+rb_readings	兄吾	けいごというそうです	けいご
+rb_readings	充	じゅう	じゅう
+rb_readings	充	じゅうするの	じゅう
+rb_readings	充	じゅうするわよ	じゅう
+rb_readings	先斗	ぽんと	ぽんと
+rb_readings	光子	みつこ	みつこ
+rb_readings	光子	みつこを	みつこ
+rb_readings	光彩	シラーが きれいに	しらー
+rb_readings	光明	みつあきさん どうしたんです	みつあき
+rb_readings	光明	みつあきさんが	みつあき
+rb_readings	光行	みつゆき	みつゆき
+rb_readings	光輝	ひかりかがやくものが	ひかりかがや
+rb_readings	児	ちごのかたち けうらなること	ちご
+rb_readings	児玉柳介	こだま りゅうすけさんの	こだまりゅうすけ
+rb_readings	兜味町	かぶとみちょうだ	かぶとみちょう
+rb_readings	入	いるピカチュウよ	い
+rb_readings	入	へいり	へい
+rb_readings	入	へえってきやしてね	へえ
+rb_readings	入	へえってて	へえ
+rb_readings	入	へえってねえヤツだ	へえ
+rb_readings	入鹿	いるが	いるが
+rb_readings	全代	まさよ	まさよ
+rb_readings	八	ばちか	ばち
+rb_readings	八	ばちかだ	ばち
+rb_readings	八代	やしろ	やしろ
+rb_readings	八咫鏡	やたのかがみ	やたのかがみ
+rb_readings	八尺瓊勾玉	やさかにのまがたま	やさかにのまがたま
+rb_readings	八岐大蛇	やまたのおろちにな	やまたのおろち
+rb_readings	八岐大蛇	やまたのおろちになぞらえた	やまたのおろち
+rb_readings	八岐大蛇	やまたのおろちのように	やまたのおろち
+rb_readings	八巻	やまき	やまき
+rb_readings	八巻	やまきさん あなたもそう	やまき
+rb_readings	八方塞	はっぽうふさがりだね	はっぽうふさ
+rb_readings	八百千	やおせんでーす	やおせん
+rb_readings	八百比丘尼	やお びくには	やおびくに
+rb_readings	八菱	やつびし	やつびし
+rb_readings	八行	はっこうの	はっこう
+rb_readings	八頭	やずって	やず
+rb_readings	公子	きみこさん	きみこ
+rb_readings	公島竜次	きみしま りゅうじさん	きみしまりゅうじ
+rb_readings	六田	ろくだが	ろくだ
+rb_readings	六田	ろくだっていう ガキの	ろくだ
+rb_readings	兼	かね	か
+rb_readings	兼	かねて	か
+rb_readings	兼世	かねよ	かねよ
+rb_readings	兼世	かねよさん	かねよ
+rb_readings	兼人	けんじん	けんじん
+rb_readings	内海	うつみ	うつみ
+rb_readings	内海	うつみという	うつみ
+rb_readings	内田麻美	うちだ あさみの	うちだあさみ
+rb_readings	内藤司	ないとう つかさ	ないとうつかさ
+rb_readings	円月流	えんげつながし	えんげつなが
+rb_readings	再来石	さいらいせき	さいらいせき
+rb_readings	冗	じょう	じょう
+rb_readings	冠	かんは	かん
+rb_readings	冠	かんを	かん
+rb_readings	冬名山	ふゆなさん	ふゆなさん
+rb_readings	冬名山	ふゆなさんは この	ふゆなさん
+rb_readings	冬城幻陽	ふゆき げんようのマジックショーといや	ふゆきげんよう
+rb_readings	冬虫夏草	とうちゅうかそうじゃ	とうちゅうかそう
+rb_readings	冷	つめてえ	つめ
+rb_readings	凍	こおれツンベアー	こお
+rb_readings	凍	こり	こ
+rb_readings	凍	とう	とう
+rb_readings	凍	とうビーム	とう
+rb_readings	凍	とうビームだ	とう
+rb_readings	凝	ぎょう	ぎょう
+rb_readings	出	いでよ	い
+rb_readings	出会	でおうても	でお
+rb_readings	出月映子	いでつき えいこさんがやってきて	いでつきえいこ
+rb_readings	出栗	でくり	でくり
+rb_readings	出淵紋時郎	いづぶち もんじろう	いづぶちもんじろう
+rb_readings	刃	やいばが	やいば
+rb_readings	刃	やいばに	やいば
+rb_readings	刃	やいばの	やいば
+rb_readings	刃羽根	はばねと	はばね
+rb_readings	分	ぶが	ぶ
+rb_readings	分泌	ぶんぴして	ぶんぴ
+rb_readings	分禄町	ぶろくちょうか	ぶろくちょう
+rb_readings	刈谷勇人	かりや ゆうと	かりやゆうと
+rb_readings	刑事	デカ	でか
+rb_readings	刑事	デカか	でか
+rb_readings	刑事	デカが	でか
+rb_readings	刑事	デカしかできない	でか
+rb_readings	刑事	デカで	でか
+rb_readings	刑事	デカどもから	でか
+rb_readings	刑事	デカになってよかったと	でか
+rb_readings	刑事	デカの	でか
+rb_readings	初鹿野忠次	はじかの ただつぐ	はじかのただつぐ
+rb_readings	到	とう	とう
+rb_readings	到着	とうちゃうできるんですか	とうちゃう
+rb_readings	刺	し	し
+rb_readings	則守	とものり	とものり
+rb_readings	前倒	まえだおれ	まえだお
+rb_readings	前殿	まえどのさんは ハーフでアンダーも	まえどの
+rb_readings	前田聡	まえだ さとる	まえださとる
+rb_readings	剛	ごうを	ごう
+rb_readings	剣	つるぎ	つるぎ
+rb_readings	剣	つるぎが	つるぎ
+rb_readings	剣	つるぎじゃなく	つるぎ
+rb_readings	剣	つるぎだ	つるぎ
+rb_readings	剣	つるぎで もう	つるぎ
+rb_readings	剣	つるぎで やっつけちゃうもん	つるぎ
+rb_readings	剣	つるぎでは	つるぎ
+rb_readings	剣	つるぎなんだ	つるぎ
+rb_readings	剣	つるぎに	つるぎ
+rb_readings	剣	つるぎには	つるぎ
+rb_readings	剣	つるぎによる	つるぎ
+rb_readings	剣	つるぎの	つるぎ
+rb_readings	剣	つるぎのもとへ	つるぎ
+rb_readings	剣	つるぎのような	つるぎ
+rb_readings	剣	つるぎは	つるぎ
+rb_readings	剣	つるぎは このツノだ	つるぎ
+rb_readings	剣	つるぎを	つるぎ
+rb_readings	剣橋町	けんばしちょうの	けんばしちょう
+rb_readings	剥	はがせないんじゃ	は
+rb_readings	剥	はがれ	は
+rb_readings	剰	じょうに	じょう
+rb_readings	力	ぢから	ぢから
+rb_readings	力	りき	りき
+rb_readings	力	りょく	りょく
+rb_readings	力	りょくが	りょく
+rb_readings	力	りょくと	りょく
+rb_readings	力	りょくをも	りょく
+rb_readings	功雅	かつまさ	かつまさ
+rb_readings	加門	かもん	かもん
+rb_readings	加門初音	かもん はつねさんは	かもんはつね
+rb_readings	務武	つとむさん	つとむ
+rb_readings	勝	まさっている	まさ
+rb_readings	勝	まさってる	まさ
+rb_readings	勝井優	かつい まさるの	かついまさる
+rb_readings	勝利	かつとし	かつとし
+rb_readings	勝史	まさし	まさし
+rb_readings	勝呂	すぐろ	すぐろ
+rb_readings	勲	いさお	いさお
+rb_readings	勲	いさおさん	いさお
+rb_readings	勲	いさおさんって	いさお
+rb_readings	勲	いさおなんすか	いさお
+rb_readings	勲	いさおを	いさお
+rb_readings	北上直嗣	きたがみ なおつぐさん	きたがみなおつぐ
+rb_readings	北園清峰	きたその せいほうさん	きたそのせいほう
+rb_readings	北川強史	きたがわ つよしさんという	きたがわつよし
+rb_readings	北武	ほくぶデパートで ある	ほくぶ
+rb_readings	北浦京吾	きたうら けいごさん	きたうらけいご
+rb_readings	匹	びき	びき
+rb_readings	匹	びきに	びき
+rb_readings	匹	びきに やけに てこずってるようだな	びき
+rb_readings	匹	びきの	びき
+rb_readings	匹	びきの はしゃぎ	びき
+rb_readings	匹	びきのうちから	びき
+rb_readings	匹	びきのコダック	びき
+rb_readings	匹	ぴき	ぴき
+rb_readings	匹	ぴきになると	ぴき
+rb_readings	匹	ぴきも	ぴき
+rb_readings	匹	ぴきを	ぴき
+rb_readings	十三	じゅうぞう	じゅうぞう
+rb_readings	十三	じゅうぞうたち	じゅうぞう
+rb_readings	十三	じゅうぞうの	じゅうぞう
+rb_readings	十三	じゅうぞうのくしゃみ	じゅうぞう
+rb_readings	十八番	おはこだからな	おはこ
+rb_readings	十八番	おはこの	おはこ
+rb_readings	十八番	おはこを	おはこ
+rb_readings	千万	せんばん	せんばん
+rb_readings	千夏	ちかさんのバイクか	ちか
+rb_readings	千曲川	ちくまがわにさしかかった	ちくまがわ
+rb_readings	千曲川	ちくまがわを	ちくまがわ
+rb_readings	千槍	ちやり	ちやり
+rb_readings	千槍町	ちやりちょうって	ちやりちょう
+rb_readings	千槍町	ちやりちょうの	ちやりちょう
+rb_readings	千里	ちさとや	ちさと
+rb_readings	千頭順司	せんどう じゅんじ	せんどうじゅんじ
+rb_readings	卑	ひきょうだぞ	ひ
+rb_readings	卑	ひきょうな	ひ
+rb_readings	卓	すぐる	すぐる
+rb_readings	卓	すぐるの	すぐる
+rb_readings	南	みなんば	みなん
+rb_readings	南北家	みなきたやオー	みなきたや
+rb_readings	南総里見八犬伝	なんそうさとみはっけんでん	なんそうさとみはっけんでん
+rb_readings	南葛	なんかつ	なんかつ
+rb_readings	南葛	なんかつが	なんかつ
+rb_readings	南葛	なんかつと	なんかつ
+rb_readings	南葛	なんかつの	なんかつ
+rb_readings	南葛小	なんかつしょうのキャプテンだった	なんかつしょう
+rb_readings	南里	みなみざと	みなみざと
+rb_readings	博士	ひろし	ひろし
+rb_readings	博士	ひろしたち	ひろし
+rb_readings	博士	ひろしの	ひろし
+rb_readings	博士	ひろしのあくび	ひろし
+rb_readings	占	じめしたいとか	じ
+rb_readings	占	じめって	じ
+rb_readings	危	あやうきに	あや
+rb_readings	即	そっ	そっ
+rb_readings	却	きゃくは	きゃく
+rb_readings	却	きゃくよ	きゃく
+rb_readings	厄介事	やっかいごとが	やっかいごと
+rb_readings	厚	こうで	こう
+rb_readings	原木中山	はらきなかやまやから	はらきなかやま
+rb_readings	原木中山	ばらきなかやまだから	ばらきなかやま
+rb_readings	原本高平	はらもと こうへいを	はらもとこうへい
+rb_readings	収	しゅう	しゅう
+rb_readings	取	どり	ど
+rb_readings	叡祐	えいすけ	えいすけ
+rb_readings	古	いにしえの	いにしえ
+rb_readings	古	いにしえのモンスターボール	いにしえ
+rb_readings	古	いにしえのモンスターボールから	いにしえ
+rb_readings	古	いにしえのモンスターボールが	いにしえ
+rb_readings	古	いにしえのモンスターボールがない	いにしえ
+rb_readings	古	いにしえのモンスターボールです	いにしえ
+rb_readings	古	いにしえのモンスターボールを	いにしえ
+rb_readings	古	いにしえより	いにしえ
+rb_readings	古	いにしえよりの	いにしえ
+rb_readings	古城	ふるき	ふるき
+rb_readings	古川大	ふるかわ まさるさんって	ふるかわまさる
+rb_readings	叩	はたき	はたき
+rb_readings	叫	さび	さ
+rb_readings	史絵	ふみえ	ふみえ
+rb_readings	右田	みぎた	みぎた
+rb_readings	各務原	かがみはらさん	かがみはら
+rb_readings	合	おうた	お
+rb_readings	合	おうた マジシャン	お
+rb_readings	合	おうたと	お
+rb_readings	合	おうて	お
+rb_readings	合	おうてな	お
+rb_readings	合	おうてるか	お
+rb_readings	合	おうてるっちゅうこっちゃ	お
+rb_readings	合	おうてると	お
+rb_readings	合	おうてるとは	お
+rb_readings	合	おうてるよな	お
+rb_readings	合	おうてるんやけどな	お
+rb_readings	合	おうとったら	お
+rb_readings	合掌捻	がっしょうひねり	がっしょうひねり
+rb_readings	吉	きっ	きっ
+rb_readings	吉	きつな	きつ
+rb_readings	吉備津彦命	きびつひこのみこと	きびつひこのみこと
+rb_readings	吉備津彦命	きびつひこのみことを	きびつひこのみこと
+rb_readings	吉備路	きびじに	きびじ
+rb_readings	吉備路	きびじには	きびじ
+rb_readings	吉川澄一	よしかわ ちょういちさんって	よしかわちょういち
+rb_readings	吉瀬	きちせ	きちせ
+rb_readings	吉瀬万由子	きちせ まゆこと	きちせまゆこ
+rb_readings	同	おんなじさ	おんな
+rb_readings	名取深汐	なとり みしおさん	なとりみしお
+rb_readings	名和武朗	めいわ たけろうさん	めいわたけろう
+rb_readings	吐	はかすんだ	は
+rb_readings	向机	むこうづくえを	むこうづくえ
+rb_readings	向顔	こうがん	こうがん
+rb_readings	君	くん	くん
+rb_readings	君	くんは ばっちりだ	くん
+rb_readings	君	くんは やめてくれよ　サトシでいいよ	くん
+rb_readings	君島伸郎	きみじま のぶろうさんから	きみじまのぶろう
+rb_readings	吟朗	ぎんろう	ぎんろう
+rb_readings	吹	ふっ	ふ
+rb_readings	吹渡	すいと	すいと
+rb_readings	吾妻	あづま	あづま
+rb_readings	周藤豪貴	すどう ごうきさんに	すどうごうき
+rb_readings	命	みこと	みこと
+rb_readings	命	めいを	めい
+rb_readings	和久田	わくだ	わくだ
+rb_readings	和輝	かずき	かずき
+rb_readings	哲史	てつし	てつし
+rb_readings	哲治	てつはる	てつはる
+rb_readings	唯	ゆいの	ゆい
+rb_readings	啄木鳥	きつつき	きつつき
+rb_readings	啄木鳥	きつつきの	きつつき
+rb_readings	啄木鳥	きつつきを	きつつき
+rb_readings	喜波貞子	きわ ていこさんが	きわていこ
+rb_readings	噴	ふん	ふん
+rb_readings	囃子	ばやしの	ばやし
+rb_readings	囚	とらわれ	とら
+rb_readings	四	よつ	よ
+rb_readings	四井	よつい	よつい
+rb_readings	四井	よついのお	よつい
+rb_readings	四天王	してんのうの	してんのう
+rb_readings	四天王	してんのうのひとり ゴヨウさんと	してんのう
+rb_readings	四天王	してんのうカンナ	してんのう
+rb_readings	四天王	してんのうゴヨウとドータクン	してんのう
+rb_readings	四菱	よつびし	よつびし
+rb_readings	回鍋肉	ホイコーローと せいろの	ほいこーろー
+rb_readings	団	とんがあって	とん
+rb_readings	固	かてえこと	かて
+rb_readings	固	かてえなあ	かて
+rb_readings	国上	くにがみ	くにがみ
+rb_readings	国博	くにひろ	くにひろ
+rb_readings	国定忠治	くにさだ ちゅうじでも やりゃあええのに	くにさだちゅうじ
+rb_readings	土門康輝	どもん やすてる	どもんやすてる
+rb_readings	地獄車	じごくぐるまだ	じごくぐるま
+rb_readings	坊	ぼっちゃまだに	ぼ
+rb_readings	坊	ぼっちゃまです	ぼっ
+rb_readings	坊	ぼっちゃまと	ぼっ
+rb_readings	坊	ぼっちゃん	ぼっ
+rb_readings	坊	ぼっちゃんアンドお	ぼ
+rb_readings	坊川継治	ぼうかわ つぐはるさんで	ぼうかわつぐはる
+rb_readings	坊川継治	ぼうかわ つぐはるさんの	ぼうかわつぐはる
+rb_readings	坤高	こんたか	こんたか
+rb_readings	垂人	たると	たると
+rb_readings	埋	うもれかかってるぞ	う
+rb_readings	埋	うもれた	う
+rb_readings	城山稲荷	じょうざんいなり	じょうざんいなり
+rb_readings	執	しつ	しつ
+rb_readings	堀田	ほりたと	ほりた
+rb_readings	堀田凱人	ほった がいと	ほったがいと
+rb_readings	堂次	どうじ	どうじ
+rb_readings	堅	がたい	がた
+rb_readings	堅	がたいいテイストだね	がたい
+rb_readings	堤無津	ていむづ	ていむづ
+rb_readings	堤無津川	ていむづがわに	ていむづがわ
+rb_readings	堤無津川	ていむづがわの	ていむづがわ
+rb_readings	堤無津谷	ていむずだに	ていむずだに
+rb_readings	塒	ねぐらは	ねぐら
+rb_readings	塞	ふさいじゃったわ	ふさ
+rb_readings	塩山	しおやまさんの	しおやま
+rb_readings	塩田	しおたさん	しおた
+rb_readings	塩田平八郎	しおた へいはちろうさん	しおたへいはちろう
+rb_readings	塩葉	えんば	えんば
+rb_readings	塵	ちり	ちり
+rb_readings	塵	ちりとかを	ちり
+rb_readings	塵	ちりひとつもねえってことをな	ちり
+rb_readings	塵	ちりや	ちり
+rb_readings	増子	ますこさんに	ますこ
+rb_readings	墜	つい	つい
+rb_readings	壁	へき	へき
+rb_readings	壊	こわせニャい	こわ
+rb_readings	壬申	みずのえさる	みずのえさる
+rb_readings	変化	へんげし	へんげ
+rb_readings	変化	へんげした	へんげ
+rb_readings	変化	へんげする	へんげ
+rb_readings	夏也	なつや	なつや
+rb_readings	夕飯	ゆうめし	ゆうめし
+rb_readings	外見	そとみだけだぜ	そとみ
+rb_readings	夜想曲	ノクターン	のくたーん
+rb_readings	夜鳥	やどり	やどり
+rb_readings	夢見花	ゆめみばな	ゆめみばな
+rb_readings	大	おっきい	お
+rb_readings	大	たいちゃん	たい
+rb_readings	大	だい	だい
+rb_readings	大丈夫	だいいじょうぶ	だいいじょうぶ
+rb_readings	大丈夫	だいじょぶ	だいじょぶ
+rb_readings	大丈夫 	だいじょうぶポッチャマもミジュマルも	だいじょうぶ
+rb_readings	大事	でえじなお	でえじ
+rb_readings	大伴御行	おおとものみゆきには	おおとものみゆき
+rb_readings	大作	だいさく	だいさく
+rb_readings	大友中	おおともちゅうのみんな	おおともちゅう
+rb_readings	大和行平	やまと こうへいとの	やまとこうへい
+rb_readings	大坪菊英	おおつぼ きくひでさんが	おおつぼきくひで
+rb_readings	大失敗	でえしっぺいだ ううっ	でえしっぺい
+rb_readings	大好物	でえこうぶつだからよ	でえこうぶつ
+rb_readings	大学館	だいがっかん	だいがっかん
+rb_readings	大家	たいか	たいか
+rb_readings	大岳	だいがく	だいがく
+rb_readings	大島川	おおしまがわ	おおしまがわ
+rb_readings	大村淳	おおむら じゅん	おおむらじゅん
+rb_readings	大東	だいとうさんが	だいとう
+rb_readings	大横川	おおよこがわに	おおよこがわ
+rb_readings	大樹	だいき	だいき
+rb_readings	大渡間	だいとま	だいとま
+rb_readings	大渡間	だいとまチヨさん	だいとま
+rb_readings	大渡間町	だいとまちょうの	だいとまちょう
+rb_readings	大王	たいおうが	たいおう
+rb_readings	大磯永美	おおいそ ながみお	おおいそながみ
+rb_readings	大社	おおやしろ	おおやしろ
+rb_readings	大積明輔	おおづみ めいすけさん	おおづみめいすけ
+rb_readings	大空 翼	おおぞら つばさの	おおぞらつばさ
+rb_readings	大聖院	だいしょういんを	だいしょういん
+rb_readings	大舞台	だいぶたい グランドフェスティバルに	だいぶたい
+rb_readings	大葉悦敏	おおば えつとしさんの	おおばえつとし
+rb_readings	大蔵	たいぞう	たいぞう
+rb_readings	大蛇	おろち	おろち
+rb_readings	大蛇	おろちだ	おろち
+rb_readings	大蛇	おろちに	おろち
+rb_readings	大蛇	おろちの	おろち
+rb_readings	大蛇谷良	おおへび たによし	おおへびたによし
+rb_readings	大蛇谷良	おろちや りょうです	おろちやりょう
+rb_readings	大谷	おおたに	おおたに
+rb_readings	大谷	おおたにぐらいっすよ	おおたに
+rb_readings	大間違	おおまちがいなんだから	おおまちが
+rb_readings	天	あまかける	あま
+rb_readings	天	あめの	あめ
+rb_readings	天之河	あまのがわ	あまのがわ
+rb_readings	天叢雲剣	あめのむらくものつるぎだよ	あめのむらくも
+rb_readings	天堂晴華	てんどう はるかさん	てんどうはるか
+rb_readings	天山日出	てんやま ひでさんが	てんやまひで
+rb_readings	天神	てんしん	てんしん
+rb_readings	天藤英樹	てんどう ひでき	てんどうひでき
+rb_readings	天藤英樹	てんどう ひできさんは	てんどうひでき
+rb_readings	天願	てんがんリイチ	てんがん
+rb_readings	天馬	てんまに	てんま
+rb_readings	天馬	てんまの	てんま
+rb_readings	太	た	た
+rb_readings	太	たさん	た
+rb_readings	太	ふてえ	ふて
+rb_readings	太志	ふとし	ふとし
+rb_readings	太鼓谷稲成	たいこだにいなりよ	たいこだにいなり
+rb_readings	夫	おと	お
+rb_readings	夫婦	めおととなり	めおと
+rb_readings	失	うしのうてたみたいやけどな	うしの
+rb_readings	奈室安美恵	なむろ あみえの	なむろあみえ
+rb_readings	契	けい	けい
+rb_readings	奥田倫明	おくだ ともあきさん	おくだともあき
+rb_readings	奥穂町	おくほちょう	おくほちょう
+rb_readings	奥穂町	おくほちょうで	おくほちょう
+rb_readings	奥穂町	おくほちょうに	おくほちょう
+rb_readings	奥穂町	おくほちょうのことだとしても	おくほちょう
+rb_readings	奥米花	おくべいかなんてとこ	おくべいか
+rb_readings	奪	うばえないぞ	うば
+rb_readings	奪	だっ	だっ
+rb_readings	奪衣婆	だつえばに	だつえば
+rb_readings	女子	おなごが	おなご
+rb_readings	女子	おなごじゃ	おなご
+rb_readings	女子	おなごじゃったよ	おなご
+rb_readings	女子	おなごどもは	おなご
+rb_readings	女子	おなごにモテるなんて さっすが	おなご
+rb_readings	女子	おなごの	おなご
+rb_readings	女子	おなごのカバンに	おなご
+rb_readings	女子	おなごは	おなご
+rb_readings	女子	おなごばかり	おなご
+rb_readings	女子	おなごを	おなご
+rb_readings	好き	たったひとこと	たったひとこと
+rb_readings	好実	よしみ	よしみ
+rb_readings	好球必打	こうきゅうひつだ	こうきゅうひつだ
+rb_readings	好継	よしつぐ	よしつぐ
+rb_readings	如何	いかんによっては	いかん
+rb_readings	如意宝珠	にょいほうじゅといって	にょいほうじゅ
+rb_readings	妃	きさき	きさき
+rb_readings	妃	きさきが	きさき
+rb_readings	妃	きさきと	きさき
+rb_readings	妃英理	きさき えり	きさきえり
+rb_readings	妃英理	きさき えりさんと	きさきえり
+rb_readings	妃英理	きさき えりと	きさきえり
+rb_readings	妃英理	きさき えりの	きさきえり
+rb_readings	妥	だ	だ
+rb_readings	姉	ねえ	ねえ
+rb_readings	姉	ねえがいりゃー	ねえ
+rb_readings	姉	ねえなら どうすんのかなってさ	ねえ
+rb_readings	姉	ねえは どこ	ねえ
+rb_readings	姉妹	きょうだいだったじゃないか	きょうだい
+rb_readings	姉弟	きょうだいがタンチョウの	きょうだい
+rb_readings	姉弟	きょうだいじゃなかったのね	きょうだい
+rb_readings	姉弟	きょうだいだからって	きょうだい
+rb_readings	姉弟	きょうだいだと	きょうだい
+rb_readings	姉弟	きょうだいなのに	きょうだい
+rb_readings	姉弟	きょうだいに	きょうだい
+rb_readings	姉弟	きょうだいの	きょうだい
+rb_readings	姥	うばの	うば
+rb_readings	姫宮展子	ひめみや てんこさんが	ひめみやてんこ
+rb_readings	娑臣	さとみさんが	さとみ
+rb_readings	娑臣	さとみさんぐらいやで	さとみ
+rb_readings	娑臣	さとみさんっちゅう	さとみ
+rb_readings	娑臣	さとみさんも	さとみ
+rb_readings	嫌	きら	きら
+rb_readings	嫌	きらいや	きら
+rb_readings	嫌	きろうてました	きろ
+rb_readings	嫌	ぎらい	ぎら
+rb_readings	嫌	ぎらいだからな	ぎら
+rb_readings	嫌	ぎらいな	ぎら
+rb_readings	嫌	ぎらいなところ あたしに そっくり	ぎら
+rb_readings	子	ね	ね
+rb_readings	子	ねずみが	ね
+rb_readings	子	ねの	ね
+rb_readings	子孫	こまごが	こまご
+rb_readings	孔	こうを	こう
+rb_readings	孔明	こうめい	こうめい
+rb_readings	宇佐美真治	うさみ しんじ	うさみしんじ
+rb_readings	宇佐美真治	うさみ しんじの	うさみしんじ
+rb_readings	宇宙	そらに	そら
+rb_readings	宇宙	そらへ	そら
+rb_readings	宇津保隆	うつぼ たかしの	うつぼたかし
+rb_readings	宇津木	うつぎという	うつぎ
+rb_readings	守与	かみよ	かみよ
+rb_readings	守与	かみよさんも その	かみよ
+rb_readings	守与	かみよさんを	かみよ
+rb_readings	安居	やすいさん	やすい
+rb_readings	安斉典悟	あんざい てんごさん	あんざいてんご
+rb_readings	安栄	やすえ	やすえ
+rb_readings	安美	あみ	あみ
+rb_readings	宗崎	そうさき	そうさき
+rb_readings	宗正	むねまさ	むねまさ
+rb_readings	官	つかさに	つかさ
+rb_readings	定子	ていこおばさんじゃ	ていこ
+rb_readings	宝田鱶一	たからだ よういち	たからだよういち
+rb_readings	実	まこと	まこと
+rb_readings	室橋	むろばしさんと	むろばし
+rb_readings	室橋	むろばしさんを	むろばし
+rb_readings	宮台優	みやだい まさるさんと	みやだいまさる
+rb_readings	宮地嶽	みやじだけ	みやじだけ
+rb_readings	宴	うたげ	うたげ
+rb_readings	宴	うたげに	うたげ
+rb_readings	宴	うたげの	うたげ
+rb_readings	宴	うたげを	うたげ
+rb_readings	宴	うたげを お	うたげ
+rb_readings	家	うち	うち
+rb_readings	家	うちじゃ	うち
+rb_readings	家	うちで	うち
+rb_readings	家	うちに	うち
+rb_readings	家	うちにお	うち
+rb_readings	家	うちの	うち
+rb_readings	家	うちは	うち
+rb_readings	家	うちは この	うち
+rb_readings	家	うちよ	うち
+rb_readings	家	うちを	うち
+rb_readings	家	がにしてもいいくらいだニャ	が
+rb_readings	家	ちには	ち
+rb_readings	家	ちの	ち
+rb_readings	家	ちのサイホーン ここ	ち
+rb_readings	家坂	やさかさんのことでしょう	やさか
+rb_readings	家電	いえでんからで この	いえでん
+rb_readings	家電	いえでんがあるからって	いえでん
+rb_readings	家電	いえでんで	いえでん
+rb_readings	宿命	さだめなのか	さだめ
+rb_readings	宿里	やどり	やどり
+rb_readings	寂	さみしいけど	さみ
+rb_readings	寂	さみしいけど みんな	さみ
+rb_readings	寂	さみしいですね	さみ
+rb_readings	寂	さみしかったでしょう	さみ
+rb_readings	寂	さみしくないだろうし	さみ
+rb_readings	寅倉迫弥	とらくら はくやさんです	とらくらはくや
+rb_readings	富士山	ふじさんがないのかね	ふじさん
+rb_readings	富士山	ふじさんと	ふじさん
+rb_readings	富士山	ふじさんを	ふじさん
+rb_readings	富樫	とがし	とがし
+rb_readings	富樫	とがしは	とがし
+rb_readings	寒	さびい	さ
+rb_readings	寒	さみい	さみ
+rb_readings	寒	さみい　ザバッ うわあっ	さみ
+rb_readings	寒気	さむけが	さむけ
+rb_readings	寝不足	ねぶぞく	ねぶぞく
+rb_readings	寝泊	ねとまりして	ねとま
+rb_readings	寝泊	ねとまりしてるトレーナーもいるんだ	ねとま
+rb_readings	寝転	ねころがったまま	ねころ
+rb_readings	対	ついになる	つい
+rb_readings	対	ついの	つい
+rb_readings	対面	といめんにいたから	といめん
+rb_readings	寿司	ずしなんだ	ずし
+rb_readings	尋	じん	じん
+rb_readings	導	みちびけると	みちび
+rb_readings	小倉	こくらに やってきた	こくら
+rb_readings	小倉	こくらにやってきた	こくら
+rb_readings	小宮山泰司	こみやま たいじの	こみやまたいじ
+rb_readings	小川夏之	おがわ なつゆきっていう	おがわなつゆき
+rb_readings	小暮留海	こぐれ るみ	こぐれるみ
+rb_readings	小村	こむら	こむら
+rb_readings	小橋法雄	おばし のりお	おばしのりお
+rb_readings	小畑与一郎	こばた よいちろうさんが	こばたよいちろう
+rb_readings	小見浦	おみうら	おみうら
+rb_readings	小見浦	おみうらさんが	おみうら
+rb_readings	小谷	こたに	こたに
+rb_readings	小谷安信	こたに やすのぶさんが	こたにやすのぶ
+rb_readings	尖	せん	せん
+rb_readings	尚子	なおこ	なおこ
+rb_readings	就	つくために	つ
+rb_readings	尺五立	しゃくごたての	しゃくごたて
+rb_readings	尽	つくせりだな	つ
+rb_readings	尽	つくせりの	つ
+rb_readings	尽	づくしでお	づ
+rb_readings	尽	づくしのポケモンなんじゃよ	づ
+rb_readings	尾	びして	び
+rb_readings	尾	びメカ	び
+rb_readings	尾城	おじろ	おじろ
+rb_readings	尾行	つけられたのだ あの	つけ
+rb_readings	屈	くつ	くつ
+rb_readings	屈	くつの	くつ
+rb_readings	屋田誠人	おくだ まことさんからの	おくだまこと
+rb_readings	屋田誠人	おくだ まことさんに	おくだまこと
+rb_readings	屍崎	しかばねざきの	しかばねざき
+rb_readings	山	さんで よく	さん
+rb_readings	山	ざん	ざん
+rb_readings	山	ざんだな	ざん
+rb_readings	山	ざんで	ざん
+rb_readings	山	ざんでしか	ざん
+rb_readings	山	ざんです	ざん
+rb_readings	山	ざんとも	ざん
+rb_readings	山	ざんにやってきた	ざん
+rb_readings	山	ざんへ	ざん
+rb_readings	山休	さんきゅう	さんきゅう
+rb_readings	山姥	やまんば	やまんば
+rb_readings	山姥	やまんばが	やまんば
+rb_readings	山姥	やまんばぐれえだ	やまんば
+rb_readings	山姥	やまんばのような	やまんば
+rb_readings	山姥	やまんばよ　きっと	やまんば
+rb_readings	山手	やまのて	やまのて
+rb_readings	山村	やまむら	やまむら
+rb_readings	山村	やまむらさん	やまむら
+rb_readings	山村	やまむらに	やまむら
+rb_readings	山村	やまむらミサオ	やまむら
+rb_readings	山村	やまむらミサオのくしゃみ	やまむら
+rb_readings	山泥	さんでい	さんでい
+rb_readings	山泥寺	さんでいじか	さんでいじ
+rb_readings	山間	やまあいから	やまあい
+rb_readings	山間	やまあいの	やまあい
+rb_readings	岩吉	がんきち	がんきち
+rb_readings	岩吉	がんきちさんが	がんきち
+rb_readings	岩壁	いわかべが	いわかべ
+rb_readings	岩壁	いわかべは	いわかべ
+rb_readings	岩壁	いわかべを	いわかべ
+rb_readings	岩尚	いわひさ	いわひさ
+rb_readings	岩見町	いわみちょうの	いわみちょう
+rb_readings	岬	さきのジュンサーさんの いとこか はとこさん	さき
+rb_readings	岬 太郎	みさき たろう	みさきたろう
+rb_readings	岬 太郎	みさき たろうの	みさきたろう
+rb_readings	岸治	きしはる	きしはる
+rb_readings	峰人	みねと	みねと
+rb_readings	島	じま	じま
+rb_readings	島	じまだ	じま
+rb_readings	島	じまで ポケモン	じま
+rb_readings	島	じまに	じま
+rb_readings	島	じまにあるムロジムだよ	じま
+rb_readings	島	じまの	じま
+rb_readings	島	じまへ	じま
+rb_readings	島	じまを	じま
+rb_readings	島	とう	とう
+rb_readings	島	とうから	とう
+rb_readings	島	とうさ	とう
+rb_readings	島	とうだ	とう
+rb_readings	島	とうだから	とう
+rb_readings	島	とうだな	とう
+rb_readings	島	とうだよ	とう
+rb_readings	島	とうって	とう
+rb_readings	島	とうで	とう
+rb_readings	島	とうでございます	とう
+rb_readings	島	とうでゲットした ユキワラシを	とう
+rb_readings	島	とうという	とう
+rb_readings	島	とうといって	とう
+rb_readings	島	とうに	とう
+rb_readings	島	とうに おつかいに	とう
+rb_readings	島	とうに やって	とう
+rb_readings	島	とうにあるよ	とう
+rb_readings	島	とうにあるバトルパレスさ	とう
+rb_readings	島	とうにやって	とう
+rb_readings	島	とうね	とう
+rb_readings	島	とうの	とう
+rb_readings	島	とうの とある	とう
+rb_readings	島	とうのほうへ	とう
+rb_readings	島	とうのカンキツスタジアム	とう
+rb_readings	島	とうのグレンジムね	とう
+rb_readings	島	とうのプリカシティへ	とう
+rb_readings	島	とうのマサミ	とう
+rb_readings	島	とうへ	とう
+rb_readings	島	とうへの	とう
+rb_readings	島	とうへやってきたサトシたち	とう
+rb_readings	島	とうよ	とう
+rb_readings	島	とうを	とう
+rb_readings	島	とうをあとにした	とう
+rb_readings	嶽野駒世	たけの こまよの	たけのこまよ
+rb_readings	川	がわさんですね	がわ
+rb_readings	川	せん	せん
+rb_readings	川口元子	かわぐち もとこさん	かわぐちもとこ
+rb_readings	川口元子	かわぐち もとこさんのことで お	かわぐちもとこ
+rb_readings	川澄眞子	かわすみ まこ	かわすみまこ
+rb_readings	巣亀	すがめ	すがめ
+rb_readings	工場	こうばなんです	こうば
+rb_readings	工場	こうばの	こうば
+rb_readings	工場	こうばも	こうば
+rb_readings	左京大夫顕輔	さきょうのだいふあきすけが	さきょうのだいふあきすけ
+rb_readings	左腕	ひだりうででも	ひだりうで
+rb_readings	左腕	ひだりうでを	ひだりうで
+rb_readings	己一郎	きいちろう	きいちろう
+rb_readings	巴	どもえの	どもえ
+rb_readings	市場	いちばで	いちば
+rb_readings	布浦	ふうらさんでしょ	ふうら
+rb_readings	布浦	ふうらさんとは どういう	ふうら
+rb_readings	布田英子	ふだ えいこが	ふだえいこ
+rb_readings	帝	てい	てい
+rb_readings	帰	けえっちまったんだ	けえ
+rb_readings	帰	けえってねえってことは	けえ
+rb_readings	帰	けえりてえって	けえ
+rb_readings	帰	けえるぞ	けえ
+rb_readings	帰	けえるんじゃなかったのか	けえ
+rb_readings	常磐	ときわホテルに	ときわ
+rb_readings	幅	ふくさせる	ふく
+rb_readings	幅	ふくさせるのだ	ふく
+rb_readings	幅	ふくさせるのニャ	ふく
+rb_readings	幅	ふくすることも	ふく
+rb_readings	幅	ふくすると	ふく
+rb_readings	幅中倉道	はばなか くらみち	はばなかくらみち
+rb_readings	干	ひきで	ひ
+rb_readings	平	へいさん こんな	へい
+rb_readings	平	へいちゃん	へい
+rb_readings	平	へいちゃん　その	へい
+rb_readings	平久川	へいきゅうがわに	へいきゅうがわ
+rb_readings	平晴眼	ひらせいがんの	ひらせいがん
+rb_readings	平棟堂次	ひらむね どうじさんが	ひらむねどうじ
+rb_readings	平棟堂次	ひらむね どうじさんは	ひらむねどうじ
+rb_readings	平正輝	たいら まさてるさんって	たいらまさてる
+rb_readings	平沼登志之	ひらぬま としゆきさん	ひらぬまとしゆき
+rb_readings	平良伊江	たいら よしえさんが	たいらよしえ
+rb_readings	幸	さち	さち
+rb_readings	幸哉	ゆきやのしゃっくり	ゆきや
+rb_readings	幸姫	みゆき	みゆき
+rb_readings	幸姫	みゆきさんはアリバイがあるし	みゆき
+rb_readings	幸子	こうこですよ	こうこ
+rb_readings	幸生	ゆきお	ゆきお
+rb_readings	幻	げん	げん
+rb_readings	幻塊寺	げんかいじの	げんかいじ
+rb_readings	幾年月	いくとしつき	いくとしつき
+rb_readings	庄野杏奈	しょうの きょうなさんに	しょうのきょうな
+rb_readings	庄野杏奈	しょうの きょうなのブログだよ	しょうのきょうな
+rb_readings	床	とこの	とこ
+rb_readings	度	たびに	たび
+rb_readings	度	たびは うちのテッシードたちが	たび
+rb_readings	庵	あん	あん
+rb_readings	康次	やすじ	やすじ
+rb_readings	廉野	れんの	れんの
+rb_readings	延策	えんさく	えんさく
+rb_readings	廻	まわり	まわ
+rb_readings	弁崎桐平	べんざき とうへいって	べんざきとうへい
+rb_readings	引	ひっ	ひ
+rb_readings	弘法大師	こうぼうたいし	こうぼうたいし
+rb_readings	弟恵	ちかえだったらしいんだけど	ちかえ
+rb_readings	弦三朗	げんざぶろう	げんざぶろう
+rb_readings	弦三朗	げんざぶろうさんが	げんざぶろう
+rb_readings	弱	よええな おめえは	よえ
+rb_readings	弱	よおうて	よお
+rb_readings	弱	よわあて	よわ
+rb_readings	張田	はるたの	はるた
+rb_readings	強	じいは よくない	じ
+rb_readings	強	つえ	つえ
+rb_readings	強	つええ	つえ
+rb_readings	強	つええ あっという	つえ
+rb_readings	強	つええな	つえ
+rb_readings	強	つええや	つえ
+rb_readings	強	つええんだ きっと	つえ
+rb_readings	強	つええんだろ	つえ
+rb_readings	強	つよ	つよ
+rb_readings	強	づよいテイストだね	づよ
+rb_readings	強者	つわもの	つわもの
+rb_readings	強者	つわものばかり	つわもの
+rb_readings	強者	つわものを	つわもの
+rb_readings	弾	だん	だん
+rb_readings	弾	だん マシンガンファイヤー	だん
+rb_readings	弾	だんが	だん
+rb_readings	弾	だんは オーキド	だん
+rb_readings	弾	はじいて	はじ
+rb_readings	弾	はじき	はじ
+rb_readings	弾	はじけて	はじ
+rb_readings	弾二朗	だんじろう	だんじろう
+rb_readings	弾二朗	だんじろうが	だんじろう
+rb_readings	弾二朗	だんじろうさんのイニシャルが	だんじろう
+rb_readings	当	あったり	あ
+rb_readings	彦上京華	ひこうえ きょうかさん	ひこうえきょうか
+rb_readings	彦上京華	ひこうえ きょうかさんは	ひこうえきょうか
+rb_readings	彩	さいな	さい
+rb_readings	彩代	さよさん	さよ
+rb_readings	彼	かの	かの
+rb_readings	征	せい	せい
+rb_readings	征服	せいいふく スピード	せいいふく
+rb_readings	御	ぎょ	ぎょ
+rb_readings	御	ぎょさせずにローキックとは さすがオレ	ぎょ
+rb_readings	御	ぎょするんだ	ぎょ
+rb_readings	御	ぎょだったりする	ぎょ
+rb_readings	御	ぎょって	ぎょ
+rb_readings	御	ぎょできて	ぎょ
+rb_readings	御	ぎょではないのだ	ぎょ
+rb_readings	御	ぎょと	ぎょ
+rb_readings	御	ぎょに	ぎょ
+rb_readings	御	ぎょの	ぎょ
+rb_readings	御	ぎょを	ぎょ
+rb_readings	御上平八	みかみ へいはちさんに	みかみへいはち
+rb_readings	御手杵	おてぎね	おてぎね
+rb_readings	御礼	おんれい	おんれい
+rb_readings	御霊	みたまの	みたま
+rb_readings	微塵隠	みじんがくれや	みじんがく
+rb_readings	徴	ちょうを	ちょう
+rb_readings	徹	てっ	てっ
+rb_readings	心	ごころあれば ニョロトノ	ごころ
+rb_readings	心地	ごこちのよい	ごこち
+rb_readings	忍	にん	にん
+rb_readings	忍	にんポケとして	にん
+rb_readings	忙	いそしくしてたんだから	いそ
+rb_readings	念形町	ねんぎょうちょうからの	ねんぎょうちょう
+rb_readings	怒	いかっているモンジャラたちが	いか
+rb_readings	怒	いかってるぞ	いか
+rb_readings	怒	いかるがいい	いか
+rb_readings	怒	いかるのよ	いか
+rb_readings	怒	いかれ	いか
+rb_readings	怒	おこりを	おこ
+rb_readings	怒	おこれないの	おこ
+rb_readings	怖	こええ	こえ
+rb_readings	怖	こええからってか	こえ
+rb_readings	怖	こええぞ	こえ
+rb_readings	怖	こええぞ お	こえ
+rb_readings	怖	こええな	こえ
+rb_readings	怖	こええよな	こえ
+rb_readings	急	せいては	せ
+rb_readings	急山	いそぎやまって	いそぎやま
+rb_readings	性	さが	さが
+rb_readings	性	さがと	さが
+rb_readings	性	しょうに	しょう
+rb_readings	怪盗３	かいとう スリービューティーズ　この	かいとうすりー
+rb_readings	怪盗３	かいとう スリービューティーズが	かいとうすりー
+rb_readings	恐	おそるべき	おそ
+rb_readings	恐	おそるべきもの	おそ
+rb_readings	恐	おそるべきものぞ	おそ
+rb_readings	恐	おそるべきスーパーパワーの	おそ
+rb_readings	恐	おそるべきパワー	おそ
+rb_readings	恐	おそるべし	おそ
+rb_readings	恐	おそるべし タクト	おそ
+rb_readings	恐	おそるべしじゃな	おそ
+rb_readings	恐	おそるべしナゲキ	おそ
+rb_readings	恒弟	つねちか	つねちか
+rb_readings	恵	え	え
+rb_readings	悟	ごしておきなさい	ご
+rb_readings	悟	ごすることね	ご
+rb_readings	悟	ごで	ご
+rb_readings	悟	ごにゃ	ご
+rb_readings	悦人	えつと	えつと
+rb_readings	悪	あく	あく
+rb_readings	悪	あくが	あく
+rb_readings	悪	あくに	あく
+rb_readings	悪	あくのクリスタル	あく
+rb_readings	悪	あくのユニットなんだ	あく
+rb_readings	悪	あしき	あ
+rb_readings	悪	わりい	わり
+rb_readings	悪	わりい おっちゃん	わり
+rb_readings	悪	わりい くだらねえ	わり
+rb_readings	悪	わりい ごみ	わり
+rb_readings	悪	わりい そうさせてくれ	わり
+rb_readings	悪	わりい それで	わり
+rb_readings	悪	わりい ちょっと	わり
+rb_readings	悪	わりい ちょっとトイレ	わり
+rb_readings	悪	わりい やっちゃな	わり
+rb_readings	悪	わりい　あとは	わり
+rb_readings	悪	わりい　そうだったな	わり
+rb_readings	悪	わりい　ちょっと こっちで	わり
+rb_readings	悪	わりい　またあとで かけ	わり
+rb_readings	悪	わりい　まだ	わり
+rb_readings	悪	わりいかよ	わり
+rb_readings	悪	わりいが	わり
+rb_readings	悪	わりいが ちょっと タバコ	わり
+rb_readings	悪	わりいけどな	わり
+rb_readings	悪	わりいぞ	わり
+rb_readings	悪	わりいな	わり
+rb_readings	悪	わりいな お	わり
+rb_readings	悪	わりいな　あと	わり
+rb_readings	悪	わりいな　お	わり
+rb_readings	悪	わりいなあ	わり
+rb_readings	悪	わりいよ	わり
+rb_readings	悪	わりいよ おんぶなんて	わり
+rb_readings	悪	わりいんだ	わり
+rb_readings	悪	わりいんだ ウソなんかつくから	わり
+rb_readings	悪	わりいんだぞ	わり
+rb_readings	悪	わりいんだよ	わり
+rb_readings	悪	わりりい	わり
+rb_readings	悪者	わるもんなんでしょう	わるもん
+rb_readings	惇史	あつふみ	あつふみ
+rb_readings	惑	わくかけなかった	わく
+rb_readings	惑	わくをおかけしました	わく
+rb_readings	惚	ぼれ するなんて	ぼ
+rb_readings	惚	ぼれされたのは お	ぼ
+rb_readings	惚	ぼれした	ぼ
+rb_readings	惚	ぼれしたな	ぼ
+rb_readings	惚	ぼれしたんだって	ぼ
+rb_readings	惚	ぼれして	ぼ
+rb_readings	惚	ぼれしてたんじゃないか	ぼ
+rb_readings	惚	ぼれだよ	ぼ
+rb_readings	惚	ぼれって	ぼ
+rb_readings	惚	ぼれってやつかな	ぼ
+rb_readings	惚	ぼれですわ	ぼ
+rb_readings	意気込	いきごみ	いきご
+rb_readings	意気込	いきごみなら これは むしろラッキーなのかもしれないな	いきご
+rb_readings	感応殿	かんのうでんや	かんのうでん
+rb_readings	慄	りつのブルークラッシャー ダゲキ	りつ
+rb_readings	慌	おわてんなよ シトロン	おわ
+rb_readings	慮	りょしないで　はい	りょ
+rb_readings	慮	りょしなさんな	りょ
+rb_readings	慮	りょなく	りょ
+rb_readings	慮	りょなくゲットさせてもらうよ	りょ
+rb_readings	慮	りょは	りょ
+rb_readings	慶	けい	けい
+rb_readings	憂	ゆうだったかな	ゆう
+rb_readings	憎	にっくき	に
+rb_readings	憎	にっくきヤツだ	に
+rb_readings	憩	けいに	けい
+rb_readings	憩	けいをとっていた	けい
+rb_readings	憶	おくが	おく
+rb_readings	憶	おくを	おく
+rb_readings	懐	なつかかしい ハートウォームなテイストの	なつか
+rb_readings	懐	なつかしき	なつ
+rb_readings	懐	なつかしきテイスト	なつ
+rb_readings	懸	かかった	か
+rb_readings	懸	かかっている	か
+rb_readings	懸	かかっているからな	か
+rb_readings	懸	かかっているんですから	か
+rb_readings	懸	かかってる この	か
+rb_readings	懸	かかってるんだもの	か
+rb_readings	懸	けん	けん
+rb_readings	成実	せいじ	せいじ
+rb_readings	成治	せいじ	せいじ
+rb_readings	戦場	いくさばに その	いくさば
+rb_readings	戦場	いくさばにその	いくさば
+rb_readings	戦場	いくさばのようにな	いくさば
+rb_readings	截拳道	ジークンドーに どっぷりだったよ	じーくんどー
+rb_readings	截拳道	ジークンドーの	じーくんどー
+rb_readings	截拳道	ジークンドーや	じーくんどー
+rb_readings	戸叶	とがのうさんですけど	とがのう
+rb_readings	戻	もどせたよ	もど
+rb_readings	戻	もどせたら	もど
+rb_readings	戻	もどせたわね	もど
+rb_readings	戻	もどせて ホントに	もど
+rb_readings	戻	もどせない	もど
+rb_readings	戻	もどせなかったのか	もど
+rb_readings	戻	もどれたんだな	もど
+rb_readings	戻	もどれないよな	もど
+rb_readings	戻	もどれないんです	もど
+rb_readings	戻	もどれる	もど
+rb_readings	戻	もどれるんでしょう	もど
+rb_readings	房	ふさに	ふさ
+rb_readings	房	ふさにためた	ふさ
+rb_readings	房	ふさの	ふさ
+rb_readings	房	ふさは	ふさ
+rb_readings	手伝	てつどうた	てつど
+rb_readings	手伝	てつどうたげるから	てつど
+rb_readings	手伝	てつどうたろっちゅうてんのに	てつど
+rb_readings	手伝	てつどうてくれたから	てつど
+rb_readings	手伝	てつどうてくれや	てつど
+rb_readings	手伝	てつどうてくれる	てつど
+rb_readings	手伝	てつどうてもらうだけや	てつど
+rb_readings	手水舎	ちょうずやの	ちょうずや
+rb_readings	払	はらえよな	はら
+rb_readings	払	ばらい	ばら
+rb_readings	払	ぱらうのよ	ぱら
+rb_readings	払	ぱらっちゃいな	ぱら
+rb_readings	払	ぱらってくるのニャ	ぱら
+rb_readings	払	ぱらってちょうだい	ぱら
+rb_readings	払	ぱらってやるぞ	ぱら
+rb_readings	扱	あつかえよ	あつか
+rb_readings	扱	あつけえは	あつ
+rb_readings	承	うけたまわりました	うけたまわ
+rb_readings	抜	ばつ	ばつ
+rb_readings	抱	だいていこう	だ
+rb_readings	抱	だいてると	だ
+rb_readings	抱	だき	だ
+rb_readings	抱	だきしめる	だ
+rb_readings	抱	だきつくが	だ
+rb_readings	抵	ていの	てい
+rb_readings	抵	ていのことはできるからね	てい
+rb_readings	押忍	オッス	おっす
+rb_readings	担	かついだってわけだ	かつ
+rb_readings	拍子	びょうし あっ それ	びょうし
+rb_readings	拒	きょ	きょ
+rb_readings	拠	きょ	きょ
+rb_readings	拠	こじゃ	こ
+rb_readings	拠	こなんじゃ	こ
+rb_readings	拠	こを	こ
+rb_readings	拳	けん	けん
+rb_readings	拾	しゅうがつかなくなってしまうよ	しゅう
+rb_readings	指原律子	さしはら りつこさん	さしはらりつこ
+rb_readings	指月	しづき	しづき
+rb_readings	挑	ちょう	ちょう
+rb_readings	振	しん	しん
+rb_readings	振	ぶる	ぶ
+rb_readings	捉	とらえた	とら
+rb_readings	捉	とらえたゾ	とら
+rb_readings	捉	とらえているはずだ	とら
+rb_readings	捉	とらえないと	とら
+rb_readings	捉	とらえる	とら
+rb_readings	捉	とらえるには まず	とら
+rb_readings	捕	とらわれの	と
+rb_readings	捕	とらわれのサトシたちの	と
+rb_readings	掌	しょうたち	しょう
+rb_readings	掌	しょうと	しょう
+rb_readings	掘	くつ	くつ
+rb_readings	掘	くつしたんだ	くつ
+rb_readings	探	さぐれるかしら	さぐ
+rb_readings	掲	かがげてください	かが
+rb_readings	揃	ぞろい	ぞろ
+rb_readings	描	かいた ガーちゃんの	か
+rb_readings	描	かいたのも かがやきさまの	か
+rb_readings	描	かいたり	か
+rb_readings	描	かいたり バトルをしたり	か
+rb_readings	描	かいたんだ	か
+rb_readings	描	かいたんだよ	か
+rb_readings	描	かかれたポケモンは	か
+rb_readings	描	かかれる	か
+rb_readings	描	かく	か
+rb_readings	描	かくという	か
+rb_readings	換	かんが	かん
+rb_readings	換	かんしてもらいたいのね	かん
+rb_readings	換	かんしてもらったんだけど	かん
+rb_readings	換	かんしない	かん
+rb_readings	換	かんする	かん
+rb_readings	換	かんすると	かん
+rb_readings	換	かんだわ	かん
+rb_readings	握	あく	あく
+rb_readings	援	えん	えん
+rb_readings	援	えんさせてもらうよ	えん
+rb_readings	援	えんしてる	えん
+rb_readings	援	えんしよう	えん
+rb_readings	援	えんするぜ	えん
+rb_readings	援	えんだ	えん
+rb_readings	援	えんに	えん
+rb_readings	搭	とうだ	とう
+rb_readings	搾	しぼりたてのモーモーミルクが	しぼ
+rb_readings	搾	しぼりたてよ	しぼ
+rb_readings	搾	しぼりたてをどうぞ	しぼ
+rb_readings	摩	ま	ま
+rb_readings	撃	うてたのを	う
+rb_readings	撃	うてる	う
+rb_readings	撤	てっ	てっ
+rb_readings	撮	とれた	と
+rb_readings	撮	とれたわ	と
+rb_readings	撮	とれよ	と
+rb_readings	撮影所	さつえいじょがあって	さつえいじょ
+rb_readings	撮影所	さつえいじょにある	さつえいじょ
+rb_readings	撮影所	さつえいじょの	さつえいじょ
+rb_readings	改方	かいほう	かいほう
+rb_readings	攻撃	こいげきと	こいげき
+rb_readings	攻撃力	こいうげきりょくも	こいうげきりょく
+rb_readings	故郷	ふるさとのね	ふるさと
+rb_readings	故郷	ふるさとはね	ふるさと
+rb_readings	敏	びん	びん
+rb_readings	敏成	としなり	としなり
+rb_readings	敏成	としなりさんが	としなり
+rb_readings	敢	かんちゃん	かん
+rb_readings	敬善	たかよし	たかよし
+rb_readings	敬大	けいだい	けいだい
+rb_readings	敬実	たかみ	たかみ
+rb_readings	敵	かたき	かたき
+rb_readings	敵	かたきが	かたき
+rb_readings	敵	かたきじゃ	かたき
+rb_readings	敵	かたきだ	かたき
+rb_readings	敵	かたきなんでしょ	かたき
+rb_readings	敵	かたきなんです	かたき
+rb_readings	敵	かたきにしてた フォワードを	かたき
+rb_readings	敵	かたきにしてるの	かたき
+rb_readings	敵	かたきにしやがって	かたき
+rb_readings	敵	かたきにするんだろう	かたき
+rb_readings	敵	かたきの	かたき
+rb_readings	敵	かたきは	かたき
+rb_readings	敵	かたきも	かたき
+rb_readings	敵	かたきを	かたき
+rb_readings	敵	かたきをとって	かたき
+rb_readings	敵	たかき	たかき
+rb_readings	文	もんの	もん
+rb_readings	文子	あやこって	あやこ
+rb_readings	斬	ぎり	ぎ
+rb_readings	新出	あらいで	あらいで
+rb_readings	新出	あらいで ベルモット	あらいで
+rb_readings	新出義輝	あらいで よしてるさんの	あらいでよしてる
+rb_readings	新名	しんめい	しんめい
+rb_readings	新名任太朗	しんめい にんたろう	しんめいにんたろう
+rb_readings	新名任太朗	しんめい にんたろうの	しんめいにんたろう
+rb_readings	新名香保里	しんめい かおりの	しんめいかおり
+rb_readings	新木張太郎	しんき ちょうたろうさん	しんきちょうたろう
+rb_readings	新田	にった	にった
+rb_readings	新田	にったと	にった
+rb_readings	新田 瞬	にった しゅん	にったしゅん
+rb_readings	新野	あらの	あらの
+rb_readings	旋	せん	せん
+rb_readings	旗郎	はたろう	はたろう
+rb_readings	日原	ひのはら	ひのはら
+rb_readings	日向	ひゅうが	ひゅうが
+rb_readings	日向	ひゅうが　どこへ	ひゅうが
+rb_readings	日向	ひゅうがは	ひゅうが
+rb_readings	日和	びよりだぜ	びより
+rb_readings	日売	にちうり	にちうり
+rb_readings	日売	にちうりの	にちうり
+rb_readings	日売	にちうりスポーツ	にちうり
+rb_readings	日売	にちうりテレビ	にちうり
+rb_readings	日売	にちうりテレビからの	にちうり
+rb_readings	日売	にちうりテレビさんには	にちうり
+rb_readings	日売	にちうりテレビじゃないかな	にちうり
+rb_readings	日売	にちうりテレビで	にちうり
+rb_readings	日売	にちうりテレビでやってるだろ	にちうり
+rb_readings	日売	にちうりテレビに	にちうり
+rb_readings	日売	にちうりテレビの	にちうり
+rb_readings	日売	にちうりテレビの キャンペーンキャラクターが	にちうり
+rb_readings	日売	にちうりテレビのアナウンサー	にちうり
+rb_readings	日売	にちうりテレビのアナウンサーやんか	にちうり
+rb_readings	日売	にちうりテレビのスタッフ	にちうり
+rb_readings	日売	にちうりテレビまでは	にちうり
+rb_readings	日本号	ひのもとごう	ひのもとごう
+rb_readings	日本武尊	やまとたけるのみことが	やまとたけるのみこと
+rb_readings	日本武尊	やまとたけるのみことを	やまとたけるのみこと
+rb_readings	早	さっ	さっ
+rb_readings	早	はええ	はえ
+rb_readings	早	はええじゃねえか	はえ
+rb_readings	早	はええだろ まだまだ	はえ
+rb_readings	早	はええっつうの	はえ
+rb_readings	早	はええな	はえ
+rb_readings	早	はええほうが	はえ
+rb_readings	早	はええよ	はえ
+rb_readings	早	はええんじゃねえのか	はえ
+rb_readings	早	はえんじゃねえか	はえ
+rb_readings	早	はよ	はよ
+rb_readings	早	はよから	は
+rb_readings	早田	そうだ	そうだ
+rb_readings	早田	そうださんに	そうだ
+rb_readings	昇	しょう	しょう
+rb_readings	昇岳寺	しょうがくじに	しょうがくじ
+rb_readings	昌仁町	しょうじんまちというのは	しょうじんまち
+rb_readings	昌次	まさつぐ	まさつぐ
+rb_readings	明日	あした	あした
+rb_readings	明日	あしたは	あした
+rb_readings	明日	あしたよろしく	あした
+rb_readings	明日	みょうにち	みょうにち
+rb_readings	星河童吾	ほしかわ どうご	ほしかわどうご
+rb_readings	星舟	ほしぶねカグヤ	ほしぶね
+rb_readings	春井風伝	はるい ふうでんという	はるいふうでん
+rb_readings	春井風伝	はるい ふうでんの	はるいふうでん
+rb_readings	昨日	さくじつも	さくじつ
+rb_readings	昼	ぴる	ぴる
+rb_readings	昼川利子	ひるかわ としこさんが	ひるかわとしこ
+rb_readings	昼花	ひるか	ひるか
+rb_readings	時和	ときわホテルに	ときわ
+rb_readings	時雨橋	しぐればしです	しぐればし
+rb_readings	普	ふ	ふ
+rb_readings	景	あきら	あきら
+rb_readings	景	あきらだよ	あきら
+rb_readings	晴仁	せいじんですけどね	せいじん
+rb_readings	晴仁	せいじんと	せいじん
+rb_readings	晴華	はるかさん	はるか
+rb_readings	晶	しょうになった	しょう
+rb_readings	晶	しょうを	しょう
+rb_readings	晶子	しょうこちゃん	しょうこ
+rb_readings	晶次	しょうじ	しょうじ
+rb_readings	暁	あきら	あきら
+rb_readings	暇	いとまを	いとま
+rb_readings	暖	あったかいな	あった
+rb_readings	暖	あったかいんだ	あった
+rb_readings	暖	あったかいんだから	あった
+rb_readings	暖	あったかくて	あった
+rb_readings	暖	あったかくて とってもおもしろい	あった
+rb_readings	暗	くろうして	くろ
+rb_readings	暗	くろうして テレビ	くろ
+rb_readings	暗	くろうて よう	くろ
+rb_readings	暗	くろなったぐらいで ガキやあるまいし	くろ
+rb_readings	暗	くろなってから	くろ
+rb_readings	暗	くろなってるし	くろ
+rb_readings	曇柄寺	どんがらじから	どんがらじ
+rb_readings	曇柄寺	どんがらじのどこかに	どんがらじ
+rb_readings	更	こう	こう
+rb_readings	曽我操夫	そが みさおさんは	そがみさお
+rb_readings	曽我操夫	そが みさおも	そがみさお
+rb_readings	曽根屋忠兵衛	そねや ちゅうべいの	そねやちゅうべい
+rb_readings	月の記憶	ルナ	-
+rb_readings	月影島	つきかげじまで	つきかげじま
+rb_readings	月影島	つきかげじまのやつ	つきかげじま
+rb_readings	月長石	ムーンストーン	むーんすとーん
+rb_readings	月長石	ムーンストーンが	むーんすとーん
+rb_readings	月長石	ムーンストーンだけど	むーんすとーん
+rb_readings	月長石	ムーンストーンって そんなに	むーんすとーん
+rb_readings	月長石	ムーンストーンと	むーんすとーん
+rb_readings	月長石	ムーンストーンの	むーんすとーん
+rb_readings	月長石	ムーンストーンは	むーんすとーん
+rb_readings	月長石	ムーンストーンを いただきに	むーんすとーん
+rb_readings	月長石	ムーンストーンを スリにスラれたのを	むーんすとーん
+rb_readings	有元懇治	ありもと こんじさん	ありもとこんじ
+rb_readings	有尖無刃器	ゆうせんむじんき	ゆうせんむじんき
+rb_readings	有難山	ありがたやまのホトトギスやで	ありがたやま
+rb_readings	有鳩	ありはと	ありはと
+rb_readings	朝世	ともよ	ともよ
+rb_readings	朝生７	あさなまセブン	あさなませぶん
+rb_readings	朝露	あさつゆ	あさつゆ
+rb_readings	朝香	ともか	ともか
+rb_readings	木	この	こ
+rb_readings	木屋町通	きやまちどおりに	きやまちどおり
+rb_readings	木山	きやま	きやま
+rb_readings	木念	もくねん	もくねん
+rb_readings	木神	もくじん	もくじん
+rb_readings	木船染花	きぶね そめか	きぶねそめか
+rb_readings	未智男	みちお	みちお
+rb_readings	末子	すえこ	すえこ
+rb_readings	末松	すえまつさんにも	すえまつ
+rb_readings	本	ぼん	ぼん
+rb_readings	本	ぽん	ぽん
+rb_readings	本山	もとやまさんが かけてた	もとやま
+rb_readings	札	ふだ	ふだ
+rb_readings	朱本	しゅもと	しゅもと
+rb_readings	朱本国博	しゅもと くにひろさん	しゅもとくにひろ
+rb_readings	朽木雄輔	くちき ゆうすけさん	くちきゆうすけ
+rb_readings	朽橋	くちばし	くちばし
+rb_readings	村中	むらじゅう	むらじゅう
+rb_readings	村長	むらおさの	むらおさ
+rb_readings	来	けえへんか	け
+rb_readings	来	けえへんかった	け
+rb_readings	来	けえへんかったか	け
+rb_readings	来	けえへんから	け
+rb_readings	来	けえへんし	け
+rb_readings	来	けえへんし きっと あんたが かくもうてるて	け
+rb_readings	来	けえへんで	け
+rb_readings	来	けえへんのか	け
+rb_readings	来	けえへんのやったらな	け
+rb_readings	来	けえへんようになったそやけどな	け
+rb_readings	来	こんと	こ
+rb_readings	来	こニャいなら こっちから	こ
+rb_readings	来葉	らいは	らいは
+rb_readings	来葉峠	らいはとうげで	らいはとうげ
+rb_readings	来葉峠	らいはとうげに	らいはとうげ
+rb_readings	杯	はい	はい
+rb_readings	杯	ばい	ばい
+rb_readings	杯	ぱい	ぱい
+rb_readings	杯	ぱいのラーメンのありがたさ おいしさが	ぱい
+rb_readings	杯戸	はいど	はいど
+rb_readings	杯戸	はいどに	はいど
+rb_readings	杯戸	はいどのルータス	はいど
+rb_readings	杯戸	はいどシティホテル	はいど
+rb_readings	杯戸	はいどシティホテルか	はいど
+rb_readings	杯戸	はいどシティホテルで	はいど
+rb_readings	杯戸	はいどシティホテルに	はいど
+rb_readings	杯戸	はいどシティホテルの	はいど
+rb_readings	杯戸	はいどシティーホテルで	はいど
+rb_readings	杯戸	はいどショッピングモールへ	はいど
+rb_readings	杯戸	はいどプライド	はいど
+rb_readings	杯戸	はいどホテルの	はいど
+rb_readings	杯戸	はいどホテルのケーキバイキングに	はいど
+rb_readings	杯戸北	はいどきた	はいどきた
+rb_readings	杯戸町	はいどちょう	はいどちょう
+rb_readings	杯戸町	はいどちょうだ	はいどちょう
+rb_readings	杯戸町	はいどちょうで	はいどちょう
+rb_readings	杯戸町	はいどちょうなの	はいどちょう
+rb_readings	杯戸町	はいどちょうに	はいどちょう
+rb_readings	杯戸町	はいどちょうに おしゃれなパスタ	はいどちょう
+rb_readings	杯戸町	はいどちょうにある	はいどちょう
+rb_readings	杯戸町	はいどちょうにあるビルの	はいどちょう
+rb_readings	杯戸町	はいどちょうの	はいどちょう
+rb_readings	杯戸町	はいどちょうのアパートさ	はいどちょう
+rb_readings	杯戸町	はいどちょうのガソリンスタンドで バイトしてて	はいどちょう
+rb_readings	杯戸町	はいどちょうのスーパーで	はいどちょう
+rb_readings	杯戸町	はいどちょうのスーパーにある あそこだよ	はいどちょう
+rb_readings	杯戸町	はいどちょうのデパートに	はいどちょう
+rb_readings	杯戸町	はいどちょうのマンションだけど	はいどちょう
+rb_readings	杯戸町	はいどちょうまで	はいどちょう
+rb_readings	杯戸第一	はいどだいいち	はいどだいいち
+rb_readings	東京一	とうきょう はじめ	とうきょうはじめ
+rb_readings	東京婆	とうきょうばールズコレクション	とうきょうば
+rb_readings	東南西北	トンナンシャーペーだから	とんなんしゃーぺー
+rb_readings	東場	とんばや	とんば
+rb_readings	東富橋	とうとみばしだよ	とうとみばし
+rb_readings	東尻	とうじり	とうじり
+rb_readings	東治	とうじ	とうじ
+rb_readings	東風	とんぷうで	とんぷう
+rb_readings	杵島岳	きじまだけの	きじまだけ
+rb_readings	松山 光	まつやま ひかるの	まつやまひかる
+rb_readings	松本虚堂	まつもと こどうという	まつもとこどう
+rb_readings	松林敦郎	まつばやし あつろうさんっていう その	まつばやしあつろう
+rb_readings	板倉卓	いたくら すぐる	いたくらすぐる
+rb_readings	板倉卓	いたくら すぐるさんを	いたくらすぐる
+rb_readings	析	せき	せき
+rb_readings	析	せきしたかったのだ	せき
+rb_readings	析	せきは	せき
+rb_readings	枕流亭	ちんりゅうていを	ちんりゅうてい
+rb_readings	林久	りんきゅうの どちらかでしょう	りんきゅう
+rb_readings	林太郎	りんたろう	りんたろう
+rb_readings	枯前崎	こまえざきか	こまえざき
+rb_readings	柄	えからは	え
+rb_readings	柄	えが	え
+rb_readings	柄	えが つかえてしまいますね	え
+rb_readings	柄	えがありますから	え
+rb_readings	柄	えがくっつくと	え
+rb_readings	柄	えと	え
+rb_readings	柄	えに	え
+rb_readings	柄	えには	え
+rb_readings	柄	えにシミがない	え
+rb_readings	柄	えの	え
+rb_readings	柄	えの へこみがあります	え
+rb_readings	柄	えのない	え
+rb_readings	柄	えみたいだよ	え
+rb_readings	柄	えを	え
+rb_readings	柄	えをビスで	え
+rb_readings	柄	つかに	つか
+rb_readings	柄	つかの	つか
+rb_readings	染井芳郎	そめい よしろうさん	そめいよしろう
+rb_readings	染井芳郎	そめい よしろうさんの	そめいよしろう
+rb_readings	柔	じゅう	じゅう
+rb_readings	柴崎	しばさきさんと	しばさき
+rb_readings	柴崎明日香	しばさき あすかさん	しばさきあすか
+rb_readings	柴犬	しばいぬの	しばいぬ
+rb_readings	柴苅殿治	しばかる でんじの	しばかるでんじ
+rb_readings	栄三	えいぞう	えいぞう
+rb_readings	栄信	さかのぶ	さかのぶ
+rb_readings	栄全	えいぜん	えいぜん
+rb_readings	栄林庵	えいりんあんのギョーザが	えいりんあん
+rb_readings	栄鏡	えいきょう	えいきょう
+rb_readings	栗村習平	くりむら しゅうへいパティシエ	くりむらしゅうへい
+rb_readings	栗西町	くりにしちょう	くりにしちょう
+rb_readings	根上	ねがみさん	ねがみ
+rb_readings	根上	ねがみさんも	ねがみ
+rb_readings	根場田	ねばだ	ねばだ
+rb_readings	根子岳	ねこだけ	ねこだけ
+rb_readings	根津信次	ねづ のぶつぐさんと	ねづのぶつぐ
+rb_readings	桂木幸子	かつらぎ ゆきこさん	かつらぎゆきこ
+rb_readings	桃	とう	とう
+rb_readings	桐崎礼	きりさき れみ	きりさきれみ
+rb_readings	桐平	とうへいさんも	とうへい
+rb_readings	桐江咲	きりえ さきとして	きりえさき
+rb_readings	桐谷貴江	きりたに たかえさんの	きりたにたかえ
+rb_readings	桐谷輝彦	きりや てるひこか	きりやてるひこ
+rb_readings	桧原	ひのはらひかるの	ひのはらひかる
+rb_readings	梅木弘道	うめき ひろみち	うめきひろみち
+rb_readings	梅津	うめづさん	うめづ
+rb_readings	梓	あずさ	あずさ
+rb_readings	梓	あずささん	あずさ
+rb_readings	梓	あずささんが	あずさ
+rb_readings	梓	あずささんに	あずさ
+rb_readings	梓	あずささんの	あずさ
+rb_readings	梓	あずささんも	あずさ
+rb_readings	梓	あずさちゃん	あずさ
+rb_readings	梨善	りぜん	りぜん
+rb_readings	梨善町	りぜんちょう	りぜんちょう
+rb_readings	梨善町	りぜんちょうで	りぜんちょう
+rb_readings	梨善町	りぜんちょうの	りぜんちょう
+rb_readings	棄	き	き
+rb_readings	棄	きと	き
+rb_readings	棄	きなのか	き
+rb_readings	棟	とうからなっております	とう
+rb_readings	棟	とうでは	とう
+rb_readings	棟	とうになります ご	とう
+rb_readings	棟	とうの	とう
+rb_readings	森次幸平	もりつぐ こうへいさん	もりつぐこうへい
+rb_readings	棺	かんおけのように	かん
+rb_readings	楓	かえで	かえで
+rb_readings	楓	かえでさんだ	かえで
+rb_readings	楔形	くさびがたの	くさびがた
+rb_readings	業	わざかも	わざ
+rb_readings	業	わざじゃ	わざ
+rb_readings	業	わざです	わざ
+rb_readings	業	わざなんですね	わざ
+rb_readings	楮	こうぞっていうクワ	こうぞ
+rb_readings	極	きわめつけ	きわ
+rb_readings	概	がいのポケモンは	がい
+rb_readings	槌	つい	つい
+rb_readings	樋山邦寿	ひやま くにひささん	ひやまくにひさ
+rb_readings	権作	ごんさく	ごんさく
+rb_readings	権兵衛	ごんべいさんって	ごんべ
+rb_readings	樽	たる	たる
+rb_readings	樽	だるに	だる
+rb_readings	樽見猪彦	たるみ ししひこさんが	たるみししひこ
+rb_readings	樽雅亭	たるがてい	たるがてい
+rb_readings	樽雅亭	たるがていのには	たるがてい
+rb_readings	橋	ばし	ばし
+rb_readings	橋	ばしの	ばし
+rb_readings	機嫌斜	きげんななめか	きげんなな
+rb_readings	機巧	からくりフェスティバル	からくり
+rb_readings	機械掘	きかいぼりだな　あまり	きかいぼり
+rb_readings	櫟	いちいという	いちい
+rb_readings	次藤 洋	じとう ひろし	じとうひろし
+rb_readings	歌倉晶子	うたくら しょうこさんの	うたくらしょうこ
+rb_readings	正和	まさかずだ	まさかず
+rb_readings	正彦	ただひこ	ただひこ
+rb_readings	正影	まさかげ	まさかげ
+rb_readings	正影	まさかげの	まさかげ
+rb_readings	武木	たけきさんに	たけき
+rb_readings	武木正徳	たけき しょうとくさんの	たけきしょうとく
+rb_readings	歩	ふの	ふ
+rb_readings	歳	さい	さい
+rb_readings	歳	さいなんじゃよ	さい
+rb_readings	歳	さいになる	さい
+rb_readings	歳	さいになると	さい
+rb_readings	歳	さいになると ポケモン	さい
+rb_readings	歳	さいの	さい
+rb_readings	歳	さいのころ	さい
+rb_readings	死	ちぬって	ち
+rb_readings	死	ちぬっていうから	ち
+rb_readings	死	ちんじまいやしたけど	ち
+rb_readings	死	ちんじまう	ち
+rb_readings	死	ちんじまうなんてさ	ち
+rb_readings	死	ちんじまってるかもなあ	ち
+rb_readings	死	ちんだとか	ち
+rb_readings	死	ちんだらしいですぜ	ち
+rb_readings	死	ちんだんで	ち
+rb_readings	死羅神	しらがみ	しらがみ
+rb_readings	殊	しゅ	しゅ
+rb_readings	殊	しゅな	しゅ
+rb_readings	殴	なぐれよ	なぐ
+rb_readings	殿	どの	どの
+rb_readings	殿	どの よろしくお	どの
+rb_readings	殿	どのが サンヨウシティのデント	どの
+rb_readings	殿	どのがそう	どの
+rb_readings	殿	どのに	どの
+rb_readings	殿	どのの	どの
+rb_readings	殿	どのは	どの
+rb_readings	毎朝	まいちょう	まいちょう
+rb_readings	毒袋	どくぶくろで	どくぶくろ
+rb_readings	毒袋	どくぶくろを	どくぶくろ
+rb_readings	気	けがあって	け
+rb_readings	気	けがあると	け
+rb_readings	気合	きえいの	きえい
+rb_readings	水上二朗	みずがみ じろう	みずがみじろう
+rb_readings	水原	みずはらさんを	みずはら
+rb_readings	水原良二	みずはら りょうじさんだよね テレビドラマとかに よく	みずはらりょうじ
+rb_readings	水江申次	みずのえ しんじさん	みずのえしんじ
+rb_readings	水沢	みずさわ	みずさわ
+rb_readings	水沢	みずさわく	みずさわ
+rb_readings	水清無魚	すいせいむぎょ	すいせいむぎょ
+rb_readings	水無怜奈	みずなし れな	みずなしれな
+rb_readings	水無怜奈	みずなし れなかね	みずなしれな
+rb_readings	水無怜奈	みずなし れなからメールが	みずなしれな
+rb_readings	水無怜奈	みずなし れなが	みずなしれな
+rb_readings	水無怜奈	みずなし れながいた	みずなしれな
+rb_readings	水無怜奈	みずなし れなさん	みずなしれな
+rb_readings	水無怜奈	みずなし れなさんがいい	みずなしれな
+rb_readings	水無怜奈	みずなし れなさんです	みずなしれな
+rb_readings	水無怜奈	みずなし れなさんに	みずなしれな
+rb_readings	水無怜奈	みずなし れなさんに よく	みずなしれな
+rb_readings	水無怜奈	みずなし れなと まったく	みずなしれな
+rb_readings	水無怜奈	みずなし れなに	みずなしれな
+rb_readings	水無怜奈	みずなし れなの	みずなしれな
+rb_readings	水無怜奈	みずなし れなのほうだよ	みずなしれな
+rb_readings	水無怜奈	みずなし れなのバイク	みずなしれな
+rb_readings	水無怜奈	みずなし れなを	みずなしれな
+rb_readings	水無怜奈	みずなし れなをめぐって	みずなしれな
+rb_readings	水貴	みずたか	みずたか
+rb_readings	水都楼	みなとろうから	みなとろう
+rb_readings	水面	みなも	みなも
+rb_readings	水面	みなもが	みなも
+rb_readings	水面	みなもに	みなも
+rb_readings	氷柱	つららから	つらら
+rb_readings	氷漬	こおりづけから	こおりづ
+rb_readings	氷漬	こおりづけといい どうしてオレたちに	こおりづ
+rb_readings	氷漬	こおりづけにされたのか	こおりづ
+rb_readings	氷漬	こおりづけにしてしまうんじゃ	こおりづ
+rb_readings	氷漬	こおりづけにしてしまった	こおりづ
+rb_readings	氷漬	こおりづけのままってこと	こおりづ
+rb_readings	氷漬	こおりづけニャ	こおりづ
+rb_readings	永代橋	えいたいばしを	えいたいばし
+rb_readings	永浦実秋	ながうら さねあきさん	ながうらさねあき
+rb_readings	永美	ながみ	ながみ
+rb_readings	永美	ながみお	ながみ
+rb_readings	永貴	えいき	えいき
+rb_readings	永貴	えいきさんに こっちに	えいき
+rb_readings	永貴	えいきさんの	えいき
+rb_readings	永遠	とわに	とわ
+rb_readings	永遠	とわの	とわ
+rb_readings	永遠	とわのめぐみ	とわ
+rb_readings	永遠	とわのめぐみについて	とわ
+rb_readings	汗	おせかくぞ	おせ
+rb_readings	汚	きたねえ	きたね
+rb_readings	汚	きたねえぞ	きたね
+rb_readings	汚	きたねえぞ コナン	きたね
+rb_readings	汚	きたねえな	きたね
+rb_readings	汚	きったねえ	き
+rb_readings	汚	けがさない	けが
+rb_readings	汚	けがさないように	けが
+rb_readings	汚	けがされた	けが
+rb_readings	汚	けがしてしまって	けが
+rb_readings	汚	けがしてはいけませんよ	けが
+rb_readings	汚	けがしてるってことじゃねえか	けが
+rb_readings	汚	けがすきかって	けが
+rb_readings	汚	けがすことは	けが
+rb_readings	汚	けがすでしょうか	けが
+rb_readings	汚	けがすとは	けが
+rb_readings	汚	けがれ	けが
+rb_readings	汚	けがれた この	けが
+rb_readings	汚	けがれたチャリティーに	けが
+rb_readings	汚	けがれてしまった	けが
+rb_readings	汚	けがれなき	けが
+rb_readings	汚	けがれる	けが
+rb_readings	汚	けがれるわ	けが
+rb_readings	汚	けがれを	けが
+rb_readings	江	え	え
+rb_readings	江上	えがみタツ	えがみ
+rb_readings	江原	えはら	えはら
+rb_readings	江原健一郎	えはら けんいちろう	えはらけんいちろう
+rb_readings	江古田	えこだ	えこだ
+rb_readings	江戸川	えどがわ	えどがわ
+rb_readings	江戸川	えどがわコナン	えどがわ
+rb_readings	江戸川	えどがわコナンたち	えどがわ
+rb_readings	江戸川	えどがわコナンという	えどがわ
+rb_readings	江戸川	えどがわコナンの	えどがわ
+rb_readings	江戸川橋	えどがわばしで	えどがわばし
+rb_readings	江波	えなみさんと	えなみ
+rb_readings	江角栄子	えずみ えいこさんという	えずみえいこ
+rb_readings	池谷一樹	いけたに かずきさん	いけたにかずき
+rb_readings	沖滑秀友	おきなめ ひでとも	おきなめひでとも
+rb_readings	沖田総司	おきた そうし	おきたそうし
+rb_readings	沖田総司	おきた そうしっちゅう	おきたそうし
+rb_readings	沙悟浄	さごじょうに	さごじょう
+rb_readings	没	ぼっ	ぼっ
+rb_readings	沢崎	さわざきレイナ	さわざき
+rb_readings	沢栗	さわぐりさんに	さわぐり
+rb_readings	沢栗勲	さわぐり いさお	さわぐりいさお
+rb_readings	沼淵己一郎	ぬまぶち きいちろうを	ぬまぶちきいちろう
+rb_readings	泉心	せんしん	せんしん
+rb_readings	泉水陽一	せんすい よういちの	せんすいよういち
+rb_readings	泊	はくしたのを	はく
+rb_readings	泊	ぱくしていた	ぱく
+rb_readings	泌	ぴつして	ぴつ
+rb_readings	波土禄道	はど ろくみちが	はどろくみち
+rb_readings	波土禄道	はど ろくみちのライブの リハーサルにやってきた	はどろくみち
+rb_readings	波多野幾也	はたの いくや	はたのいくや
+rb_readings	泥参会	でいさんかいの	でいさんかい
+rb_readings	泥棒	どろぼうたち	どろぼう
+rb_readings	泥棒	どろぼうたちをヘナヘナにしてしまうとは	どろぼう
+rb_readings	泥汚	どろよごれが ほら	どろよご
+rb_readings	泰山	たいやまさん	たいやま
+rb_readings	洋	ひろし	ひろし
+rb_readings	洋	ひろしなら	ひろし
+rb_readings	洗	あろうて おとなしゅう	あろ
+rb_readings	洗	あろた	あろ
+rb_readings	津曲水貴	つまがり みずたかさんと	つまがりみずたか
+rb_readings	流々	りゅうりゅう あとは	りゅうりゅう
+rb_readings	浅井洌	あさい れつ	あさいれつ
+rb_readings	浜園橋	はまぞのばしだ	はまぞのばし
+rb_readings	浜羽町	はまはちょう そして	はまはちょう
+rb_readings	浜香	はまか	はまか
+rb_readings	浜香	はまかさんが	はまか
+rb_readings	浦富	うらどめ	うらどめ
+rb_readings	浮	ふ	ふ
+rb_readings	海四郎	かいしろう	かいしろう
+rb_readings	海砂利水魚	かいじゃりすいぎょの	かいじゃりすいぎょ
+rb_readings	海老原寿美	えびはら としみさん	えびはらとしみ
+rb_readings	海老原寿美	えびはら としみさんが	えびはらとしみ
+rb_readings	海象	かいぞうさん	かいぞう
+rb_readings	海響館	かいきょうかんで	かいきょうかん
+rb_readings	海響館	かいきょうかんというのは	かいきょうかん
+rb_readings	涙	しんじつに	しんじつ
+rb_readings	涯	がい	がい
+rb_readings	淀君	よどぎみのみ	よどぎみ
+rb_readings	深	ふかくで ポケモンの	ふか
+rb_readings	深	ふこうございます	ふこ
+rb_readings	深	ぶこうて	ぶこ
+rb_readings	深町惇史	ふかまち あつふみ	ふかまちあつふみ
+rb_readings	深町惇史	ふかまち あつふみさんという	ふかまちあつふみ
+rb_readings	淳	じゅん	じゅん
+rb_readings	淳	じゅんの	じゅん
+rb_readings	淳大	あつひろ	あつひろ
+rb_readings	添	ぞえになっても おかまいなしかよ	ぞ
+rb_readings	清日呂	きよひろ	きよひろ
+rb_readings	清松	きよまつ	きよまつ
+rb_readings	清水寺	きよみずでらで	きよみずでら
+rb_readings	清水寺	きよみずでらのニュース	きよみずでら
+rb_readings	清瀬川	きよせがわんとこの	きよせがわ
+rb_readings	清美	きよみさんを	きよみ
+rb_readings	清美	きよみは	きよみ
+rb_readings	清美	せいび	せいび
+rb_readings	渉	しょうしやすく	しょう
+rb_readings	渉	しょうする	しょう
+rb_readings	渡	わたさん	わた
+rb_readings	渡	わたせたわ	わた
+rb_readings	渡	わたせぬ	わた
+rb_readings	渡	わたせません	わた
+rb_readings	渡	わたせる	わた
+rb_readings	渡	わたれそうにないな	わた
+rb_readings	渡	わたれないよ	わた
+rb_readings	渡	わたれないわよ	わた
+rb_readings	渡	わたれないんだった	わた
+rb_readings	渡	わたれるかな	わた
+rb_readings	渡	わたれるらしいよ	わた
+rb_readings	温	あったかいんだよ	あった
+rb_readings	温	あったかくなったか	あった
+rb_readings	温	あっためてやるからな	あった
+rb_readings	温	あっためれば	あった
+rb_readings	温羅	うらと	うら
+rb_readings	温羅	うらを	うら
+rb_readings	湖	こ	こ
+rb_readings	湧々座	わくわくざにいたのを	わくわくざ
+rb_readings	湿	しっ	しっ
+rb_readings	満員御礼	まんいんおんれい	まんいんおんれい
+rb_readings	満弘	みつひろ	みつひろ
+rb_readings	満楽亭市松	まんらくてい いちまつ	まんらくていいちまつ
+rb_readings	源佑	げんすけさん	げんすけ
+rb_readings	準備	ずんびはバッチリ	ずんび
+rb_readings	溢	あふるる	あふ
+rb_readings	溢	あふるる その	あふ
+rb_readings	溶	とかせないものがある	と
+rb_readings	滅	めつさせ	めつ
+rb_readings	滅	めつさせて	めつ
+rb_readings	滅	めつした	めつ
+rb_readings	滅	めつした こだいがめポケモン プロトーガだったってね	めつ
+rb_readings	滅	めつと	めつ
+rb_readings	滅	めつもしていなかったから	めつ
+rb_readings	滋英	しげひで	しげひで
+rb_readings	滋英	しげひでさんの	しげひで
+rb_readings	滑	かっ	かっ
+rb_readings	滝 一	たき はじめ	たきはじめ
+rb_readings	滝川	たきかわ	たきかわ
+rb_readings	滞	たい	たい
+rb_readings	漆黒の星	ブラックスターを いただきに	ぶらっくすたー
+rb_readings	漠	ばくで	ばく
+rb_readings	漠	ばくのかなたから	ばく
+rb_readings	漠	ばくのかなたから やって	ばく
+rb_readings	漠	ばくや	ばく
+rb_readings	漬	づけ	づ
+rb_readings	漬	づけだ	づ
+rb_readings	漬	づけにされた お	づ
+rb_readings	潜	もぐれないんだ	もぐ
+rb_readings	潟	がたに	がた
+rb_readings	潤	うるいは	うる
+rb_readings	潤	うるおいいニャ	うるおい
+rb_readings	潮文造	うしお ぶんぞう	うしおぶんぞう
+rb_readings	澤南	さわなみ	さわなみ
+rb_readings	澤南	さわなみさんを	さわなみ
+rb_readings	澤南一郎	さわなみ いちろうさんが	さわなみいちろう
+rb_readings	激闘	せきとう タチワキジム	せきとう
+rb_readings	濃	のう	のう
+rb_readings	瀧流	たきながし	たきなが
+rb_readings	瀬川	せがわ	せがわ
+rb_readings	火唄	ひばい	ひばい
+rb_readings	火棚	ひだなという	ひだな
+rb_readings	灯	ひだす	ひ
+rb_readings	灯火	ともしび	ともしび
+rb_readings	炎	えん	えん
+rb_readings	炎袋	ほのおぶくろで	ほのおぶくろ
+rb_readings	炎袋	ほのおぶくろと	ほのおぶくろ
+rb_readings	炎袋	ほのおぶくろという	ほのおぶくろ
+rb_readings	炭風呂	すみぶろも	すみぶろ
+rb_readings	為	いは	い
+rb_readings	烏丸蓮耶	からすま れんや	からすまれんや
+rb_readings	烏帽子岳	えぼしだけ	えぼしだけ
+rb_readings	焦	こげくさいですね	こ
+rb_readings	煌	きら	きら
+rb_readings	煌	きらさんのポスター	きら
+rb_readings	煙	えん	えん
+rb_readings	熱	あちぃーっ	あ
+rb_readings	熱	あちい もう	あ
+rb_readings	熱	あちっ	あち
+rb_readings	熱	あちゃちゃ	あ
+rb_readings	燕	つばくろ	つばくろ
+rb_readings	爆	ばく	ばく
+rb_readings	爆上	ばくじょうメガ	ばくじょう
+rb_readings	爆誕	ばくたん	ばくたん
+rb_readings	爽子	さわこちゃん	さわこ
+rb_readings	片寄王三郎	かたよせ おうざぶろう	かたよせおうざぶろう
+rb_readings	片桐宗正	かたぎり むねまさの	かたぎりむねまさ
+rb_readings	片桐正紀	かたぎり まさのりだ	かたぎりまさのり
+rb_readings	牌	はいが ほとんど ねえしな	はい
+rb_readings	牌	はいを	はい
+rb_readings	牌	はいをかき	はい
+rb_readings	牡蠣	がき	がき
+rb_readings	物	もん	もん
+rb_readings	物	もんじゃないってば	もん
+rb_readings	物	もんの	もん
+rb_readings	犬伏恒弟	いぬぶし つねちかっちゅう	いぬぶしつねちか
+rb_readings	狙	ねらえ	ねら
+rb_readings	狙	ねらえ　かみくだく	ねら
+rb_readings	狙	ねらえますからねえ	ねら
+rb_readings	狙	ねらえよ	ねら
+rb_readings	狙	ねらえるかな	ねら
+rb_readings	狙	ねろうて	ねろ
+rb_readings	狙	ねろうてたんや	ねろ
+rb_readings	狙	ねろうてて	ねろ
+rb_readings	狙	ねろうてるかもしれへんな	ねろ
+rb_readings	狙	ねろうとった	ねろ
+rb_readings	狙	ねろうとるっちゅうこっちゃ	ねろ
+rb_readings	狙	ねろうとるのは	ねろ
+rb_readings	狙	ねろてる	ねろ
+rb_readings	狙	ねろてるかもしれへんのう	ねろ
+rb_readings	狙	ねろてるカモメも ぎょうさん	ねろ
+rb_readings	狸	だぬきめ	だぬき
+rb_readings	猛	たけき	たけ
+rb_readings	猛	もう	もう
+rb_readings	猛	もうな	もう
+rb_readings	猛	もうアタックするんだけど	もう
+rb_readings	猛	もうスピードで	もう
+rb_readings	猛	もうダッシュでリングへ	もう
+rb_readings	猪八戒	ちょはっかいかよ	ちょはっかい
+rb_readings	猪彦	ししひこ	ししひこ
+rb_readings	猫町	ねこのちょう	ねこのちょう
+rb_readings	献	けん	けん
+rb_readings	献	けんを	けん
+rb_readings	猶	なほ	なほ
+rb_readings	猿渡秀朗	さるわたり ひでろうさん	さるわたりひでろう
+rb_readings	獰猛	どうもうな	どうもう
+rb_readings	獲物	けものを	けもの
+rb_readings	玉井照尚	たまい てるひささん	たまいてるひさ
+rb_readings	王海麗	ワン ハイリーだけど	わんはいりー
+rb_readings	王見現	おうみ あきらって	おうみあきら
+rb_readings	珍	めずしい	めず
+rb_readings	珍	めずしい ボールカプセルを	めず
+rb_readings	珍	めずしいですね	めず
+rb_readings	珍	めずしいんじゃないでしょうか	めず
+rb_readings	珍	めずしいイワーク	めず
+rb_readings	珍	めずしいイワーク それ どんなイワーク	めず
+rb_readings	珍	めずしいイワークが	めず
+rb_readings	珍	めずしいイワークが どんなヤツなのか	めず
+rb_readings	珍	めずしいイワークがいるんだって	めず
+rb_readings	珍	めずしいイワークに	めず
+rb_readings	珍	めずしいイワークの	めず
+rb_readings	珍	めずしいイワークのこと	めず
+rb_readings	珍	めずしいイワークを	めず
+rb_readings	珍	めずしいポケモン	めず
+rb_readings	珍	めずしいポケモンがいた	めず
+rb_readings	珍	めずしいポケモンなの	めず
+rb_readings	珠	しゅ	しゅ
+rb_readings	現場	げんじょうにいる	げんじょう
+rb_readings	理由	わけがあって	わけ
+rb_readings	琴	ごとの	ごと
+rb_readings	瑛海	ひでみ	ひでみ
+rb_readings	瑛海	ひでみだった	ひでみ
+rb_readings	瑠璃光寺五重塔	るりこうじ ごじゅうのとう	るりこうじごじゅうのとう
+rb_readings	瑠莉	るり	るり
+rb_readings	瑠莉	るりに	るり
+rb_readings	璧	ぺき	ぺき
+rb_readings	璧	ぺきだね	ぺき
+rb_readings	璧	ぺきな	ぺき
+rb_readings	璧	ぺきなのニャ	ぺき
+rb_readings	璧	ぺきなマリアージュを	ぺき
+rb_readings	璧	ぺきに	ぺき
+rb_readings	璧	ぺきニャ	ぺき
+rb_readings	瓦礫	がきれさ	がきれ
+rb_readings	瓶	かめ	かめ
+rb_readings	瓶	かめかもしれへんっちゅう	かめ
+rb_readings	瓶	かめが	かめ
+rb_readings	瓶	かめじゃと	かめ
+rb_readings	瓶	かめの	かめ
+rb_readings	瓶	かめや	かめ
+rb_readings	瓶	かめやったら お	かめ
+rb_readings	甘	あま	あま
+rb_readings	甘	あまさが	あま
+rb_readings	甘	あますぎてバトル	あま
+rb_readings	甘	あますぎる	あま
+rb_readings	甘	あますぎるわね アイアンヘッド	あま
+rb_readings	甘	あまって	あま
+rb_readings	甘	あまみの	あま
+rb_readings	甘	あもうて	あも
+rb_readings	生	おい	お
+rb_readings	生	せいかあ	せい
+rb_readings	生命	いのち	いのち
+rb_readings	生茂	いくも	いくも
+rb_readings	生越倉彦	なまこし くらひこ	なまこしくらひこ
+rb_readings	甦	よみがえりたり	よみがえ
+rb_readings	甲	きのえと	きのえ
+rb_readings	甲斐玄人	かい くろと	かいくろと
+rb_readings	甲斐玄人	かい くろとさんで	かいくろと
+rb_readings	男	おと	お
+rb_readings	男	おを	お
+rb_readings	町	ちょう	ちょう
+rb_readings	町	ちょうへと	ちょう
+rb_readings	画	えが	え
+rb_readings	留	とまるのが	と
+rb_readings	留海	るみ	るみ
+rb_readings	留海	るみさん	るみ
+rb_readings	留海	るみのキーボードは たまに	るみ
+rb_readings	畭	はりさんなんて	はり
+rb_readings	疑	うたがえ	うたが
+rb_readings	疑	うたぐってんじゃねえだろうな	うたぐ
+rb_readings	疑	うたごうてかかるやないか	うたご
+rb_readings	疑	うたごうてた	うたご
+rb_readings	疑	うたごうてたけど	うたご
+rb_readings	疑	うたごうてるんとちゃうやろな	うたご
+rb_readings	疲	づかれかもしれない	づか
+rb_readings	疾	はやきこと	はや
+rb_readings	疾風	かぜの	かぜ
+rb_readings	痛	いった	い
+rb_readings	痛	いったあ	い
+rb_readings	痛	いってえ	い
+rb_readings	痛	いて	いて
+rb_readings	痛	いてえ	いて
+rb_readings	痛	いてえ うっ	いて
+rb_readings	痛	いてえ ヒイッ	いて
+rb_readings	痛	いてえじゃねえか この	いて
+rb_readings	痛	いてえっ	いて
+rb_readings	痛	いてえな	いて
+rb_readings	痛	いてえのは	いて
+rb_readings	痛	いてえんじゃねえのか	いて
+rb_readings	痛	いてっ	いて
+rb_readings	痛	いてってのによ	いて
+rb_readings	痛	いてて	いて
+rb_readings	痛	いててっ	いて
+rb_readings	痛	いててて	いて
+rb_readings	痛	いててて こればっかり	いて
+rb_readings	痛	いてててて	いて
+rb_readings	痛	いとうて かなんなあ	い
+rb_readings	痛	いとうて のろのろしとったら それ	い
+rb_readings	療	りょうしないと	りょう
+rb_readings	療	りょうしやすいから ちょいと	りょう
+rb_readings	療	りょうをするから	りょう
+rb_readings	療	りょうマシンに	りょう
+rb_readings	癒	いややすといわれているの	い
+rb_readings	癒	いややせない	いや
+rb_readings	登川春臣	とがわ はるおみさんが	とがわはるおみ
+rb_readings	白木	しらきオーナー	しらき
+rb_readings	白網	しらあみ	しらあみ
+rb_readings	白良浜	しららはまから	しららはま
+rb_readings	白良浜	しららはまで	しららはま
+rb_readings	白骨	しらほね	しらほね
+rb_readings	白鳥	しらとり	しらとり
+rb_readings	白鳥	しらとり　ナタリーさんが	しらとり
+rb_readings	白鳥	しらとりさん	しらとり
+rb_readings	白鳥	しらとりさんが	しらとり
+rb_readings	白鳥	しらとりさんと	しらとり
+rb_readings	白鳥	しらとりって まさか	しらとり
+rb_readings	百地裕士	ももち ゆうじ	ももちゆうじ
+rb_readings	百鬼夜子	ひゃっき やこは	ひゃっきやこ
+rb_readings	的禄町	まとろくちょうの	まとろくちょう
+rb_readings	皆	みんなのところに	みんな
+rb_readings	皆 	みなこの	みな
+rb_readings	皆川	みながわさん　あの	みながわ
+rb_readings	皆様方	みなさまがたのご	みなさまがた
+rb_readings	益子	ますこさんが	ますこ
+rb_readings	益子	ますこさんのもとに	ますこ
+rb_readings	益子士郎	ますこ しろうさんを	ますこしろう
+rb_readings	益子士郎	ますこ しろうの	ますこしろう
+rb_readings	益彦	ますひこ	ますひこ
+rb_readings	益戸麗	ますど れいさんと	ますどれい
+rb_readings	盗	ぬすっ	ぬす
+rb_readings	盗	ぬすめないニャ	ぬす
+rb_readings	盗	ぬすめよ クライシス	ぬす
+rb_readings	盗	ぬすめよ デンジャラス	ぬす
+rb_readings	盗	ぬんだ	ぬ
+rb_readings	盛	さかっているときは	さか
+rb_readings	盛代	しげよ	しげよ
+rb_readings	盤	きゅうじゃ	きゅう
+rb_readings	目	もくされていた	もく
+rb_readings	目下	もっか	もっか
+rb_readings	直志	なおし	なおし
+rb_readings	相撲	ずもう	ずもう
+rb_readings	相撲	ずもうか	ずもう
+rb_readings	相撲	ずもうを	ずもう
+rb_readings	真	まこと	まこと
+rb_readings	真	まことさん	まこと
+rb_readings	真	まことさん あなたの	まこと
+rb_readings	真	まことさん カッコいい	まこと
+rb_readings	真	まことさんから	まこと
+rb_readings	真	まことさんから もらえるのかな	まこと
+rb_readings	真	まことさんが	まこと
+rb_readings	真	まことさんと	まこと
+rb_readings	真	まことさんなんじゃない	まこと
+rb_readings	真	まことさんに	まこと
+rb_readings	真	まことさんにどうかな	まこと
+rb_readings	真	まことさんみたいじゃないってね	まこと
+rb_readings	真	まことといってな	まこと
+rb_readings	真	まことの	まこと
+rb_readings	真剣白刃取	しんけんしらはどり	しんけんしらはど
+rb_readings	真壁	まかべ	まかべ
+rb_readings	真夜	まやさんを	まや
+rb_readings	真夜	まやという	まや
+rb_readings	真美	まさみさんで	まさみ
+rb_readings	真面	まともに	まとも
+rb_readings	眠	ねみい	ねみ
+rb_readings	眠	ねみい　こんな	ねみ
+rb_readings	眠	ねむれたかい	ねむ
+rb_readings	眠	ねむれたかしら	ねむ
+rb_readings	眠	ねむれない	ねむ
+rb_readings	眠	ねむれないから ちょっと	ねむ
+rb_readings	眠	ねむれないの	ねむ
+rb_readings	眠	ねむれないのか	ねむ
+rb_readings	眠	ねむれないのね	ねむ
+rb_readings	眠	ねむれないのニャ	ねむ
+rb_readings	眠	ねむれないや	ねむ
+rb_readings	眠	ねむれなかったんじゃないか	ねむ
+rb_readings	眠	ねむれなくて ちょっと	ねむ
+rb_readings	眠	ねむれる	ねむ
+rb_readings	眠	ねむれるわ	ねむ
+rb_readings	眼	ひとみと	ひとみ
+rb_readings	眼	まなこを	まなこ
+rb_readings	瞬	しゅん	しゅん
+rb_readings	瞬	しゅんのうちに	しゅん
+rb_readings	瞬	しゅんを	しゅん
+rb_readings	瞬	またたく	またた
+rb_readings	瞭	りょう	りょう
+rb_readings	矢倉麻吉	やくら あさきち	やくらあさきち
+rb_readings	知史	ともふみ	ともふみ
+rb_readings	知晃	ともあき	ともあき
+rb_readings	知晃	ともあきさんは	ともあき
+rb_readings	短	みじけえ ばあさんたちだ	みじけ
+rb_readings	石作皇子	いしつくりのみこには	いしつくりのみこ
+rb_readings	石倉	いしくらさんを	いしくら
+rb_readings	石崎 了	いしざき りょう	いしざきりょう
+rb_readings	石崎 了	いしざき りょうの	いしざきりょう
+rb_readings	石浜橋	いしはまばしは すぐ	いしはまばし
+rb_readings	砂土原	さどはら	さどはら
+rb_readings	研究所	けんきゅうじょに	けんきゅうじょ
+rb_readings	研究所	けんきゅうじょへ	けんきゅうじょ
+rb_readings	研究所	けんきゅうじょを	けんきゅうじょ
+rb_readings	砲	ぽう	ぽう
+rb_readings	磨	みがけよ	みが
+rb_readings	磯上海蔵	いそがみ かいぞうさん	いそがみかいぞう
+rb_readings	礎	そ	そ
+rb_readings	礎	そから	そ
+rb_readings	社	やしろよ	やしろ
+rb_readings	祖父	じいちゃん	じい
+rb_readings	祖父	じいちゃんにもらったんだ	じい
+rb_readings	祖父	じいちゃんの	じい
+rb_readings	祖父	じいちゃんは セキタイタウンに	じい
+rb_readings	神	しんでん	しんでん
+rb_readings	神太郎	しんたろう	しんたろう
+rb_readings	神鳥	かんどりさんは	かんどり
+rb_readings	祥二	じょうじ	じょうじ
+rb_readings	禅也	よしや	よしや
+rb_readings	禅也	よしやさんは	よしや
+rb_readings	禅也	よしやに	よしや
+rb_readings	福井柚嬉	ふくい ゆずきちゃんの	ふくいゆずき
+rb_readings	福原友一	ふくはら ゆういちさんという	ふくはらゆういち
+rb_readings	福地明歳	ふくち あけとしさん	ふくちあけとし
+rb_readings	秀友	ひでとも	ひでとも
+rb_readings	秀吉	しゅうきち	しゅうきち
+rb_readings	秀和	ひでかず	ひでかず
+rb_readings	秋悟	しゅうごさん	しゅうご
+rb_readings	秋芳洞	あきよしどうです	あきよしどう
+rb_readings	稲	いな	いな
+rb_readings	稲妻	いなづまで ピカチュウのパワーが	いなづま
+rb_readings	稲妻	いなづまは	いなづま
+rb_readings	稼	かせげた	かせ
+rb_readings	稼	かせげないぞ	かせ
+rb_readings	稼	かせげる	かせ
+rb_readings	稼	かせげるか	かせ
+rb_readings	稽古	げいこ	げいこ
+rb_readings	稽古	げいこのようなバトルを していました	げいこ
+rb_readings	穫	かくしていたらしい	かく
+rb_readings	穫	かくしている	かく
+rb_readings	穫	かくもあったものね	かく
+rb_readings	空	から	から
+rb_readings	空	からか	から
+rb_readings	空	からじゃねえか	から
+rb_readings	空	からだ	から
+rb_readings	空	からだ それは なぜでしょう	から
+rb_readings	空	からだったということは マンムーはボールの	から
+rb_readings	空	からだったんじゃないのかな	から
+rb_readings	空	からだったんだけど	から
+rb_readings	空	からだったんだね	から
+rb_readings	空	からだったんだよ	から
+rb_readings	空	からで	から
+rb_readings	空	からでも かなり	から
+rb_readings	空	からになった	から
+rb_readings	空	からになっていたということは	から
+rb_readings	空	からになっている	から
+rb_readings	空	からの	から
+rb_readings	空	からのアタッシュケースだけが	から
+rb_readings	空	からのアタッシュケースと	から
+rb_readings	空	からのケースが	から
+rb_readings	空	からのビデオケース	から
+rb_readings	空	からよ トゲピーも のど	から
+rb_readings	空	ぞらの どこに	ぞら
+rb_readings	空宿	からじゅく	からじゅく
+rb_readings	空薬莢	からやっきょう	からやっきょう
+rb_readings	空薬莢	からやっきょうが	からやっきょう
+rb_readings	空薬莢	からやっきょうを	からやっきょう
+rb_readings	突	つっ	つ
+rb_readings	突	つついて	つつ
+rb_readings	突	とつ	とつ
+rb_readings	突	とつし	とつ
+rb_readings	突	とつする	とつ
+rb_readings	立里三可	たてざと みか	たてざとみか
+rb_readings	立里三可	たてざと みかという	たてざとみか
+rb_readings	竜子	たつこ	たつこ
+rb_readings	章良	あきら	あきら
+rb_readings	童	わっぱはすっ	わっぱ
+rb_readings	童	わらし	わらし
+rb_readings	端	たんって	たん
+rb_readings	端	たんに	たん
+rb_readings	端	たんを	たん
+rb_readings	端	ぱしから	ぱし
+rb_readings	端	ぱじゃないぞ	ぱ
+rb_readings	端	ぱだったし	ぱ
+rb_readings	競	きそい	きそ
+rb_readings	竹林七賢	ちくりんしちけん	ちくりんしちけん
+rb_readings	竹田	たけだ	たけだ
+rb_readings	竹造	たけぞう	たけぞう
+rb_readings	竿	ざお	ざお
+rb_readings	竿	ざおがあれば	ざお
+rb_readings	竿	ざおだよ	ざお
+rb_readings	竿	ざおでも	ざお
+rb_readings	竿	ざおの	ざお
+rb_readings	竿	ざおのしなる	ざお
+rb_readings	竿	ざおは どこに いったんでしょう	ざお
+rb_readings	竿	ざおよ	ざお
+rb_readings	竿	ざおを	ざお
+rb_readings	笑	わろてたら シバきあげたるで	わろ
+rb_readings	笑	わろてる	わろ
+rb_readings	笑	わろてるよ	わろ
+rb_readings	笠倉那海	かさくら なみさんは	かさくらなみ
+rb_readings	筋弛緩剤	きんしかんざいに すり	きんしかんざい
+rb_readings	筋違橋	すじかいばし	すじかいばし
+rb_readings	管轄違	かんかつちがいじゃありませんこと	かんかつちが
+rb_readings	篤志	あつし	あつし
+rb_readings	米原	よねはら	よねはら
+rb_readings	米戸橋	こめとばし	こめとばし
+rb_readings	米花町	べいかちょう	べいかちょう
+rb_readings	米花町	べいかちょうからは	べいかちょう
+rb_readings	米花町	べいかちょうじゃ	べいかちょう
+rb_readings	米花町	べいかちょうだったな	べいかちょう
+rb_readings	米花町	べいかちょうで	べいかちょう
+rb_readings	米花町	べいかちょうです	べいかちょう
+rb_readings	米花町	べいかちょうですね	べいかちょう
+rb_readings	米花町	べいかちょうなんです	べいかちょう
+rb_readings	米花町	べいかちょうに	べいかちょう
+rb_readings	米花町	べいかちょうにあった ヤマトテレビで	べいかちょう
+rb_readings	米花町	べいかちょうにいて そいつに	べいかちょう
+rb_readings	米花町	べいかちょうにも お	べいかちょう
+rb_readings	米花町	べいかちょうの	べいかちょう
+rb_readings	米花町	べいかちょうの マンションで	べいかちょう
+rb_readings	米花町	べいかちょうのあのアパートに	べいかちょう
+rb_readings	米花町	べいかちょうのアーケード	べいかちょう
+rb_readings	米花町	べいかちょうのリサイクルショップで	べいかちょう
+rb_readings	米花町	べいかちょうは	べいかちょう
+rb_readings	米花町	べいかちょうへ	べいかちょう
+rb_readings	米花町	べいかちょうまで	べいかちょう
+rb_readings	米花町	べいかちょうを	べいかちょう
+rb_readings	米花町	べいかちょうファーマーズマーケット	べいかちょう
+rb_readings	粉	こ	こ
+rb_readings	粉	こにして	こ
+rb_readings	粉川	こなかわ	こなかわ
+rb_readings	粋	すいを	すい
+rb_readings	紅色	べにいろの	べにいろ
+rb_readings	紅色頭巾	べにいろずきん	べにいろずきん
+rb_readings	紅葉	もみじ	もみじ
+rb_readings	紋時郎	もんじろうさんが この	もんじろう
+rb_readings	素戔嗚尊	すさのおのみことが	すさのおのみこと
+rb_readings	素華	もとか	もとか
+rb_readings	終	ついの	つい
+rb_readings	結晶搭	けっしょうとうのミニチュアだ	けっしょうとう
+rb_readings	絞	しぼれ　ポカブ	しぼ
+rb_readings	絞	しぼれたのじゃ	しぼ
+rb_readings	絹川和輝	きぬかわ かずき	きぬかわかずき
+rb_readings	絹江	きみえ	きみえ
+rb_readings	維	い	い
+rb_readings	綱川	つながわを	つながわ
+rb_readings	網	もう	もう
+rb_readings	綾	あや	あや
+rb_readings	綿引	わたびき	わたびき
+rb_readings	綿胞子	わたほうしを	わたほうし
+rb_readings	緊	きん	きん
+rb_readings	総司	そうし	そうし
+rb_readings	総司	そうしの	そうし
+rb_readings	緒	おが	お
+rb_readings	緒	おを	お
+rb_readings	緒	しょだって	しょ
+rb_readings	緒	しょで	しょ
+rb_readings	緒	しょです	しょ
+rb_readings	緒	しょに	しょ
+rb_readings	緒	しょに ここでおとなしく	しょ
+rb_readings	緒	しょに にらみ	しょ
+rb_readings	緒	しょに やっていいですか	しょ
+rb_readings	緒	しょに コンビを	しょ
+rb_readings	緒	しょにいたときが	しょ
+rb_readings	緒	しょにいたヒトモシもいないぞ	しょ
+rb_readings	緒	しょにいれば すぐに	しょ
+rb_readings	緒	しょにどうだニャ	しょ
+rb_readings	緒	しょになるとはね	しょ
+rb_readings	緒	しょにやるか	しょ
+rb_readings	緒	しょにウチに	しょ
+rb_readings	緒	しょにサトシを	しょ
+rb_readings	緒	しょにネジ	しょ
+rb_readings	緒	しょにミュージカルをやらないか	しょ
+rb_readings	緒	しょよ	しょ
+rb_readings	緒方秋悟	おがた しゅうごさん	おがたしゅうご
+rb_readings	縁	ふちの	ふち
+rb_readings	繁	はん	はん
+rb_readings	繁次	しげつぐが	しげつぐ
+rb_readings	繁次	しげつぐに	しげつぐ
+rb_readings	繁盛 	はんじょう	はんじょう
+rb_readings	罪人	つみびと	つみびと
+rb_readings	罪人	つみびとの	つみびと
+rb_readings	罪人	つみびとは	つみびと
+rb_readings	罪人	つみびとは その	つみびと
+rb_readings	罰	ばちが	ばち
+rb_readings	美	み	み
+rb_readings	美国島	びくにじまで お	びくにじま
+rb_readings	美國島	びくにじまっちゅう	びくにじま
+rb_readings	美國島	びくにじまを	びくにじま
+rb_readings	美我子	みわこさんに	みわこ
+rb_readings	美我子	みわこさんも	みわこ
+rb_readings	美我子	みわこっちゅう おばちゃん	みわこ
+rb_readings	美我子	みわこに	みわこ
+rb_readings	美枡	みます	みます
+rb_readings	美枡	みますという	みます
+rb_readings	美海	よしみ	よしみ
+rb_readings	美菜	みなは	みな
+rb_readings	羨	うらましいわ	うら
+rb_readings	義人	よしと	よしと
+rb_readings	義姉	ねえさんが	ねえ
+rb_readings	義父	ちちに	ちち
+rb_readings	義父	ちちの	ちち
+rb_readings	義父	ちちは	ちち
+rb_readings	義父	ちちは とても	ちち
+rb_readings	義父	ちちを	ちち
+rb_readings	義父	ちちを なんで	ちち
+rb_readings	義父	とうさん	とう
+rb_readings	義父	とうさんなら	とう
+rb_readings	羽	う	う
+rb_readings	羽根平	はねびら	はねびら
+rb_readings	羽田	はねだ	はねだ
+rb_readings	羽田	はねだに	はねだ
+rb_readings	羽田浩司	はねだ こうじ	はねだこうじ
+rb_readings	羽田浩司	はねだ こうじが	はねだこうじ
+rb_readings	羽田秀吉	はねだ しゅうきち	はねだしゅうきち
+rb_readings	羽音	はねおとで	はねおと
+rb_readings	翁	おきなという	おきな
+rb_readings	翔	かけるウイングファイター	かける
+rb_readings	翔	たけるって	たける
+rb_readings	考子	たかこ	たかこ
+rb_readings	考子	たかこさんは	たかこ
+rb_readings	考子	たかこに	たかこ
+rb_readings	考季	こうき	こうき
+rb_readings	者	もん	もん
+rb_readings	者	もんです	もん
+rb_readings	者	もんなのよ	もん
+rb_readings	者	もんなんじゃ	もん
+rb_readings	者	もんなんだ	もん
+rb_readings	者	もんも めったに	もん
+rb_readings	耗	もうしたピカチュウ エモンガ　マッギョたちを	もう
+rb_readings	耗	もうしているわ	もう
+rb_readings	耗	もうしてる	もう
+rb_readings	耗	もうするの	もう
+rb_readings	聖泰	まさひろさん	まさひろ
+rb_readings	聖衆来迎図	しょうじゅうらいごうず	しょうじゅうらいごうず
+rb_readings	肝	かん	かん
+rb_readings	肝心要	かんじんかなめの	かんじんかなめ
+rb_readings	肥土桐也	ひど きりやっちゅう	ひどきりや
+rb_readings	肥後橋	ひごばし	ひごばし
+rb_readings	育郎	いくろう	いくろう
+rb_readings	育郎	いくろうさんが	いくろう
+rb_readings	育郎	いくろうさんや	いくろう
+rb_readings	育郎	いくろうのうめき	いくろう
+rb_readings	胞	ぼう	ぼう
+rb_readings	胴合橋	どあいばしよ	どあいばし
+rb_readings	脅	おどかしてやるのニャ	おど
+rb_readings	脅	おどかすからよ	おど
+rb_readings	脅	おどかすんじゃ	おど
+rb_readings	脅	おびやかし	おびや
+rb_readings	脚	きゃく	きゃく
+rb_readings	脱	だっ	だっ
+rb_readings	腰	ごし	ごし
+rb_readings	腰	ごしというのはウソなんだ	ごし
+rb_readings	腰	ごしになっちゃって	ごし
+rb_readings	腰	ごしになってしまって	ごし
+rb_readings	腰	ごしは	ごし
+rb_readings	腹	なかすいたし サトシ ポケットモンスターへ	なか
+rb_readings	膚	ふになった	ふ
+rb_readings	膚	ふは	ふ
+rb_readings	膚	ふをしており	ふ
+rb_readings	膨	ふくららませることで	ふくら
+rb_readings	臆	おく	おく
+rb_readings	自分磨	じぶんみがきをしなくっちゃね	じぶんみが
+rb_readings	臭	くせえ	くせ
+rb_readings	臭	くせえ スカンプーの	くせ
+rb_readings	臭	くせえな	くせ
+rb_readings	臭	くせえな この	くせ
+rb_readings	致	ち	ち
+rb_readings	興奮	こうぐんして	こうぐん
+rb_readings	舎	やです	や
+rb_readings	舞	ぶ	ぶ
+rb_readings	舞	まえ ガブリアス	ま
+rb_readings	舞	まえ レックウザ	ま
+rb_readings	舞台 	ぶたい	ぶたい
+rb_readings	般	ぱんピープルの	ぱん
+rb_readings	船戸三昭	ふなと みつあきさん	ふなとみつあき
+rb_readings	船本達仁	ふねもと たつひとさん	ふねもとたつひと
+rb_readings	船浦島	ふなうらじまや	ふなうらじま
+rb_readings	艦	ふねのような	ふね
+rb_readings	良兼	よしかね	よしかね
+rb_readings	艶	つや かわいいわあ	つや
+rb_readings	艶	つやがなくなってきたら	つや
+rb_readings	艶	つやだよ	つや
+rb_readings	芝の女王	グラスコートクイーン サーブは	ぐらすこーとくいーん
+rb_readings	芦沢純人	あしざわ すみとさん	あしざわすみと
+rb_readings	花乱	からん	からん
+rb_readings	芳	ほうじゅん	ほう
+rb_readings	芳	ほうじゅんさが	ほう
+rb_readings	芳	ほうじゅんで	ほう
+rb_readings	芳	ほうじゅんでいて ずっしりとした	ほう
+rb_readings	芳	ほうじゅんでアンサイエンティフィックな テイストがしてきたよ	ほう
+rb_readings	芳	ほうじゅんな	ほう
+rb_readings	芳	ほうじゅんなる	ほう
+rb_readings	芳	ほうじゅんなテイストのバトルだったね	ほう
+rb_readings	芳	ほうじゅんなテイストを すべて	ほう
+rb_readings	芳	ほうじゅんなフレーバーを	ほう
+rb_readings	芳	ほうじゅんにして	ほう
+rb_readings	苗子	なえこ	なえこ
+rb_readings	苗子	なえこさん	なえこ
+rb_readings	若	わけえもんは ちっと	わけ
+rb_readings	若島津 健	わかしまづ けんの	わかしまづけん
+rb_readings	英雄	ひでお	ひでお
+rb_readings	英雄	ヒーローなのです	ひーろー
+rb_readings	草	ぐさ	ぐさ
+rb_readings	草木深	そうもくふかし	そうもくふか
+rb_readings	草薙剣	くさなぎのつるぎ	くさなぎのつるぎ
+rb_readings	荒	こう	こう
+rb_readings	荒岩一揮	あらいわ かずきさんから	あらいわかずき
+rb_readings	荒巻義市	あらまき ぎいちさんの	あらまきぎいち
+rb_readings	荻人	おぎと	おぎと
+rb_readings	荻人	おぎとさんと	おぎと
+rb_readings	菊人	きくひと	きくひと
+rb_readings	菊人	きくひとさんは	きくひと
+rb_readings	菊英	きくひで	きくひで
+rb_readings	菓	か	か
+rb_readings	菖蒲	あやめか	あやめ
+rb_readings	萩江	はぎえ	はぎえ
+rb_readings	萩江	はぎえのドラムも いつものキレがないしさあ	はぎえ
+rb_readings	葉坂皆代	はさか みなよさんが	はさかみなよ
+rb_readings	葛城	かつらぎ	かつらぎ
+rb_readings	蒼海	うみの	うみ
+rb_readings	蓄	ちく	ちく
+rb_readings	蓋	がい	がい
+rb_readings	蓮	はす	はす
+rb_readings	蓮木志乃	はすき しのさんがいた	はすきしの
+rb_readings	薄暗	うすぐれえな この	うすぐれ
+rb_readings	薄汚	うすぎたねえネズミが	うすぎた
+rb_readings	薄田周史	うすだ ちかふみ	うすだちかふみ
+rb_readings	薄谷	はくや	はくや
+rb_readings	薄谷昌家	はくや まさいえさん	はくやまさいえ
+rb_readings	薦	せんしてくれるんだね	せん
+rb_readings	薪	まきで お	まき
+rb_readings	薪	まきの	まき
+rb_readings	薪	まきを	まき
+rb_readings	薪	まきをくべておいた	まき
+rb_readings	薪	まきストーブが	まき
+rb_readings	薬	ぐすりは どうじゃ	ぐすり
+rb_readings	藤原鎌足	ふじわらの かまたり	ふじわらのかまたり
+rb_readings	虎田	とらだ	とらだ
+rb_readings	虚堂	こどうの	こどう
+rb_readings	蛍慈	けいじさんも	けいじ
+rb_readings	蛍慈	けいじっちゅう おっちゃんや	けいじ
+rb_readings	蛍慈	けいじに	けいじ
+rb_readings	蛭子町	ひるこまち	ひるこまち
+rb_readings	蛭子町	ひるこまちなんて	ひるこまち
+rb_readings	蛭子町	よこまちだ	よこまち
+rb_readings	蛭川卓司	ひるかわ たくじ	ひるかわたくじ
+rb_readings	蛭川卓司	ひるかわ たくじによる	ひるかわたくじ
+rb_readings	蜻蛉切	とんぼきりの	とんぼきり
+rb_readings	蝶々	ちょうちょが	ちょうちょ
+rb_readings	蝶々	ちょうちょに なるんだろ	ちょうちょ
+rb_readings	融	ゆう	ゆう
+rb_readings	血まみれの女神	ブラッディ	-
+rb_readings	行	ゆくぞ	ゆ
+rb_readings	行	ゆけ	ゆ
+rb_readings	行	ゆけ サマヨール	ゆ
+rb_readings	行	ゆけ レジスチル	ゆ
+rb_readings	行	ゆけい テッカニン	ゆ
+rb_readings	街	がいの	がい
+rb_readings	衰	すい	すい
+rb_readings	袋	ぶくろ	ぶくろ
+rb_readings	袋	ぶくろが	ぶくろ
+rb_readings	袋	ぶくろがあり	ぶくろ
+rb_readings	袋	ぶくろだ	ぶくろ
+rb_readings	袋	ぶくろと	ぶくろ
+rb_readings	袋	ぶくろに	ぶくろ
+rb_readings	袋	ぶくろになるのは	ぶくろ
+rb_readings	袋	ぶくろの	ぶくろ
+rb_readings	袋	ぶくろは	ぶくろ
+rb_readings	袋	ぶくろはゴムボートのように	ぶくろ
+rb_readings	袋	ぶくろも	ぶくろ
+rb_readings	袋	ぶくろを	ぶくろ
+rb_readings	裂	れつ	れつ
+rb_readings	裂	れつし	れつ
+rb_readings	裂	れつしたことで	れつ
+rb_readings	裂	れつしました	れつ
+rb_readings	裂	れつする	れつ
+rb_readings	裂	れつするのを	れつ
+rb_readings	裕	ゆうが	ゆう
+rb_readings	裕	ゆうね	ゆう
+rb_readings	褒	ほう	ほう
+rb_readings	褒美	ほうぴを	ほうぴ
+rb_readings	襲	しゅうだ	しゅう
+rb_readings	襲	しゅうは あるのでしょうか	しゅう
+rb_readings	西峰小	にしみねしょうサッカー	にしみねしょう
+rb_readings	西帝丹町	にしていたんちょうにあるそうです	にしていたんちょう
+rb_readings	西津	さいずさんの	さいず
+rb_readings	西津	さいずさんは	さいず
+rb_readings	西都	せいとマンションに	せいと
+rb_readings	見	まみえんと	まみ
+rb_readings	見取	みどり こおりポケモン	みど
+rb_readings	見失	みうしのうて	みうしの
+rb_readings	見失	みうしのうてしまう	みうしの
+rb_readings	見当違	けんとうちがいな	けんとうちが
+rb_readings	見抜	みぬいたな オレのトリックを	みぬ
+rb_readings	見抜	みぬいたんだ	みぬ
+rb_readings	見抜	みぬいたんだよ	みぬ
+rb_readings	見抜	みぬいて	みぬ
+rb_readings	見抜	みぬかれてるんじゃない	みぬ
+rb_readings	見抜	みぬく	みぬ
+rb_readings	見抜	みぬくとは	みぬ
+rb_readings	見極	みきわめなければ	みきわ
+rb_readings	見極	みきわめようとしたんじゃないかな	みきわ
+rb_readings	見極	みきわめるのが	みきわ
+rb_readings	見渡	みわたすかぎり	みわた
+rb_readings	見渡	みわたせそうだ	みわた
+rb_readings	見渡	みわたせる	みわた
+rb_readings	見物	みものだ	みもの
+rb_readings	見込	みこまれているんですよ	みこ
+rb_readings	見込	みこんで ひとつ	みこ
+rb_readings	見逃	みのがさない	みのが
+rb_readings	見逃	みのがしちゃいます	みのが
+rb_readings	見逃	みのがしちゃったな	みのが
+rb_readings	見逃	みのがしなく	みのが
+rb_readings	見逃	みのがす	みのが
+rb_readings	見逃	みのがすことはないぞ	みのが
+rb_readings	見逃	みのがすわけにはいきません	みのが
+rb_readings	見逃	みのがせない	みのが
+rb_readings	見逃	みのがせないのニャ	みのが
+rb_readings	見逃	みのがせなくなったわね	みのが
+rb_readings	見違	みちがえたな ヒカリ	みちが
+rb_readings	見違	みちがえるくらい	みちが
+rb_readings	見間違	みまちがったんだ	みまちが
+rb_readings	見間違	みまちごうた	みまちご
+rb_readings	見間違	みまちごうたんとちゃうやろな	みまちご
+rb_readings	観月	みづき	みづき
+rb_readings	観月秀理	みづき ひでみちっちゅう	みづきひでみち
+rb_readings	角	つのがやや	つの
+rb_readings	角	つので	つの
+rb_readings	角	つのの	つの
+rb_readings	角	つのはね	つの
+rb_readings	角	つのを	つの
+rb_readings	角	つのドリル	つの
+rb_readings	角田千鶴	かくた ちづるさん あなた	かくたちづる
+rb_readings	角谷弘樹	すみや ひろき	すみやひろき
+rb_readings	触	さわれるようになったんだよ	さわ
+rb_readings	触	しょっ	しょっ
+rb_readings	言	ゆうちょったかい	ゆ
+rb_readings	言	ゆうても	ゆ
+rb_readings	託	たくされた	たく
+rb_readings	託	たくされたのです	たく
+rb_readings	託	たくされたのに	たく
+rb_readings	託	たくすの	たく
+rb_readings	託	たくすわね	たく
+rb_readings	設楽蓮希	したら はすきって	したらはすき
+rb_readings	訴	そ	そ
+rb_readings	診	みてあげないと	み
+rb_readings	診	みてくれるわ	み
+rb_readings	診	みてもらいなさい	み
+rb_readings	診	みてもらってください	み
+rb_readings	診	みてもらってるんだ	み
+rb_readings	詠美	えみ	えみ
+rb_readings	詠美	えみさんと	えみ
+rb_readings	詠美	えみさんのイニシャルは	えみ
+rb_readings	詰	づまってしまったんだよ	づ
+rb_readings	詰	づまるんだ	づ
+rb_readings	誇	こ	こ
+rb_readings	誉	よ	-
+rb_readings	誘	いざなったのである	いざな
+rb_readings	誘	ゆう	ゆう
+rb_readings	諦	あきめないんだから	あき
+rb_readings	諸伏高明	もろふし たかあき	もろふしたかあき
+rb_readings	諸刃之剣	もろはのつるぎ	もろはのつるぎ
+rb_readings	謀	ぼうだよ	ぼう
+rb_readings	謎	まぞが	まぞ
+rb_readings	譲	ゆずれない	ゆず
+rb_readings	譲	ゆずれないね	ゆず
+rb_readings	谷中	たになかさんと	たになか
+rb_readings	谷中	たになかで	たになか
+rb_readings	豊北倫子	とよきた りんこさんのアパートから	とよきたりんこ
+rb_readings	豊島	とよしまさんだったかな	とよしま
+rb_readings	豹藤	ひょうどうです	ひょうどう
+rb_readings	豹藤誠	ひょうどう まことが	ひょうどうまこと
+rb_readings	貌	ぼうを	ぼう
+rb_readings	貌	ぼうをお	ぼう
+rb_readings	貞司	ていし	ていし
+rb_readings	貴人	たかひと	たかひと
+rb_readings	貴大	たかひろの	たかひろ
+rb_readings	貴女方	あなたがた	あなたがた
+rb_readings	買	こうた	こ
+rb_readings	買	こうたもんや	こ
+rb_readings	買	こうたんか	こ
+rb_readings	買	こうたチケットを	こ
+rb_readings	買	こうて	こ
+rb_readings	買	こうて ブルガンスタジアム	こ
+rb_readings	買	こうていけば	こ
+rb_readings	買	こうてきた	こ
+rb_readings	買	こうてきた あの	こ
+rb_readings	買	こうてきたったで	こ
+rb_readings	買	こうてきたったのに	こ
+rb_readings	買	こうてきたっちゅうのに	こ
+rb_readings	買	こうてきたで	こ
+rb_readings	買	こうてきたん	こ
+rb_readings	買	こうてきたんです	こ
+rb_readings	買	こうてきて	こ
+rb_readings	買	こうてきて もうたし	こ
+rb_readings	買	こうてきてくれへんかな	こ
+rb_readings	買	こうてきてほしいって	こ
+rb_readings	買	こうてくる	こ
+rb_readings	買	こうてくるから	こ
+rb_readings	買	こうてくるんは いつものこっちゃ	こ
+rb_readings	買	こうてくれたで	こ
+rb_readings	買	こうてくればええやん	こ
+rb_readings	買	こうてこ	こ
+rb_readings	買	こうてこ おっちゃん なんぼ	こ
+rb_readings	買	こうてこい	こ
+rb_readings	買	こうてこいや	こ
+rb_readings	買	こうてへんかったかってな	こ
+rb_readings	買	こうてもろた	こ
+rb_readings	買	こうてるで	こ
+rb_readings	賢	がしこくて	がしこ
+rb_readings	賢橋	けんばし	けんばし
+rb_readings	賢橋	けんばしか	けんばし
+rb_readings	賢橋	けんばしって	けんばし
+rb_readings	賢橋	けんばしトンネルに	けんばし
+rb_readings	賢橋町	けんばしちょうの	けんばしちょう
+rb_readings	質	じちがいるかぎり	じち
+rb_readings	質	じちだ	じち
+rb_readings	赤	あこうなってる	あこ
+rb_readings	赤岩島	せきがんとうに	せきがんとう
+rb_readings	赤岩島	せきがんとうのカクイシティに	せきがんとう
+rb_readings	赤岩島	セキガントウ	せきがんとう
+rb_readings	赤岩島	セキガントウに	せきがんとう
+rb_readings	赤座奈留也	あかざ なるやさんが いた	あかざなるや
+rb_readings	赤樹	あかぎ	あかぎ
+rb_readings	赤野角武	あかの かどたけさんだった	あかのかどたけ
+rb_readings	赤青龍	あかしょうりゅうの ファンだったから	あかしょうりゅう
+rb_readings	赤面の人魚	ブラッシュマーメイドが	ぶらっしゅまーめいど
+rb_readings	赤面の人魚	ブラッシュマーメイドじゃよ	ぶらっしゅまーめいど
+rb_readings	赤面の人魚	ブラッシュマーメイドの	ぶらっしゅまーめいど
+rb_readings	赤面の人魚	ブラッシュマーメイドを	ぶらっしゅまーめいど
+rb_readings	赦	しゃない	しゃ
+rb_readings	超盛	ちょうもり	ちょうも
+rb_readings	超眠	ちょうねむい	ちょうねむ
+rb_readings	越	えつながら	えつ
+rb_readings	越	えつながら ここからですと	えつ
+rb_readings	越	こせだ	こ
+rb_readings	越	ごえ	ご
+rb_readings	越	ごえだぜ	ご
+rb_readings	趣	しゅ	しゅ
+rb_readings	足跡	そくせきがたどれない	そくせき
+rb_readings	足跡	そくせきを	そくせき
+rb_readings	跡	せき	せき
+rb_readings	跡	せきが	せき
+rb_readings	跡	せきだ	せき
+rb_readings	跡	せきで	せき
+rb_readings	跡	せきをさまよう ゴーストタイプのポケモン	せき
+rb_readings	跳満	ハネマンを	はねまん
+rb_readings	踏	とうの	とう
+rb_readings	蹴	け	け
+rb_readings	蹴撃	しゅうげきの	しゅうげき
+rb_readings	蹴散	けちらしたり	けち
+rb_readings	蹴散	けちらして お	けち
+rb_readings	蹴散	けちらしてしまえ	けち
+rb_readings	蹴落	けおとしてやれるってなぁ	けお
+rb_readings	躍	やく	やく
+rb_readings	躍	やくしたよね	やく
+rb_readings	躍	やくするぞぉ	やく
+rb_readings	躍	やくだったね	やく
+rb_readings	躍	やくにより	やく
+rb_readings	躍	やくを	やく
+rb_readings	車	ぐるまや	ぐるま
+rb_readings	車持皇子	くらもちのみこには	くらもちのみこ
+rb_readings	軒	けん	けん
+rb_readings	軽々	かるがる	かるがる
+rb_readings	輝	かがいて	かが
+rb_readings	輝	かがいてるね	かが
+rb_readings	輝	かがいてるわね	かが
+rb_readings	輝	かがくが	かが
+rb_readings	轟海号	ごうかいごう スタンバイ オーケー みんな	ごうかいごう
+rb_readings	辛	からい	から
+rb_readings	辛	からい なかなかの	から
+rb_readings	辛	からいやつだ	から
+rb_readings	辛	からいテイストがお	から
+rb_readings	辛	からいニャ	から
+rb_readings	辛	からくて	から
+rb_readings	辛	からバトルでボロボロにしてやるぜ	から
+rb_readings	辰鼓楼	しんころう	しんころう
+rb_readings	辻谷	つじや	つじや
+rb_readings	辻谷賢仁	つじや けんじさん	つじやけんじ
+rb_readings	込	こまずにね	こ
+rb_readings	込	こませ	こ
+rb_readings	込	こませた	こ
+rb_readings	込	こませて	こ
+rb_readings	込	こまないように	こ
+rb_readings	込	こまれ	こ
+rb_readings	込	こまれた	こ
+rb_readings	込	こまれたと	こ
+rb_readings	込	こまれたのだった	こ
+rb_readings	込	こまれたら	こ
+rb_readings	込	こまれたんじゃ	こ
+rb_readings	込	こまれつつあることを	こ
+rb_readings	込	こまれて	こ
+rb_readings	込	こまれていきます	こ
+rb_readings	込	こまれています	こ
+rb_readings	込	こまれるぞ	こ
+rb_readings	込	こまれるんじゃないかと	こ
+rb_readings	込	こまれんとするさまだ	こ
+rb_readings	込	こむ	こ
+rb_readings	込	こむ これがフレイムアイスよ	こ
+rb_readings	込	こむが	こ
+rb_readings	込	こむことで	こ
+rb_readings	込	こむことになって	こ
+rb_readings	込	こむことも	こ
+rb_readings	込	こむぞ	こ
+rb_readings	込	こむつもりだ	こ
+rb_readings	込	こむであろう	こ
+rb_readings	込	こむとはな	こ
+rb_readings	込	こむな	こ
+rb_readings	込	こむなよ それはオレのだ	こ
+rb_readings	込	こむなんて	こ
+rb_readings	込	こむの	こ
+rb_readings	込	こむのかな	こ
+rb_readings	込	こむのさ	こ
+rb_readings	込	こむのだ	こ
+rb_readings	込	こむのだった	こ
+rb_readings	込	こむのよ	こ
+rb_readings	込	こむのよ ブースター	こ
+rb_readings	込	こむのニャ	こ
+rb_readings	込	こむわ	こ
+rb_readings	込	こむわよ	こ
+rb_readings	込	こむんだ	こ
+rb_readings	込	こむミサイルばりの	こ
+rb_readings	込	こめば	こ
+rb_readings	込	こもうとしているのか	こ
+rb_readings	込	こんじゃって	こ
+rb_readings	込	こんだ	こ
+rb_readings	込	こんだ アーボかニャ	こ
+rb_readings	込	こんだ グライオン	こ
+rb_readings	込	こんだせいだよ	こ
+rb_readings	込	こんだと	こ
+rb_readings	込	こんだという	こ
+rb_readings	込	こんだときの	こ
+rb_readings	込	こんだのは	こ
+rb_readings	込	こんだのも	こ
+rb_readings	込	こんだのニャ	こ
+rb_readings	込	こんだみたいゾ	こ
+rb_readings	込	こんだようだ	こ
+rb_readings	込	こんだようだな	こ
+rb_readings	込	こんだら	こ
+rb_readings	込	こんだんじゃ	こ
+rb_readings	込	こんだんだ	こ
+rb_readings	込	こんだカステラ	こ
+rb_readings	込	こんだクマシュンは	こ
+rb_readings	込	こんだシンジ	こ
+rb_readings	込	こんだパンチは	こ
+rb_readings	込	こんだロトムじゃ	こ
+rb_readings	込	こんだー	こ
+rb_readings	込	こんで	こ
+rb_readings	込	こんで どくガスよ	こ
+rb_readings	込	こんで また	こ
+rb_readings	込	こんで ミイラにしてしまうという	こ
+rb_readings	込	こんでいきます	こ
+rb_readings	込	こんでいくだけだ	こ
+rb_readings	込	こんでいくー	こ
+rb_readings	込	こんでいた ピカチュウとニャース	こ
+rb_readings	込	こんでいたのね	こ
+rb_readings	込	こんでいたらしいんだ	こ
+rb_readings	込	こんでいても	こ
+rb_readings	込	こんでいます	こ
+rb_readings	込	こんでいるはずです	こ
+rb_readings	込	こんでいるんだ	こ
+rb_readings	込	こんでいるポケモンじゃ	こ
+rb_readings	込	こんでおいたの	こ
+rb_readings	込	こんできた	こ
+rb_readings	込	こんできたぜ	こ
+rb_readings	込	こんできたんだな	こ
+rb_readings	込	こんできたニャ	こ
+rb_readings	込	こんできてください	こ
+rb_readings	込	こんできてたの	こ
+rb_readings	込	こんでくる ヒカリを	こ
+rb_readings	込	こんでくることもある	こ
+rb_readings	込	こんでくるとは	こ
+rb_readings	込	こんでくれ	こ
+rb_readings	込	こんでくれる このメロディ	こ
+rb_readings	込	こんでしまうぞ	こ
+rb_readings	込	こんでしまった	こ
+rb_readings	込	こんでしまったのだ	こ
+rb_readings	込	こんでなんかいないさ	こ
+rb_readings	込	こんでは	こ
+rb_readings	込	こんでみたり	こ
+rb_readings	込	こんでみたんだあ	こ
+rb_readings	込	こんでみましたニャ	こ
+rb_readings	込	こんでやる	こ
+rb_readings	込	こんでる	こ
+rb_readings	込	こんでるだけかも しれないけどね	こ
+rb_readings	込	こんでるの	こ
+rb_readings	込	こんでるのニャ	こ
+rb_readings	込	こんでるよ	こ
+rb_readings	込	こんでるわけ	こ
+rb_readings	込	こんでるんですね	こ
+rb_readings	込	こんどかなきゃ	こ
+rb_readings	込	ごみを	ご
+rb_readings	込	ごみをひと	ご
+rb_readings	迅	じん	じん
+rb_readings	迎	む	む
+rb_readings	近	ちこう	ちこ
+rb_readings	近	ちこうて	ちこ
+rb_readings	近々	ちかぢか	ちかぢか
+rb_readings	返	けえすべ	けえ
+rb_readings	返	けえせ	けえ
+rb_readings	迫	はく	はく
+rb_readings	迫	はくに ズルッグが	はく
+rb_readings	迫弥	はくや	はくや
+rb_readings	迫弥	はくや お	はくや
+rb_readings	追	おえるか	お
+rb_readings	逃	とう	とう
+rb_readings	逃	にががさないよ	にが
+rb_readings	透	とう	とう
+rb_readings	速	はええ	はえ
+rb_readings	速	はええからな	はえ
+rb_readings	速	はええやつだ	はえ
+rb_readings	速	はええんだよ お	はえ
+rb_readings	連絡係	れんらくがかり	れんらくがかり
+rb_readings	連絡係	れんらくがかりなの	れんらくがかり
+rb_readings	遅	おせえ	おせ
+rb_readings	遅	おせえじゃねえか	おせ
+rb_readings	遅	おせえぞ	おせ
+rb_readings	遅	おせえぞ コナン	おせ
+rb_readings	遅	おせえっつんだよ	おせ
+rb_readings	遅	おせえな	おせ
+rb_readings	遅	おせえな おっちゃん	おせ
+rb_readings	遅	おせえな その	おせ
+rb_readings	遅	おせえな ばあさん	おせ
+rb_readings	遅	おせえな まったく	おせ
+rb_readings	遅	おせえな コナンのやつ	おせ
+rb_readings	遅	おせえなあ	おせ
+rb_readings	遅	おせえなあ もう	おせ
+rb_readings	遅	おせえよ	おせ
+rb_readings	遅	おせえよな	おせ
+rb_readings	遅	おせえよなあ	おせ
+rb_readings	遅	おせえんだよ	おせ
+rb_readings	運命	さだめにあろう	さだめ
+rb_readings	道三	どうさん	どうさん
+rb_readings	道智	どうち	どうち
+rb_readings	違	ちが	ちが
+rb_readings	違	ちげえだろ それ	ちげ
+rb_readings	違	ちげえねえ	ちげ
+rb_readings	違	ちげえねえでしょう	ちげ
+rb_readings	違	ちげえよ	ちげ
+rb_readings	違	ちげえよ それは	ちげ
+rb_readings	違	ちごうた	ちご
+rb_readings	違	ちごうたな	ちご
+rb_readings	違	ちごうて	ちご
+rb_readings	違	ちごうてしもうたか	ちご
+rb_readings	違	ちごうてたんちゃうんか	ちご
+rb_readings	違	ちごうてな	ちご
+rb_readings	違	ちごうてる	ちご
+rb_readings	違	ちごうとるやないか	ちご
+rb_readings	違	ちごたから	ちご
+rb_readings	違	ちごて	ちご
+rb_readings	違	ちごて あんたの	ちご
+rb_readings	違	ちごて ぎょうさん	ちご
+rb_readings	違	ちごてたって	ちご
+rb_readings	違	ちごてたで	ちご
+rb_readings	違	ちごてるか	ちご
+rb_readings	違	ちごてるかもしれへんけど	ちご
+rb_readings	違	ちごてるけど	ちご
+rb_readings	違	ちごてるけど あの	ちご
+rb_readings	違	ちごてるけれど まるで あの	ちご
+rb_readings	違	ちごてペンダントや	ちご
+rb_readings	違	ちごとった	ちご
+rb_readings	違	ちごとったわ	ちご
+rb_readings	遠山	とおやま	とおやま
+rb_readings	遠山	とおやまの	とおやま
+rb_readings	遠藤陸央	えんどう りくお	えんどうりくお
+rb_readings	遣	けん	けん
+rb_readings	遣	づかい	づか
+rb_readings	遣	づかいなのにゃ	づか
+rb_readings	遣	づかいは	づか
+rb_readings	遣	づかいまで わたくしと	づか
+rb_readings	遣	づかいも	づか
+rb_readings	遭	おうた	お
+rb_readings	遭	おうたっちゅう しょうもない	お
+rb_readings	遭	おうたんを	お
+rb_readings	遭	おうて	お
+rb_readings	遭	おうてしもてな	お
+rb_readings	遭	おうてな	お
+rb_readings	遭	おうても	お
+rb_readings	遭	おうてるとはなあ	お
+rb_readings	遭	そう	そう
+rb_readings	遭遇	そううぐうした	そううぐう
+rb_readings	遮	しゃ	しゃ
+rb_readings	還	かんだ	かん
+rb_readings	郁子	いくこ	いくこ
+rb_readings	郡平	ぐんぺい	ぐんぺい
+rb_readings	郡平	ぐんぺいと	ぐんぺい
+rb_readings	都	みやこお	みやこ
+rb_readings	酵	こうさせ その	こう
+rb_readings	釉薬	うわぐすりの	うわぐすり
+rb_readings	野笛	のぶえ	のぶえ
+rb_readings	野笛	のぶえさんは	のぶえ
+rb_readings	金	かね	かね
+rb_readings	金	かねにまかせて	かね
+rb_readings	金	かねをもうけてる	かね
+rb_readings	金丸座	かなまるざって	かなまるざ
+rb_readings	金丸座	かなまるざでの	かなまるざ
+rb_readings	金刀比羅	こんぴら	こんぴら
+rb_readings	金城	かねしろさんと	かねしろ
+rb_readings	金城	かねしろさんは お	かねしろ
+rb_readings	金城	かねしろっちゅう	かねしろ
+rb_readings	金城霊澤	きんじょうれいたくだ	きんじょうれいたく
+rb_readings	金太	きんた	きんた
+rb_readings	金山	きんざんのようだな	きんざん
+rb_readings	金平糖	こんぺいとう	こんぺいとう
+rb_readings	金平糖	こんぺいとうが	こんぺいとう
+rb_readings	金治	きんじですか	きんじ
+rb_readings	金満豊子	かねみつ とよこさんの	かねみつとよこ
+rb_readings	金色	こんじき	こんじき
+rb_readings	金色	こんじきに	こんじき
+rb_readings	金色	こんじきの	こんじき
+rb_readings	金色夜叉	こんじきやしゃ	こんじきやしゃ
+rb_readings	金谷	かねたに	かねたに
+rb_readings	針尾清治	はりお せいじさんが	はりおせいじ
+rb_readings	鈍	にぶで	にぶ
+rb_readings	鈴	りんの	りん
+rb_readings	鉄山厳治	てつやま がんじさん	てつやまがんじ
+rb_readings	鉤状	かぎじょうの	かぎじょう
+rb_readings	銀岩島	ぎんがんとうから	ぎんがんとう
+rb_readings	銀岩島	ぎんがんとうの	ぎんがんとう
+rb_readings	銀岩島	ぎんがんとうへとやって	ぎんがんとう
+rb_readings	銀岩島	ぎんがんとうまで	ぎんがんとう
+rb_readings	銀岩島	ギンガントウがあるんだ	ぎんがんとう
+rb_readings	鋼鉄島	こうてつじまから	こうてつじま
+rb_readings	鋼鉄島	こうてつじまからのスキャンで エリアは	こうてつじま
+rb_readings	鋼鉄島	こうてつじまでは いろいろ	こうてつじま
+rb_readings	鋼鉄島	こうてつじまでトレーニング	こうてつじま
+rb_readings	鋼鉄島	こうてつじまに	こうてつじま
+rb_readings	錦座	きんざ	きんざ
+rb_readings	錦座	きんざに	きんざ
+rb_readings	錯	さっ	さっ
+rb_readings	鍛吾	たんごさんが	たんご
+rb_readings	鍛吾	たんごさんですか	たんご
+rb_readings	鎌屋崇司	かまや たかしさんの	かまやたかし
+rb_readings	鎖	さになって	さ
+rb_readings	鎖	さらしいわよ	さ
+rb_readings	鎮	しずまってくれ	しず
+rb_readings	鎮	しずまらないといわれ	しず
+rb_readings	鎮	しずまらなければ	しず
+rb_readings	鎮	しずまるかも	しず
+rb_readings	鏡堂	きょうどうって たしか	きょうどう
+rb_readings	鏡堂	きょうどうナナミさんに	きょうどう
+rb_readings	鐘子	しょうこさんです	しょうこ
+rb_readings	鑑	かがみ	かがみ
+rb_readings	鑑	かがみね	かがみ
+rb_readings	鑑	ずかん	ずかん
+rb_readings	長	おさに	おさ
+rb_readings	長	ちょうさんに	ちょうさん
+rb_readings	長	なげえ	なげ
+rb_readings	長	なげえが	なげ
+rb_readings	長	なげえぞ	なげ
+rb_readings	長	なげえな	なげ
+rb_readings	長	なげえなあ	なげ
+rb_readings	長	なげえよ	なげ
+rb_readings	長	なげえんだ	なげ
+rb_readings	長	なげえオチ	なげ
+rb_readings	長	なげえトイレだな	なげ
+rb_readings	長久命	ちょうきゅうめいの	ちょうきゅうめい
+rb_readings	長田誠之助	ながた せいのすけさん	ながたせいのすけ
+rb_readings	長部満	おさべ みつる	おさべみつる
+rb_readings	門成	かどなり	かどなり
+rb_readings	開	あいた	あ
+rb_readings	開	あかない	あ
+rb_readings	開	あきそうだ	あ
+rb_readings	開	ひらけるのよ	ひら
+rb_readings	開田	かいた この	かいた
+rb_readings	間	かんにもお	かん
+rb_readings	間	はざま	はざま
+rb_readings	間	へだてず	へだ
+rb_readings	間暮	まぐれ	まぐれ
+rb_readings	間違	まちげえねえよ	まちげ
+rb_readings	間違	まちごうた ダイイングメッセージ	まちご
+rb_readings	間違	まちごうたやと	まちご
+rb_readings	間違	まちごうて	まちご
+rb_readings	間違	まちごうてしもたんや	まちご
+rb_readings	間違	まちごうてしもたんやろ	まちご
+rb_readings	間違	まちごうてしもて	まちご
+rb_readings	間違	まちごうてたんや	まちご
+rb_readings	間違	まちごうてへん	まちご
+rb_readings	間違	まちごうてへんのに	まちご
+rb_readings	間違	まちごうてるか	まちご
+rb_readings	間違	まちごうてるとでも	まちご
+rb_readings	間違	まちごうてるやないか	まちご
+rb_readings	闇の男爵	ナイトバロン	ないとばろん
+rb_readings	闘	とう	とう
+rb_readings	闘	とうを	とう
+rb_readings	闘	とうシーンから	とう
+rb_readings	阻	はばめ	はば
+rb_readings	阻	はばめるのか	はば
+rb_readings	阿像	あぞうも	あぞう
+rb_readings	阿笠	あがさ	あがさ
+rb_readings	阿笠	あがささん	あがさ
+rb_readings	阿笠	あがささんの	あがさ
+rb_readings	阿笠	あがささんは	あがさ
+rb_readings	阿笠	あがささんも	あがさ
+rb_readings	阿笠	あがさという	あがさ
+rb_readings	阿笠博士	あがさ ひろし	あがさひろし
+rb_readings	阿笠博士	あがさ ひろしとコナン	あがさひろし
+rb_readings	阿笠博士	あがさ ひろしの	あがさひろし
+rb_readings	附立	つけたても	つけたて
+rb_readings	降人	ふると　どこにいるんだい	ふると
+rb_readings	降人	ふるとさんは	ふると
+rb_readings	降人	ふるとさんも	ふると
+rb_readings	降塚屋	ふりつかや	ふりつかや
+rb_readings	降塚屋	ふりつかやか	ふりつかや
+rb_readings	陥	おちいる	おちい
+rb_readings	陥	おちいるのは	おちい
+rb_readings	陥	おちいろうとしていた	おちい
+rb_readings	陸	おかに	おか
+rb_readings	陸	おかの	おか
+rb_readings	随	ずい	ずい
+rb_readings	障	しょう	しょう
+rb_readings	隼	はやぶさシュート	はやぶさ
+rb_readings	隼	はやぶさシュートだ	はやぶさ
+rb_readings	雀々軒	じゃんじゃんけんのチャーハン	じゃんじゃんけん
+rb_readings	雄	おたけび	お
+rb_readings	雄	ゆう	ゆう
+rb_readings	雄	ゆうの	ゆう
+rb_readings	雅	がで	が
+rb_readings	雅	がな	が
+rb_readings	雅八	まさはち	まさはち
+rb_readings	雅原	みやはら	みやはら
+rb_readings	雅原煌	みやはら きらちゃんだよ	みやはらきら
+rb_readings	雌	めしべが	め
+rb_readings	離	はな	はな
+rb_readings	離	はなせない	はな
+rb_readings	離	はなせないようじゃな	はな
+rb_readings	離	はなせないわね	はな
+rb_readings	離	はなせません	はな
+rb_readings	離	はなせませんでした	はな
+rb_readings	離	はなせませんでしたね	はな
+rb_readings	離	はなせませんでしたよ	はな
+rb_readings	離	はなせよ	はな
+rb_readings	離	はなればなれに なってしまったの	はな
+rb_readings	離	ばなれになった あたくしのポッチャマなんです	ばな
+rb_readings	離	ばなれになっても つながってる	ばな
+rb_readings	雨城	うじょうさん	うじょう
+rb_readings	雨城	うじょうさんって もしかしたら	うじょう
+rb_readings	雨城瑠璃	うじょう るりさんと	うじょうるり
+rb_readings	雨宮真樹	あまみや まさきさんだよね	あまみやまさき
+rb_readings	雨宮祥子	あめみや しょうこが	あめみやしょうこ
+rb_readings	雨宮祥子	あめみや しょうこさん	あめみやしょうこ
+rb_readings	雨森	あまもりです	あまもり
+rb_readings	雪見風呂	ゆきみぶろじゃないですか すごい	ゆきみぶろ
+rb_readings	雰	ふん	ふん
+rb_readings	雲母定数	うんも さだかずさんと いう	うんもさだかず
+rb_readings	零	ゼロ	ぜろ
+rb_readings	雷	いかずちが	いかずち
+rb_readings	雷	いかずちと	いかずち
+rb_readings	雷	いかずちとなって	いかずち
+rb_readings	雷	いかずちの	いかずち
+rb_readings	雷	いかずちのあとが	いかずち
+rb_readings	雷	いかずちを	いかずち
+rb_readings	雷	いかづちと	いかづち
+rb_readings	雷	らい	らい
+rb_readings	雷轟電撃	らいごうでんげき	らいごうでんげき
+rb_readings	雷雲	かみなりぐもを	かみなりぐも
+rb_readings	青岩島	セイガントウだよ	せいがんとう
+rb_readings	青島全代	あおしま まさよという	あおしままさよ
+rb_readings	靖家	やすいえか	やすいえ
+rb_readings	靖家	やすいえの	やすいえ
+rb_readings	静	しず もっと	しず
+rb_readings	非	あらず	あら
+rb_readings	面	おもてが	おもて
+rb_readings	面	おもての	おもて
+rb_readings	面	おもてをつけている	おもて
+rb_readings	面	おもてをつけることができる	おもて
+rb_readings	面	つら サツに	つら
+rb_readings	面	つらが	つら
+rb_readings	面	つらの	つら
+rb_readings	面	つらを	つら
+rb_readings	面白	おもしれえ	おもしれ
+rb_readings	面白	おもしれえ　ぶちのめしてやる	おもしれ
+rb_readings	面白	おもしれえじゃねえか	おもしれ
+rb_readings	面白	おもしれえじゃねえか　んっ	おもしれ
+rb_readings	面白	おもしれえだろうな	おもしれ
+rb_readings	面白	おもしれえな	おもしれ
+rb_readings	面白	おもしれえんだ	おもしれ
+rb_readings	面白	おもしれえんだよ	おもしれ
+rb_readings	面白	おもしれえガキだな	おもしれ
+rb_readings	鞍馬	くらま	くらま
+rb_readings	韓流	はんりゅうドラマばっかりなのよ	はんりゅう
+rb_readings	音	ね	ね
+rb_readings	音	ねが	ね
+rb_readings	音	ねは	ね
+rb_readings	響輔	きょうすけさんの	きょうすけ
+rb_readings	頃	ごろ	ごろ
+rb_readings	須佐之男命	すさのおのみことの	すさのおのみこと
+rb_readings	須内	すのうち	すのうち
+rb_readings	須内	すのうちさんが	すのうち
+rb_readings	須単町	すたんちょうのどちらか	すたんちょう
+rb_readings	頑張	かんばったわね	かんば
+rb_readings	頑張	がんばれよ	がんば
+rb_readings	頑張	がんばれよ アイリス	がんば
+rb_readings	頑張	がんばれよ コテツ	がんば
+rb_readings	頑張	がんばれよ サンペイ ゲッコウガ	がんば
+rb_readings	頑張	がんばれよ タケシ	がんば
+rb_readings	頑張	がんばれよ ヒカリ	がんば
+rb_readings	頑張	がんばれよ ミミロル	がんば
+rb_readings	頑張	がんばれよ ムサシ	がんば
+rb_readings	頑張	がんばれよな	がんば
+rb_readings	頑張	がんばれるんだって	がんば
+rb_readings	頑張	がんばれるんだよな	がんば
+rb_readings	頑張	がんばれー	がんば
+rb_readings	頓比	とんころ	とんころ
+rb_readings	頭	あったまいい これは	あったま
+rb_readings	頭	かしらに	かしら
+rb_readings	頭	かしらや	かしら
+rb_readings	頭神	かしらがみの	かしらがみ
+rb_readings	頼	たのめるかい	たの
+rb_readings	頼	たのも	たの
+rb_readings	頼	たむぞ ブイゼル	た
+rb_readings	頼	たよりがいもあり	たよ
+rb_readings	頼	たよりないけど	たよ
+rb_readings	頼	たよりないし	たよ
+rb_readings	頼	たよりなさそうだな	たよ
+rb_readings	頼	たよりなさそうで	たよ
+rb_readings	頼	たよれる	たよ
+rb_readings	頼	たよれることじゃろう	たよ
+rb_readings	頼	たよれるのは	たよ
+rb_readings	頼	たよれるポケモンなんじゃ	たよ
+rb_readings	頼	だのみ	だの
+rb_readings	頼	だのみって	だの
+rb_readings	頼人	らいとって	らいと
+rb_readings	頼太	らいた	らいた
+rb_readings	頼斗	らいと	らいと
+rb_readings	頼策	らいさく	らいさく
+rb_readings	顎	あぎとをと	あぎと
+rb_readings	願	ねげえしますだ	ねげ
+rb_readings	風祭	かぜまつりって	かぜまつ
+rb_readings	風遁	ふうとんの	ふうとん
+rb_readings	颯太	そうた ご	そうた
+rb_readings	飛竜乗雲	ひりゅう じょううん	ひりゅうじょううん
+rb_readings	飛竜乗雲	ひりゅうじょううん	ひりゅうじょううん
+rb_readings	飛騨牛	ひだぎゅうステーキ	ひだぎゅう
+rb_readings	飛鳥悌耶	あすか ていやさんに	あすかていや
+rb_readings	飛鳥悌耶	あすか ていやっていう	あすかていや
+rb_readings	飛龍乗雲	ひりゅうじょううん	ひりゅうじょううん
+rb_readings	飯山来美	いいやま くるみさん	いいやまくるみ
+rb_readings	飼	こうてた	こ
+rb_readings	飼	こうてんのは	こ
+rb_readings	飾	かざれないでしょう	かざ
+rb_readings	飾	かざれる	かざ
+rb_readings	飾	かざれるのニャー	かざ
+rb_readings	餌	えが	え
+rb_readings	餓鬼草紙	がきぞうし	がきぞうし
+rb_readings	首頭朱音	しゅとう あかねっていう	しゅとうあかね
+rb_readings	香月	こうづき	こうづき
+rb_readings	香月	こうづきさんの	こうづき
+rb_readings	馬島	まじま	まじま
+rb_readings	馬島道吉	まじま みちよしさんに	まじまみちよし
+rb_readings	駆	く	く
+rb_readings	驚	おどかせる いたずら	おど
+rb_readings	驚	おどろけ	おどろ
+rb_readings	驚	きょう	きょう
+rb_readings	高	たけえ	たけ
+rb_readings	高	たけえしよ	たけ
+rb_readings	高	たけえぞ	たけ
+rb_readings	高	たけえな	たけ
+rb_readings	高	たけえのか	たけ
+rb_readings	高	たけえもん	たけ
+rb_readings	高	たけえんだから	たけ
+rb_readings	高	たけえんだぞ	たけ
+rb_readings	高	たけえんだろ	たけ
+rb_readings	高	たけえシャンパン	たけ
+rb_readings	高	たけえスーパーカーと ハイテクメカで	たけ
+rb_readings	高	たけえフライが	たけ
+rb_readings	高	たこうなるからな	たこ
+rb_readings	高	たこなったな	たこ
+rb_readings	高下	たかおり	たかおり
+rb_readings	高明	たかあき	たかあき
+rb_readings	高村	たかむら	たかむら
+rb_readings	髪	ぱつ	ぱつ
+rb_readings	髪	ぱつだったな	ぱつ
+rb_readings	髪	ぱつだったね	ぱつ
+rb_readings	髪	ぱつだったニャ	ぱつ
+rb_readings	鬼ノ城	きのじょうと	きのじょう
+rb_readings	鬼亀島	おにがめじま	おにがめじま
+rb_readings	鬼亀島	おにがめじまやっちゅうことを	おにがめじま
+rb_readings	鬼保独郎	きぼ どくろう	きぼどくろう
+rb_readings	鬼島公美	きじま くみの	きじまくみ
+rb_readings	鬼沢郷	おにざわきょうにいる	おにざわきょう
+rb_readings	鬼沢郷	おにざわきょうの	おにざわきょう
+rb_readings	鬼沢郷	おにざわきょうのすぐ	おにざわきょう
+rb_readings	鬼石坊主	おにいしぼうず	おにいしぼうず
+rb_readings	魂	たまっていうのも	たま
+rb_readings	魂	だましい	だましい
+rb_readings	魂	だましいが	だましい
+rb_readings	魂	だましいに	だましい
+rb_readings	魂	だましいを	だましい
+rb_readings	魅	み	み
+rb_readings	魅了	みりょくを	みりょく
+rb_readings	鮎川沙織	あゆかわ さおりさん	あゆかわさおり
+rb_readings	鮫二	こうじ	こうじ
+rb_readings	鮫二	こうじさんの	こうじ
+rb_readings	鰐淵	わにぶちさんが	わにぶち
+rb_readings	鱶一	よういち	よういち
+rb_readings	鳥上	ちょうじょう	ちょうじょう
+rb_readings	鳥屋	とやから	とや
+rb_readings	鳥矢町	とりやちょう	とりやちょう
+rb_readings	鳥矢町	とりやちょうで	とりやちょう
+rb_readings	鳥矢町	とりやちょうの	とりやちょう
+rb_readings	鳥矢町	とりやちょうのことだとは	とりやちょう
+rb_readings	鴻	こうの	こう
+rb_readings	鷹取厳男	たかとり いわおだな	たかとりいわお
+rb_readings	鷹取厳男	たかとり いわおを	たかとりいわお
+rb_readings	鹿山	かやまさん	かやま
+rb_readings	麗	うるわしの このムサリーナ	うるわ
+rb_readings	麗	うるわしのコーディネーターたる	うるわ
+rb_readings	麗	うるわしのタチワキシティだ	うるわ
+rb_readings	麗	うるわしのチャンピオン	うるわ
+rb_readings	麻信	あさのぶ	あさのぶ
+rb_readings	麻信	あさのぶさんが	あさのぶ
+rb_readings	麻信	あさのぶさんと	あさのぶ
+rb_readings	麻婆豆腐	マーボーどうふを	まーぼーどうふ
+rb_readings	黄	こうの	こう
+rb_readings	黄岩島	おうがんとうっていう	おうがんとう
+rb_readings	黄岩島	オウガントウ	おうがんとう
+rb_readings	黄岩島	オウガントウだ	おうがんとう
+rb_readings	黄岩島	オウガントウに	おうがんとう
+rb_readings	黄岩島	オウガントウへとやってきた	おうがんとう
+rb_readings	黄泉	よみからの	よみ
+rb_readings	黄泉	よみの	よみ
+rb_readings	黒兵衛	くろべえか	くろべえ
+rb_readings	黒羽盗一	くろば とういちさんが	くろばとういち
+rb_readings	黒谷口	くろたにぐち	くろたにぐち
+rb_readings	黒野須	くろのす	くろのす
+rb_readings	鼓	こみたいだ	こ
+rb_readings	龍	りょうに	りょう
+rb_readings	龍尾	たつお	たつお
+rb_readings	龍巻	たつまき	たつまき
+rb_readings	，	カンマ	かんま
+rb_readings	０	ゼロ	ぜろ
+rb_readings	０	ラブ	らぶ
+rb_readings	０	ラブー	らぶ
+rb_readings	００７	ゼロゼロセブンさんよ フッ	ぜろぜろせぶん
+rb_readings	００７	ダブルオーセブン	だぶるおーせぶん
+rb_readings	０２５	ゼロニーゴといえば	ぜろにーご
+rb_readings	０４７	ゼロヨンナナといえば	ぜろよんなな
+rb_readings	０９３０	マルキューサンマル	まるきゅーさんまる
+rb_readings	１	ワン	わん
+rb_readings	１	ワン ゲット	わん
+rb_readings	１	ワンが	わん
+rb_readings	１	ワンだ	わん
+rb_readings	１	ワンだけど	わん
+rb_readings	１	ワンだし	わん
+rb_readings	１	ワンだった	わん
+rb_readings	１	ワンなんだから	わん
+rb_readings	１	ワンにレベル	わん
+rb_readings	１	ワンの	わん
+rb_readings	１	ワンの テニスプレイヤー	わん
+rb_readings	１	ワンは	わん
+rb_readings	１	ワンは まだ	わん
+rb_readings	１	ワンへ どうぞ	わん
+rb_readings	１	ワンより	わん
+rb_readings	１	ワンを	わん
+rb_readings	１	ワンアシスト	わん
+rb_readings	１	ワンケースずつ	わん
+rb_readings	１	ワンゴール	わん
+rb_readings	１	ワンラウンドで	わん
+rb_readings	１	ワンー	わん
+rb_readings	１ー１	ワンオール	わんおーる
+rb_readings	１０１４	ひとまるひとよん	ひとまるひとよん
+rb_readings	１０４	ひとまるよんを	ひとまるよん
+rb_readings	１２３	ワンツースリー	わんつーすりー
+rb_readings	１６０	イチロクゼロといえば	いちろくぜろ
+rb_readings	１８００	ヒトハチマルマル	ひとはちまるまる
+rb_readings	１９０	イチキュウゼロといえば	いちきゅうぜろ
+rb_readings	２	ツー	つー
+rb_readings	２	ツー ラムってやつの	つー
+rb_readings	２	ツー　トラブル	つー
+rb_readings	２	ツーからの	つー
+rb_readings	２	ツーだっていう	つー
+rb_readings	２	ツーだな	つー
+rb_readings	２	ツーだよ	つー
+rb_readings	２	ツーに	つー
+rb_readings	２	ツーの	つー
+rb_readings	２	ツーのコードネームが	つー
+rb_readings	２	ツーのビッグサーバー	つー
+rb_readings	２	ツーへ レベル	つー
+rb_readings	２	ツーよ	つー
+rb_readings	２	ツーよ ゴンベ	つー
+rb_readings	２０３	ニーマルサンといえば	にーまるさん
+rb_readings	２０４	ニーゼロヨンといえば	にーぜろよん
+rb_readings	２０７	ニーゼロナナといえば	にーぜろなな
+rb_readings	２２４	ニーニーヨンといえば	にーにーよん
+rb_readings	２２５	ニーニーゴといえば	にーにーご
+rb_readings	２２７	ニーニーナナといえば	にーにーなな
+rb_readings	２３４	ニーサンヨンといえば	にーさんよん
+rb_readings	２３７	ニーサンナナといえば	にーさんなな
+rb_readings	３	スリー	すりー
+rb_readings	３	スリーに	すりー
+rb_readings	３	スリーのカフェ アクアで	すりー
+rb_readings	３	スリーアシスト	すりー
+rb_readings	３度	みたび ホドモエジムへとやって	みたび
+rb_readings	３３０	みさおで	みさお
+rb_readings	３８５	ミワコ	みわこ
+rb_readings	４	ふぉー いい	ふぉー
+rb_readings	４	フォー	ふぉー
+rb_readings	４	フォー および	ふぉー
+rb_readings	４	フォーだったタケシです	ふぉー
+rb_readings	４	フォーなるか	ふぉー
+rb_readings	４	フォーに	ふぉー
+rb_readings	４	フォーへ	ふぉー
+rb_readings	４	フォーまで	ふぉー
+rb_readings	５	ファイブアシストを	ふぁいぶ
+rb_readings	６	シックスアシスト	しっくす
+rb_readings	６３４	ムサシだったよね	むさし
+rb_readings	７	セブン	せぶん
+rb_readings	７	セブンから ずっと	せぶん
+rb_readings	７	セブンですよ	せぶん
+rb_readings	７	セブンの	せぶん
+rb_readings	７４７	セブンフォーセブン	せぶんふぉーせぶん
+rb_readings	８	エイト	えいと
+rb_readings	８	エイト サトシはベスト	えいと
+rb_readings	８	エイトが	えいと
+rb_readings	８	エイトだったって	えいと
+rb_readings	８	エイトで	えいと
+rb_readings	８	エイトという	えいと
+rb_readings	８	エイトなら	えいと
+rb_readings	８	エイトに	えいと
+rb_readings	８	エイトへ	えいと
+rb_readings	８	エイトへの	えいと
+rb_readings	８	エイトまでいったんだぜ	えいと
+rb_readings	８	エイトまでいったんでしょ	えいと
+rb_readings	Ａ	アー の	あー
+rb_readings	Ａ	アーでも スペインリーグでも	あー
+rb_readings	Ａ	エーだ	えー
+rb_readings	Ａ	エーにより	えー
+rb_readings	ＡＰＴＸ	アポトキシン	あぽときしん
+rb_readings	Ｂ	ビーだ	びー
+rb_readings	Ｂ	ビーを	びー
+rb_readings	Ｃ	シー	しー
+rb_readings	Ｃ	シータイプ	しー
+rb_readings	Ｃ	ツェー	つぇー
+rb_readings	Ｃ	ツェーの	つぇー
+rb_readings	ＣＤＥ	ツェーデーエーの	つぇーでーえー
+rb_readings	Ｄ	デー	でー
+rb_readings	ＤＸ	デラックス	でらっくす
+rb_readings	Ｅ	イー ラブリーチヒロ	いー
+rb_readings	Ｅ	エー	えー
+rb_readings	Ｆ	エフ	えふ
+rb_readings	Ｇ	ゲー	げー
+rb_readings	Ｇ	ジー	じー
+rb_readings	Ｇ	ジーリサーチのサンプル	じー
+rb_readings	ＧＵＮＤ	ガンドで	がんど
+rb_readings	ＧＵＮＤ	ガンドの	がんど
+rb_readings	ＧＵＮＤ	ガンドフォーマットの	がんど
+rb_readings	ＧＵＮＤ	ガンドフォーマットは	がんど
+rb_readings	ＧＵＮＤ	ガンドフォーマットを	がんど
+rb_readings	ＧＵＮＤＮＯＤＥ	ガンドノード	がんどのーど
+rb_readings	Ｈ	ハー	はー
+rb_readings	ＨＡＧＡ	ハーアーゲーアー	はーあーげーあー
+rb_readings	Ｊ	ジェイも	じぇい
+rb_readings	Ｊ１	ジェイワンを	じぇいわん
+rb_readings	Ｋ３	ケースリー	けーすりー
+rb_readings	Ｋ３	ケースリーのイベント	けーすりー
+rb_readings	Ｌ	エル	える
+rb_readings	ＬＯＶＥ	エルオーブイイー ラブリー チヒロ	えるおーぶいいー
+rb_readings	ＬＰ０４１	エルピーゼロヨンイチ スレッタ	えるぴーぜろよんいち
+rb_readings	Ｍ	エム	えむ
+rb_readings	ＭＩ６	エムアイシックスも	えむあいしっくす
+rb_readings	ＭＯ	モ	も
+rb_readings	ＭＯＭＯ	モモ	もも
+rb_readings	Ｎ１３８	エヌイチサンハチ	えぬいちさんはち
+rb_readings	ＮＯＣ	ノック	のっく
+rb_readings	ＮＯＣ	ノックの	のっく
+rb_readings	ＮＴＰＳ	エヌティピーエスは	えぬてぃぴーえす
+rb_readings	Ｏ	オー	おー
+rb_readings	ＯＤＡ	オダ	おだ
+rb_readings	ＯＤＡ	オダの	おだ
+rb_readings	ＯＫＵＳＵ	オークス	おーくす
+rb_readings	ＯＮＩ	オニ	おに
+rb_readings	ＯＯ７	ダブルオーセブン	だぶるおーせぶん
+rb_readings	Ｐ	ポイント	ぽいんと
+rb_readings	Ｐー１	ピーワングランプリに	ぴーわん
+rb_readings	Ｐ１	ピーワングランプリでは	ぴーわん
+rb_readings	ＰＭＤＭ	ピーエムディエムの	ぴーえむでぃえむ
+rb_readings	Ｑ	クイーンセリザベス	くいーん
+rb_readings	Ｒ	アール	あーる
+rb_readings	Ｒ１	アールワンって	あーるわん
+rb_readings	Ｒ２	アールツーから	あーるつー
+rb_readings	ＳＡＴ	サットも	さっと
+rb_readings	ＳＩＴ	シット	しっと
+rb_readings	ＳＩＴ	シットの	しっと
+rb_readings	Ｕ	ユーターンしたぞ	ゆー
+rb_readings	Ｕ-15	アンダーフィフティーンが おもしれえのよ	あんだーふぃふてぃーん
+rb_readings	Ｕ-15	アンダーフィフティーンなんだが	あんだーふぃふてぃーん
+rb_readings	ＵＢ01	ユービーゼロワンパラサイト	ゆーびーぜろわん
+rb_readings	ＵＢ：ＢＬＡＣＫ	ユービーブラック ネクロズマが	ゆーびーぶらっく
+rb_readings	ＵＢ：ＢＬＡＣＫ	ユービーブラックと	ゆーびーぶらっく
+rb_readings	ＵＢ：ＢＬＡＣＫ	ユービーブラックはソルガレオを	ゆーびーぶらっく
+rb_readings	Ｖ	ぶいサインなんかしちゃって	ぶい
+rb_readings	Ｖ	ブイ	ぶい
+rb_readings	Ｖ１	ブイワンのお	ぶいわん
+rb_readings	Ｖ１	ブイワンを	ぶいわん
+rb_readings	Ｖ３	ブイスリーの	ぶいすりー
+rb_readings	Ｖ３	ブイスリーを	ぶいすりー
+rb_readings	ＶＩＰ	ビップルームへ	びっぷ
+rb_readings	ＶＳ	たい	たい
+rb_readings	ＶＳ	たい ダークライ	たい
+rb_readings	ＶＳ	たい ペンドラー	たい
+rb_readings	ＶＳ	たい ボルトロス	たい
+rb_readings	ＶＳ	たい メグロコ	たい
+rb_readings	ＶＳ	たいかめんの じょおうムサシ いせきのたたかい	たい
+rb_readings	ＶＳ	たいカイロス	たい
+rb_readings	ＶＳ	たいカスミ	たい
+rb_readings	ＶＳ	たいカメックス すもうバトル	たい
+rb_readings	ＶＳ	たいグレッグル	たい
+rb_readings	ＶＳ	たいケンゴ	たい
+rb_readings	ＶＳ	たいコアルヒー	たい
+rb_readings	ＶＳ	たいゴースト	たい
+rb_readings	ＶＳ	たいサトシ	たい
+rb_readings	ＶＳ	たいシュウ	たい
+rb_readings	ＶＳ	たいジンダイ	たい
+rb_readings	ＶＳ	たいドダイトス	たい
+rb_readings	ＶＳ	たいハッサム	たい
+rb_readings	ＶＳ	たいハルカ	たい
+rb_readings	ＶＳ	たいバリヤード	たい
+rb_readings	ＶＳ	たいヒノアラシ はがねのつばさ	たい
+rb_readings	ＶＳ	たいピカチュウ	たい
+rb_readings	ＶＳ	たいフシギダネ	たい
+rb_readings	ＶＳ	たいフシギダネ かくとうたいけつ	たい
+rb_readings	ＶＳ	たいブルー	たい
+rb_readings	ＶＳ	たいプリン	たい
+rb_readings	ＶＳ	たいプリン ふぶきのなかで	たい
+rb_readings	ＶＳ	たいヘラクロス	たい
+rb_readings	ＶＳ	たいボルトロス	たい
+rb_readings	ＶＳ	たいマダツボミ	たい
+rb_readings	ＶＳ	たいママ	たい
+rb_readings	ＶＳ	たいメタグロス	たい
+rb_readings	ＶＳ	たいラフレシア	たい
+rb_readings	ＶＳ	たいランドロス	たい
+rb_readings	ＶＳ	たいリザードン	たい
+rb_readings	ＶＳ	バーサス	ばーさす
+rb_readings	ＶＴＲ	ブイティアールスタート	ぶいてぃあーる
+rb_readings	ＷＺ	ダブルゼットでいくわよ	だぶるぜっと
+rb_readings	Ｘ	エックス	えっくす
+rb_readings	Ｘ	エックスさん	えっくす
+rb_readings	Ｘ	エックスを	えっくす
+rb_readings	ＸＹＺ	エックス ワイ ゼット	えっくすわいぜっと
+rb_readings	Ｚ	ズィーで サクラビスと ハンテールをゲットだニャ	ずぃー
+rb_readings	Ｚ	ゼット	ぜっと
+rb_readings	Ｚ	ゼットか	ぜっと
+rb_readings	Ｚ	ゼットがどこにもないんだ	ぜっと
+rb_readings	Ｚ	ゼットだ	ぜっと
+rb_readings	Ｚ	ゼットだって	ぜっと
+rb_readings	Ｚ	ゼットよ	ぜっと
+rb_readings	Ｚ	ゼットを	ぜっと
+rb_readings	Ｚ	ゼットクリスタル	ぜっと
+rb_readings	Ｚ	ゼットクリスタルが	ぜっと
+rb_readings	Ｚ	ゼットクリスタルがそろったってことは	ぜっと
+rb_readings	Ｚ	ゼットクリスタルを	ぜっと
+rb_readings	Ｚ	ゼットクリスタルを ゲットしたサトシは	ぜっと
+rb_readings	Ｚ	ゼットクリスタルをもう	ぜっと
+rb_readings	Ｚ	ゼットクリスタルをもらった	ぜっと
+rb_readings	Ｚ	ゼットクリスタルをもらって	ぜっと
+rb_readings	Ｚ	ゼットパワーだ	ぜっと
+rb_readings	Ｚ	ゼットパワーで ネクロズマを	ぜっと
+rb_readings	Ｚ	ゼットリング	ぜっと
+rb_readings	Ｚ	ゼットリングか	ぜっと
+rb_readings	Ｚ	ゼットリングが サンシャインスマッシャー	ぜっと
+rb_readings	Ｚ	ゼットリングがそろえば	ぜっと
+rb_readings	Ｚ	ゼットリングと	ぜっと
+rb_readings	Ｚ	ゼットリングなのね	ぜっと
+rb_readings	Ｚ	ゼットリングの	ぜっと
+rb_readings	Ｚ	ゼットリングはカプ	ぜっと
+rb_readings	Ｚ	ゼットリングー	ぜっと
+rb_readings	Ｚ	ゼットワザ	ぜっと
+rb_readings	Ｚ	ゼットワザか	ぜっと
+rb_readings	Ｚ	ゼットワザが	ぜっと
+rb_readings	Ｚ	ゼットワザさえ	ぜっと
+rb_readings	Ｚ	ゼットワザだ	ぜっと
+rb_readings	Ｚ	ゼットワザだぁ	ぜっと
+rb_readings	Ｚ	ゼットワザで	ぜっと
+rb_readings	Ｚ	ゼットワザです	ぜっと
+rb_readings	Ｚ	ゼットワザとは	ぜっと
+rb_readings	Ｚ	ゼットワザについて	ぜっと
+rb_readings	Ｚ	ゼットワザの	ぜっと
+rb_readings	Ｚ	ゼットワザのダブル	ぜっと
+rb_readings	Ｚ	ゼットワザは	ぜっと
+rb_readings	Ｚ	ゼットワザもあるロト	ぜっと
+rb_readings	Ｚ	ゼットワザを	ぜっと
+rb_readings	Ｚ	ゼットワザをぶつけて ひるませる	ぜっと
+rb_readings	Ｚ	ゼットワザァ	ぜっと
+rb_readings	Ｚ	ゼータ	ぜーた
+rb_readings	Ｚ１	ゼットワン	ぜっとわん
+rb_readings	Ｚ２	ゼットツー	ぜっとつー
+ruby_kana_base	base	reading
+ruby_kana_base	この世全ての悪	アンリマユ
+ruby_kana_base	一握りの火薬	リトルフラワー
+ruby_kana_base	一級挽き肉	プルミエール・アッシ
+ruby_kana_base	万雷の撃滅	コール・グレーター・サンダー
+ruby_kana_base	不屈の宝鎧	アイデアル・クローサー
+ruby_kana_base	不思議の庭	ワンダーガーデン
+ruby_kana_base	不死の軍隊	アンデス・アーミー
+ruby_kana_base	主よ我等を許し給え	ディオス・ルエゴ・ノス・ペルドーネ
+ruby_kana_base	仮面の軍勢	ヴァイザード
+ruby_kana_base	伸縮自在の愛	バンジーガム
+ruby_kana_base	信仰の盾	フェイスズシールド
+ruby_kana_base	偉大なる航路	グランドライン
+ruby_kana_base	光の帝国	リヒトライヒ
+ruby_kana_base	光の帝国	リヒト・ライヒ
+ruby_kana_base	光の雨	リヒト・レーゲン
+ruby_kana_base	光の風	リヒト・ヴィント
+ruby_kana_base	光輝緑の体	ボディ・オブ・イファルジェントベリル
+ruby_kana_base	凍牙の苦痛	フロスト・ペイン
+ruby_kana_base	凪の帯	カームベルト
+ruby_kana_base	北の海	ノースブルー
+ruby_kana_base	南の海	サウスブルー
+ruby_kana_base	原初の男	アダム
+ruby_kana_base	反膜の匪	カハ・ネガシオン
+ruby_kana_base	命の紙	ビブルカード
+ruby_kana_base	命の音	カウントダウン
+ruby_kana_base	善なる極撃	ホーリースマイト
+ruby_kana_base	嘆きの妖精の絶叫	クライ・オブ・ザ・バンシー
+ruby_kana_base	地獄の思い出	ヘル・メモリーズ
+ruby_kana_base	大地の大波	アース・サージ
+ruby_kana_base	大気の戦陣を杯に受けよ	レンゼ・フォルメル・ヴェント・イ・グラール
+ruby_kana_base	大混乱の地獄	インフェルノ
+ruby_kana_base	大火炎獅子の咆哮	レオ・ルゼーナス
+ruby_kana_base	大顎の竜巻	シャークスサイクロン
+ruby_kana_base	天上の火	ヘブンリーフォイアー
+ruby_kana_base	天上の火	ヘブンリー・フォイアー
+ruby_kana_base	天上の炎	ヘブンリーフォイアー
+ruby_kana_base	天井の炎	ヘブンリーファイア
+ruby_kana_base	天使の魔翼	エンジェルウイング
+ruby_kana_base	天候の卵	ウェザーエッグ
+ruby_kana_base	天地乖離す開闢の星	エヌマ・エリシュ
+ruby_kana_base	天界の気	ヘヴンリィ・オーラ
+ruby_kana_base	太陽の盾	スヴァリン
+ruby_kana_base	太陽の石	ピエドラ・デル・ソル
+ruby_kana_base	失墜する天空	フォールンダウン
+ruby_kana_base	失墜する天空	フォールン・ダウン
+ruby_kana_base	女帝の影武者	ブリンク・キャスリング
+ruby_kana_base	妖精の唇	フェアリーリップ
+ruby_kana_base	威光の主天使	ドミニオン・オーソリティー
+ruby_kana_base	完璧なる戦士	パーフェクト・ウォリアー
+ruby_kana_base	寝起きの穴熊	アオフヴァッヘンダクス
+ruby_kana_base	審判の扉	ドゥームズゲート
+ruby_kana_base	将軍の体	ジェネラル・ボディ
+ruby_kana_base	将軍の左	ジェネラル・レフト
+ruby_kana_base	将軍の盾	ジェネラル・シールド
+ruby_kana_base	小さき牙	スモール・ファング
+ruby_kana_base	小さな東の海	リトル・イーストブルー
+ruby_kana_base	山の民	サンカ
+ruby_kana_base	巨人の一撃	エル・ディレクト
+ruby_kana_base	巨人の右腕	ブラソ・デレチャ・デ・ヒガンテ
+ruby_kana_base	巨人の島	エルバフ
+ruby_kana_base	巨人の斧	ギガントアックス
+ruby_kana_base	巨人の斧	ギガント・アックス
+ruby_kana_base	巨人の銃	ギガント・ピストル
+ruby_kana_base	巨人の鞭	ギガント・ウィップ
+ruby_kana_base	巨人の風船	ギガントフーセン
+ruby_kana_base	巫水戯の聖域	ウーネデルミロスフィア
+ruby_kana_base	幻惑の界	グラマーワールド
+ruby_kana_base	弾む男	バウンドマン
+ruby_kana_base	影の悪魔	シャドウ・デーモン
+ruby_kana_base	影の領域	シャッテン・ベライヒ
+ruby_kana_base	律する小指の鎖	ジャッジメントチェーン
+ruby_kana_base	悪魔の左腕	ブラソ・イスキエルダ・デル・ディアブロ
+ruby_kana_base	揚げ物	フリット
+ruby_kana_base	星に願いを	ウィッシュ・アポン・ア・スター
+ruby_kana_base	星幽界の一撃	アストラル・スマイト
+ruby_kana_base	暗い宿	ホテル・ラフレシア
+ruby_kana_base	暴牛の刺突	ブル・スラスト
+ruby_kana_base	最上級挽き肉	エクストラアッシ
+ruby_kana_base	最果ての海	オケアノス
+ruby_kana_base	月の記憶	ルナ・メモリア
+ruby_kana_base	朱の新星	ヴァーミリオンノヴァ
+ruby_kana_base	朱の瞳	レッド・アイ
+ruby_kana_base	束縛する中指の鎖	チェーンジェイル
+ruby_kana_base	東の海	イーストブルー
+ruby_kana_base	極夜の神器	ヴードゥー・レガリア
+ruby_kana_base	極夜の聖域	ヴードゥー・シャングリラ
+ruby_kana_base	機械に巣食う棘	マシンイーター
+ruby_kana_base	歪んだ未来	ディストーションフューチャー
+ruby_kana_base	歴史の本文	ポーネグリフ
+ruby_kana_base	死の刀	ステルベン
+ruby_kana_base	死の星屑	デス・エンハンブレ
+ruby_kana_base	死の騎士	デス・キャバリエ
+ruby_kana_base	死体と遊ぶな子供達	リビングデッドドールズ
+ruby_kana_base	死者の炎	アンデッド・フレイム
+ruby_kana_base	毒の巨兵	ベノムデーモン
+ruby_kana_base	氷獄世界の懺悔室	ワールドエンド・チャーチ
+ruby_kana_base	氷獄世界の番人	ワールドエンド・マーター
+ruby_kana_base	波の部屋	グリーンルーム
+ruby_kana_base	流れ星の指輪	シューティングスター
+ruby_kana_base	海神戦乙女の羽衣鎧	ヴァルキリードレス
+ruby_kana_base	混沌の外衣	マント・オブ・カオス
+ruby_kana_base	湖の騎士	サー・ランスロット
+ruby_kana_base	滅亡の斧	グラン・カイーダ
+ruby_kana_base	漆黒の使徒	ダークディサイプル
+ruby_kana_base	漆黒の星	ブラックスター
+ruby_kana_base	火の鳥星	ファイアバードスター
+ruby_kana_base	火山の使者	プロメテウス
+ruby_kana_base	火炎獅子の掌	レオ・パルマ
+ruby_kana_base	炎の上位天使	アークエンジェルフレイム
+ruby_kana_base	無毀なる湖光	アロンダイト
+ruby_kana_base	無限の滑走	インフィナイト・スリック
+ruby_kana_base	無限城の開門	ゲヘナ・ゲーム
+ruby_kana_base	熊の衝撃	ウルススショック
+ruby_kana_base	熱をはらんだ氷の侵略	アンヴァズィオン
+ruby_kana_base	熱鉄の涙	イエロ・ラグリマ
+ruby_kana_base	爾縦視の瞳	リフレクト・アイリス
+ruby_kana_base	獅子如き心	ライオンズ・ハート
+ruby_kana_base	王の財宝	ゲート・オブ・バビロン
+ruby_kana_base	王の軍勢	アイオニオン・ヘタイロイ
+ruby_kana_base	王冠・叡智の光	ゴーレム・ケテルマルクト
+ruby_kana_base	王虚の閃光	グラン・レイ・セロ
+ruby_kana_base	生き残り合戦	サバイバルゲーム
+ruby_kana_base	生命の精髄	ライフ・エッセンス
+ruby_kana_base	生命拒否の繭	アンティライフ・コクーン
+ruby_kana_base	画面外の侵略者	デジタル・ラジアル・インヴェイダーズ
+ruby_kana_base	癒す親指の鎖	ホーリーチェーン
+ruby_kana_base	白い竜	ホワイト・ストローム
+ruby_kana_base	白い銃	ドーンピストル
+ruby_kana_base	白い風船	ドーンバルーン
+ruby_kana_base	白の賢人	ホワイトゴレイヌ
+ruby_kana_base	盃よ西方に傾け	イ・シェンク・ツァイヒ
+ruby_kana_base	盤上の無限兵団	エンドレス・ドミネーション
+ruby_kana_base	真の歴史の本文	リオ・ポーネグリフ
+ruby_kana_base	矢守りの障壁	ウォール・オブ・プロテクションフロムアローズ
+ruby_kana_base	石の世界	ストーンワールド
+ruby_kana_base	石の弩	ストロングボウ
+ruby_kana_base	石の砦	ロックフォートレス
+ruby_kana_base	砂漠の向日葵	デザート・ジラソーレ
+ruby_kana_base	砂漠の宝刀	デザート・スパーダ
+ruby_kana_base	硝子の剣	ヴェールエペ
+ruby_kana_base	硝子の花	ヴェールフルール
+ruby_kana_base	神の力	ポーニポラ
+ruby_kana_base	神の喇叭	トロンペーテ
+ruby_kana_base	神の御旗の下に	アンダー・ディヴァイン・フラグ
+ruby_kana_base	神の怯え	タタルフォラス
+ruby_kana_base	神の歩み	グリマニエル
+ruby_kana_base	神の死	アザルビオラ
+ruby_kana_base	神の裁き	ゴオン・リーラ・ディ・ディオ
+ruby_kana_base	神の雷霆	バルバリエル
+ruby_kana_base	神威の車輪	ゴルディアス・ホイール
+ruby_kana_base	突き上げる海流	ノックアップストリーム
+ruby_kana_base	窓を開く者	スクリーム
+ruby_kana_base	竜の力	ドラゴニック・パワー
+ruby_kana_base	約束された勝利の剣	エクスカリバー
+ruby_kana_base	紫の傘	ヴィオレット・シルム
+ruby_kana_base	終末の大蛇	ヨルムンガンド
+ruby_kana_base	終末の雨	キャンディシャワー
+ruby_kana_base	絶望の縦穴	シャタード・シャフト
+ruby_kana_base	翠の射槍	ランサドール・ヴェルデ
+ruby_kana_base	聖なる光線	ホーリーレイ
+ruby_kana_base	芝の女王	グラスコートクイーン
+ruby_kana_base	苦悶の環	クヴァール・クライス
+ruby_kana_base	英雄の槍	グングニル
+ruby_kana_base	英雄の生涯	アイン・ヘルデンレーベン
+ruby_kana_base	虜の矢	スレイブアロー
+ruby_kana_base	蛇の剣	ウィーペラグレイブ
+ruby_kana_base	蜘蛛の華	スパイダーネット
+ruby_kana_base	蠅の王	ベルゼブブ
+ruby_kana_base	襲う塵芥	アサルトダスト
+ruby_kana_base	西の海	ウエストブルー
+ruby_kana_base	解放の拳	ニカパンチ
+ruby_kana_base	豹王の爪	デスガロン
+ruby_kana_base	負の光線	レイ・オブ・ネガティブエナジー
+ruby_kana_base	賭け試合	ファイトクラブ
+ruby_kana_base	贈り物	ギフト
+ruby_kana_base	赤い土の大陸	レッドライン
+ruby_kana_base	赤い大陸	レッドライン
+ruby_kana_base	赤い港	レッドポート
+ruby_kana_base	赤面の人魚	ブラッシュマーメイド
+ruby_kana_base	連鎖する龍雷	チェイン・ドラゴン・ライトニング
+ruby_kana_base	遠隔視の鏡	ミラー・オブ・リモートビューイング
+ruby_kana_base	酸の矢	アシッド・ジャベリン
+ruby_kana_base	鉄の海賊	アイアンパイレーツ
+ruby_kana_base	銀の腕	アガートラーム
+ruby_kana_base	銀鞭下りて五手石床に堕つ	ツィエルトクリーク・フォン・キーツ・ハルト・フィエルト
+ruby_kana_base	銅泥の毒蜥蜴	セッケポイズンリザード
+ruby_kana_base	鋭き尻尾	レイザー・テール
+ruby_kana_base	闇の男爵	ナイトバロン
+ruby_kana_base	雷の破壊剣	トゥルエノバスタード
+ruby_kana_base	雷雲の罠	サンダー・トラップ
+ruby_kana_base	雷霆の槍	ランサ・デル・レランパーゴ
+ruby_kana_base	霧の雲	フォッグクラウド
+ruby_kana_base	青い鳥	ブルーバード
+ruby_kana_base	順わぬ指針	ユースレス・ノース
+ruby_kana_base	頭冠の悪魔	サークレット
+ruby_kana_base	骨の龍	スケリトルドラゴン
+ruby_kana_base	魂の喪剣	ソウルソリッド
+ruby_kana_base	魂への言葉	ソウルポーカス
+ruby_kana_base	魂への言葉	ソウル・ポーカス
+ruby_kana_base	魔力の神髄	マナ・エッセンス
+ruby_kana_base	魔力の精髄	マナ・エッセンス
+ruby_kana_base	魔法の天候棒	ソーサリー・クリマ・タクト
+ruby_kana_base	魔法の矢	マジック・アロー
+ruby_kana_base	魔法最強化助骨の束縛	マキシマイズマジック・ホールド・オブ・リブ
+ruby_kana_base	魔法詠唱者の祝福	ブレス・オブ・マジック・キャスター
+ruby_kana_base	黄色の斑	イエロー・スペクトル
+ruby_kana_base	黄金の業火	ゴオン・インフェルノ
+ruby_kana_base	黄金の神の火	ゴオン・フォーコ・ディ・ディオ
+ruby_kana_base	黒い蛇群	ブラックマンバ
+ruby_kana_base	黒い賢人	ブラックゴレイヌ
+ruby_kana_base	盛り合わせ	アソルティ
+ruby_kana_base	植物の絡みつき	トワインプラント
+ruby_kana_base	Ｄｒ．ＳＴＯＮＥ	ドクターストーン
+ruby_kana_base	神の不在証明	パーフェクトプラン
+ruby_kana_base	暗黒の鬼婦神	ブラックウィドウ
+ruby_kana_base	淋しい深海魚	ウインクブルー
+ruby_kana_base	薄っぺらな嘘	ドッキリテクスチャー
+ruby_kana_base	全て遠き理想郷	アヴァロン
+ruby_kana_base	禁じられた果実	ファーボーテン・オープスト
+ruby_kana_base	青銅の防護魔砲球	セッケマグナムキャノンボール
+ruby_kana_base	青銅の流星魔車輪	セッケシューティングスター
+ruby_kana_base	＋α	プラスアルファ
+ruby_kana_base	治癒の子守歌	ヒールララバイ
+ruby_kana_base	母なる子守唄	マザーララバイ
+ruby_kana_base	天使の羽ばたき	エンジェルフラッピング
+ruby_kana_base	玻璃の機動城塞	ルシャトー・ドゥ・ヴェーレ
+ruby_kana_base	禁じられた果実	ファーボーテン・オーブスト
+ruby_kana_base	心在らずの逆針	ウィルフル・コンパス
+ruby_kana_base	狂おしい羅針乱世界	アナザー・アトラス
+ruby_kana_base	天蓋よりの奏轟	イリアル・アストラウザ
+ruby_kana_base	漆黒の三極性	ダークトライアド
+ruby_kana_base	破面No.11	アランカル・ウンデシーモ
+ruby_kana_base	魂を切り裂くもの	ゼーレシュナイダー
+ruby_kana_base	宮廷薔薇園ノ美女王	レイーナ・デ・ロサス
+ruby_kana_base	魔人の一撃	ラ・ムエルテ
+ruby_kana_base	見えざる帝国	ヴァンデンライヒ
+ruby_kana_base	島の歌声	ラブ・ソング
+ruby_kana_base	ひとつなぎの大秘宝	ワンピース
+ruby_kana_base	おやつの時間	メリエンダ
+ruby_kana_base	月の獅子	スーロン
+ruby_kana_base	ＪＥＴ銃乱打	ジェットガトリング
+ruby_kana_base	血まみれの女神	ブラッディ・ヴィーナス
+ruby_kana_base	Ｗ杯	ワールドカップ
+ruby_kana_base	√５	ルートファイブ
+manga_word_readings	word	reading	families	trusted
+manga_word_readings	人生	じんせい	29	1
+manga_word_readings	人生	ひとせ	0	0
+manga_word_readings	人生	ひとなま	0	0
+manga_word_readings	人生	ひとは	0	0
+manga_word_readings	今後	いまご	0	0
+manga_word_readings	今後	こんご	26	1
+manga_word_readings	伏黒	ふしくろ	0	0
+manga_word_readings	伏黒	ふしぐろ	0	1
+manga_word_readings	似合う	にあう	23	1
+manga_word_readings	似合う	にあふ	1	0
+manga_word_readings	使用人	しようにん	21	1
+manga_word_readings	具合	ぐあい	23	1
+manga_word_readings	具合	ぐあひ	1	0
+manga_word_readings	具合	ぐわい	8	1
+manga_word_readings	冒険	けんをおかす	2	0
+manga_word_readings	冒険	ぼうけん	26	1
+manga_word_readings	処刑	けいにしょす	2	0
+manga_word_readings	処刑	しょけい	25	1
+manga_word_readings	処刑	しよけい	1	0
+manga_word_readings	午後	ごご	27	1
+manga_word_readings	午後	ひるご	1	0
+manga_word_readings	同然	どうぜん	28	1
+manga_word_readings	地獄	じごく	31	1
+manga_word_readings	地獄	ぢごく	6	0
+manga_word_readings	地獄	ぶりーちのじごく	0	1
+manga_word_readings	場合	ばあい	28	1
+manga_word_readings	場合	ばあひ	2	0
+manga_word_readings	場合	ばやい	4	1
+manga_word_readings	場合	ばやひ	1	0
+manga_word_readings	場合	ばわい	1	0
+manga_word_readings	場所	ばしょ	26	1
+manga_word_readings	場所	ばしよ	1	0
+manga_word_readings	場所	ばどころ	2	0
+manga_word_readings	夜通し	よどおし	23	1
+manga_word_readings	夜通し	よどほし	1	0
+manga_word_readings	大参謀	だいさんぼう	0	1
+manga_word_readings	女王	うぃっくどくいーん	0	1
+manga_word_readings	女王	じょうおう	8	1
+manga_word_readings	女王	じょおう	25	1
+manga_word_readings	女王	せるりあんのじょおう	0	1
+manga_word_readings	女王	ぢょうわう	1	0
+manga_word_readings	女王	ぢょわう	1	0
+manga_word_readings	女王	にょおう	7	1
+manga_word_readings	女王	にょわう	1	0
+manga_word_readings	女王	によわう	1	0
+manga_word_readings	女王	ひめおおきみ	1	0
+manga_word_readings	女王	ひめおほきみ	1	0
+manga_word_readings	女王	みーとぴあのじょおう	0	1
+manga_word_readings	女王	ようせいのさとのじょおう	0	1
+manga_word_readings	安心	あこ	0	0
+manga_word_readings	安心	あじみ	0	0
+manga_word_readings	安心	あんしん	32	1
+manga_word_readings	安心	あんじん	14	1
+manga_word_readings	少将	しょうしょう	21	1
+manga_word_readings	少将	せうしゃう	2	0
+manga_word_readings	少将	せうしやう	2	0
+manga_word_readings	希望	きばう	3	0
+manga_word_readings	希望	きぼう	30	1
+manga_word_readings	希望	きみ	0	0
+manga_word_readings	希望	きらり	0	0
+manga_word_readings	希望	けまう	1	0
+manga_word_readings	希望	けもう	2	0
+manga_word_readings	希望	なるみ	0	0
+manga_word_readings	希望	のぞみ	1	0
+manga_word_readings	希望	のぞむ	0	0
+manga_word_readings	希望	のの	0	0
+manga_word_readings	希望	ぽけもう	1	0
+manga_word_readings	希望	ゆめ	0	0
+manga_word_readings	帽子	えぬえいちけいひろしまほうそうきょくかいきょくはちじゅうねんどらま・ぼうし	0	1
+manga_word_readings	帽子	かーびぃのえあらいだーのぼうし	0	1
+manga_word_readings	帽子	ばうし	1	0
+manga_word_readings	帽子	ぼうし	27	1
+manga_word_readings	帽子	ぼうしまたはもうす	0	1
+manga_word_readings	帽子	ぼし	1	0
+manga_word_readings	帽子	もうす	5	1
+manga_word_readings	広場	こうじょう	1	0
+manga_word_readings	広場	ひろっぱ	1	0
+manga_word_readings	広場	ひろば	23	1
+manga_word_readings	必要	ひつえう	3	0
+manga_word_readings	必要	ひつじゅ	1	0
+manga_word_readings	必要	ひつよう	28	1
+manga_word_readings	想像	さうざう	3	0
+manga_word_readings	想像	そうぞう	31	1
+manga_word_readings	意外と	いがいと	2	1
+manga_word_readings	戸惑い	とまどい	17	1
+manga_word_readings	戸惑い	とまどひ	1	0
+manga_word_readings	所持	しょじ	26	1
+manga_word_readings	所持	しょぢ	1	0
+manga_word_readings	所持	しよじ	1	0
+manga_word_readings	所持	しよぢ	1	0
+manga_word_readings	所持	もつところ	1	0
+manga_word_readings	手伝	てちだい	1	0
+manga_word_readings	手伝	てちだひ	1	0
+manga_word_readings	手伝	てつだい	1	0
+manga_word_readings	手伝	てつだひ	1	0
+manga_word_readings	手加減	てかげん	22	1
+manga_word_readings	日番谷	ひつがや	0	1
+manga_word_readings	映像	えいざう	2	0
+manga_word_readings	映像	えいぞう	24	1
+manga_word_readings	最後の	さいごの	0	1
+manga_word_readings	最終話	さいしゅうわ	0	1
+manga_word_readings	月島	つきしま	4	1
+manga_word_readings	根源的	こんげんてき	6	1
+manga_word_readings	次第	しだい	37	1
+manga_word_readings	次第	ついで	1	0
+manga_word_readings	次第	つぎて	2	1
+manga_word_readings	次第だ	しだいだ	3	0
+manga_word_readings	水場	みずば	16	1
+manga_word_readings	水場	みづば	1	0
+manga_word_readings	海賊王	かいぞくおう	4	1
+manga_word_readings	無様	ぶざま	23	1
+manga_word_readings	獲物	えもの	22	1
+manga_word_readings	甘美	かんび	26	1
+manga_word_readings	甘美	かんみ	0	0
+manga_word_readings	百獣海賊団	ひゃくじゅうかいぞくだん	0	1
+manga_word_readings	空腹	あきばら	1	0
+manga_word_readings	空腹	からっぱら	1	0
+manga_word_readings	空腹	からはら	1	0
+manga_word_readings	空腹	くうふく	27	1
+manga_word_readings	空腹	くふく	1	0
+manga_word_readings	空腹	すきっぱら	1	0
+manga_word_readings	空腹	すきはら	3	0
+manga_word_readings	空腹	そらばら	4	1
+manga_word_readings	立場	たちば	24	1
+manga_word_readings	立場	たてば	12	1
+manga_word_readings	自由	しおり	0	0
+manga_word_readings	自由	じいう	2	0
+manga_word_readings	自由	じゆう	35	1
+manga_word_readings	自由	みゆ	0	0
+manga_word_readings	自由	よりよし	0	0
+manga_word_readings	自由な	じゆうな	0	1
+manga_word_readings	覚悟	かくご	33	1
+manga_word_readings	解毒剤	げどくざい	13	1
+manga_word_readings	議論	ぎろん	27	1
+manga_word_readings	貿易船	ぼうえきせん	2	1
+manga_word_readings	足場	あしば	22	1
+manga_word_readings	通信	つうしん	28	1
+manga_word_readings	通信	つうしんほうそうきこう	1	0
+manga_word_readings	通信	みちのぶ	0	0
+manga_word_readings	通報	つうはう	1	0
+manga_word_readings	通報	つうほう	24	1
+manga_word_readings	野心	のごころ	2	0
+manga_word_readings	野心	やしん	30	1
+manga_word_readings	野郎	やらう	1	0
+manga_word_readings	野郎	やろう	23	1
+manga_word_readings	鎮圧	ちんあつ	25	1
+manga_word_readings	闘魚	とうぎょ	18	1
+manga_word_readings	闘魚	どうゆう	0	1
+manga_word_readings	除外	じょがい	29	1
+manga_word_readings	除外	じょがいほうしゃせん	1	0
+manga_word_readings	除外	ぢょぐゎい	2	0
+manga_word_readings	除外	ぢよぐわい	1	0
+manga_word_readings	霊圧	れいあつ	0	1
+manga_word_readings	馬鹿	うましか	0	1
+manga_word_readings	馬鹿	ばか	32	1
+manga_word_readings	馬鹿	ばろく	1	0
+manga_word_readings	魚人	ぎょじん	0	1
+manga_word_readings	魚人島	ぎょじんとう	0	1
+manga_word_readings	鳥居	とりい	25	1
+manga_word_readings	鳥居	とりごい	0	0
+manga_word_readings	鳥居	とりゐ	1	0
+manga_fused_dictionary	kana	kanji	okuri	reading
+manga_fused_dictionary	ぁした	明日	ま	あした
+manga_fused_dictionary	ぁんこう	暗号	が	あんごう
+manga_fused_dictionary	ぁんしん	安心	だ	あんしん
+manga_fused_dictionary	あいちゃく	愛着	が	あいちゃく
+manga_fused_dictionary	あいて	相手	が	あいて
+manga_fused_dictionary	あいて	相手	し	あいて
+manga_fused_dictionary	あいて	相手	は	あいて
+manga_fused_dictionary	あいとう	愛刀	-	あいとう
+manga_fused_dictionary	あうらしんさんぺい	安浦晋三平	-	あうらしんさんぺい
+manga_fused_dictionary	あかかみ	赤髪	の	あかがみ
+manga_fused_dictionary	あかがみ	赤髪	の	あかがみ
+manga_fused_dictionary	あかがみかいぞくだん	赤髪海賊団	-	あかがみかいぞくだん
+manga_fused_dictionary	あくとう	悪党	の	あくとう
+manga_fused_dictionary	あくま	悪魔	の	あくま
+manga_fused_dictionary	あくむ	悪夢	だ	あくむ
+manga_fused_dictionary	あくりょうたいさん	悪霊退散	あ	あくりょうたいさん
+manga_fused_dictionary	あしさき	足先	の	あしさき
+manga_fused_dictionary	あしなが	足長	の	あしなが
+manga_fused_dictionary	あしわざ	足技	は	あしわざ
+manga_fused_dictionary	あとかた	跡形	も	あとかた
+manga_fused_dictionary	あとまわ	後回	し	あとまわ
+manga_fused_dictionary	あなた	貴女	の	あなた
+manga_fused_dictionary	あなた	貴方	が	あなた
+manga_fused_dictionary	あなた	貴男	-	あなた
+manga_fused_dictionary	あなたたち	貴方達	の	あなたたち
+manga_fused_dictionary	あにじゃ	兄者	-	あにじゃ
+manga_fused_dictionary	あねさま	姉様	-	あねさま
+manga_fused_dictionary	ありがと	有難	う	ありがと
+manga_fused_dictionary	あんうん	暗雲	が	あんうん
+manga_fused_dictionary	あんごう	暗号	で	あんごう
+manga_fused_dictionary	あんさつ	暗殺	を	あんさつ
+manga_fused_dictionary	あんしん	安心	す	あんしん
+manga_fused_dictionary	あんせい	安静	に	あんせい
+manga_fused_dictionary	あんぜん	安全	な	あんぜん
+manga_fused_dictionary	あんてい	安定	し	あんてい
+manga_fused_dictionary	ぃがい	意外	と	いがい
+manga_fused_dictionary	いおりうたひめ	庵歌姫	-	いおりうたひめ
+manga_fused_dictionary	いぐち	井口	も	いぐち
+manga_fused_dictionary	いしき	意識	ね	いしき
+manga_fused_dictionary	いしゃ	医者	-	いしゃ
+manga_fused_dictionary	いじき	意識	が	いしき
+manga_fused_dictionary	いじき	意識	に	いしき
+manga_fused_dictionary	いじき	意識	は	いしき
+manga_fused_dictionary	いじち	伊地知	さ	いじち
+manga_fused_dictionary	いじゃ	医者	な	いしゃ
+manga_fused_dictionary	いじょう	以上	の	いじょう
+manga_fused_dictionary	いぜん	以前	も	いぜん
+manga_fused_dictionary	いたい	偉大	な	いだい
+manga_fused_dictionary	いたどり	虎杖	-	いたどり
+manga_fused_dictionary	いたどり	虎杖	の	いたどり
+manga_fused_dictionary	いだい	偉大	な	いだい
+manga_fused_dictionary	いちげき	一撃	だ	いちげき
+manga_fused_dictionary	いちげき	一撃	で	いちげき
+manga_fused_dictionary	いちこ	一護	を	いちご
+manga_fused_dictionary	いちご	一護	-	いちご
+manga_fused_dictionary	いちご	一護	が	いちご
+manga_fused_dictionary	いちご	一護	さ	いちご
+manga_fused_dictionary	いちご	一護	っ	いちご
+manga_fused_dictionary	いちご	一護	の	いちご
+manga_fused_dictionary	いちそく	一族	-	いちぞく
+manga_fused_dictionary	いちと	一度	だ	いちど
+manga_fused_dictionary	いちど	一度	も	いちど
+manga_fused_dictionary	いちねん	一念	は	いちねん
+manga_fused_dictionary	いちばん	一番	お	いちばん
+manga_fused_dictionary	いちばん	一番	で	いちばん
+manga_fused_dictionary	いちばん	一番	に	いちばん
+manga_fused_dictionary	いちばん	一番	の	いちばん
+manga_fused_dictionary	いちまる	市丸	-	いちまる
+manga_fused_dictionary	いちみ	一味	か	いちみ
+manga_fused_dictionary	いちみ	一味	く	いちみ
+manga_fused_dictionary	いちみ	一味	を	いちみ
+manga_fused_dictionary	いちもんじ	一文字	-	いちもんじ
+manga_fused_dictionary	いちれっ	一列	に	いちれつ
+manga_fused_dictionary	いちろう	一郎	-	いちろう
+manga_fused_dictionary	いっかい	一回	の	いっかい
+manga_fused_dictionary	いっこう	一行	-	いっこう
+manga_fused_dictionary	いっしょ	一緒	か	いっしょ
+manga_fused_dictionary	いっしょ	一緒	だ	いっしょ
+manga_fused_dictionary	いっしょ	一緒	に	いっしょ
+manga_fused_dictionary	いったい	一体	-	いったい
+manga_fused_dictionary	いったい	一体	た	いったい
+manga_fused_dictionary	いったい	一体	っ	いったい
+manga_fused_dictionary	いったい	一体	ど	いったい
+manga_fused_dictionary	いっぱし	一端	の	いっぱし
+manga_fused_dictionary	いっぱっ	一発	っ	いっぱつ
+manga_fused_dictionary	いっぱっ	一発	で	いっぱつ
+manga_fused_dictionary	いっぱんじん	一般人	を	いっぱんじん
+manga_fused_dictionary	いっほう	一方	-	いっぽう
+manga_fused_dictionary	いどう	移動	す	いどう
+manga_fused_dictionary	いない	以内	か	いない
+manga_fused_dictionary	いのうえ	井上	-	いのうえ
+manga_fused_dictionary	いのうえ	井上	も	いのうえ
+manga_fused_dictionary	いのうえ	井上	を	いのうえ
+manga_fused_dictionary	いのうえおりひめ	井上織姫	-	いのうえおりひめ
+manga_fused_dictionary	いのうえおりひめ	井上織姫	は	いのうえおりひめ
+manga_fused_dictionary	いのちびろ	命拾	い	いのちびろ
+manga_fused_dictionary	いは	射場	さ	いば
+manga_fused_dictionary	いまさら	今更	-	いまさら
+manga_fused_dictionary	いまさら	今更	ま	いまさら
+manga_fused_dictionary	いりぐち	入口	も	いりぐち
+manga_fused_dictionary	いりぐち	入口	よ	いりぐち
+manga_fused_dictionary	いろいろ	色々	-	いろいろ
+manga_fused_dictionary	いろいろ	色々	あ	いろいろ
+manga_fused_dictionary	いんえい	陰影	が	いんえい
+manga_fused_dictionary	いんけん	陰険	な	いんけん
+manga_fused_dictionary	いんそっ	引率	で	いんそつ
+manga_fused_dictionary	ういこおり	宇井郡	-	ういこおり
+manga_fused_dictionary	うきたけ	浮竹	-	うきたけ
+manga_fused_dictionary	うきたけ	浮竹	さ	うきたけ
+manga_fused_dictionary	うたこえ	歌声	-	うたごえ
+manga_fused_dictionary	うちがわ	内側	か	うちがわ
+manga_fused_dictionary	うでしまん	腕自慢	で	うでじまん
+manga_fused_dictionary	うま	上手	い	うま
+manga_fused_dictionary	うらはらきすけ	浦原喜助	-	うらはらきすけ
+manga_fused_dictionary	うわまわ	上回	る	うわまわ
+manga_fused_dictionary	うんめい	運命	が	うんめい
+manga_fused_dictionary	うんめい	運命	を	うんめい
+manga_fused_dictionary	ぇいぞう	映像	が	えいぞう
+manga_fused_dictionary	ぇもの	獲物	を	えもの
+manga_fused_dictionary	えんぐん	援軍	を	えんぐん
+manga_fused_dictionary	おいらん	花魁	に	おいらん
+manga_fused_dictionary	おうえん	応援	は	おうえん
+manga_fused_dictionary	おうきゅう	王宮	-	おうきゅう
+manga_fused_dictionary	おうごん	黄金	を	おうごん
+manga_fused_dictionary	おうごんきょう	黄金郷	は	おうごんきょう
+manga_fused_dictionary	おうさま	王様	は	おうさま
+manga_fused_dictionary	おうし	王子	-	おうじ
+manga_fused_dictionary	おうじょ	王女	-	おうじょ
+manga_fused_dictionary	おうじょ	王女	な	おうじょ
+manga_fused_dictionary	おうせん	応戦	し	おうせん
+manga_fused_dictionary	おうぞく	王族	の	おうぞく
+manga_fused_dictionary	おおはし	大橋	ま	おおはし
+manga_fused_dictionary	おきなわ	沖縄	に	おきなわ
+manga_fused_dictionary	おくじょう	屋上	か	おくじょう
+manga_fused_dictionary	おだえいいちろう	尾田栄一郎	-	おだえいいちろう
+manga_fused_dictionary	おっこっ	乙骨	-	おっこつ
+manga_fused_dictionary	おてん	汚点	は	おてん
+manga_fused_dictionary	おとな	大人	げ	おとな
+manga_fused_dictionary	おとな	大人	し	おとな
+manga_fused_dictionary	おにほあんかん	鬼保安官	-	おにほあんかん
+manga_fused_dictionary	おもしろ	面白	い	おもしろ
+manga_fused_dictionary	おもしろ	面白	く	おもしろ
+manga_fused_dictionary	おもしろ	面白	み	おもしろ
+manga_fused_dictionary	おやじ	親父	に	おやじ
+manga_fused_dictionary	おやぶん	親分	や	おやぶん
+manga_fused_dictionary	おやぶん	親分	よ	おやぶん
+manga_fused_dictionary	おりひめ	織姫	-	おりひめ
+manga_fused_dictionary	おりひめ	織姫	ち	おりひめ
+manga_fused_dictionary	おりひめ	織姫	の	おりひめ
+manga_fused_dictionary	おりひめ	織姫	も	おりひめ
+manga_fused_dictionary	おれさま	俺様	が	おれさま
+manga_fused_dictionary	おれさま	俺様	の	おれさま
+manga_fused_dictionary	おれたち	俺達	が	おれたち
+manga_fused_dictionary	おれたち	俺達	で	おれたち
+manga_fused_dictionary	おれたち	俺達	の	おれたち
+manga_fused_dictionary	おれたち	俺達	は	おれたち
+manga_fused_dictionary	おれたち	俺達	を	おれたち
+manga_fused_dictionary	おんがえ	恩返	し	おんがえ
+manga_fused_dictionary	おんがく	音楽	-	おんがく
+manga_fused_dictionary	おんじん	恩人	で	おんじん
+manga_fused_dictionary	おんせい	音声	は	おんせい
+manga_fused_dictionary	かあさま	母様	を	かあさま
+manga_fused_dictionary	かいくん	海軍	の	かいぐん
+manga_fused_dictionary	かいぐん	海軍	か	かいぐん
+manga_fused_dictionary	かいこく	開国	-	かいこく
+manga_fused_dictionary	かいじょ	解除	す	かいじょ
+manga_fused_dictionary	かいじょう	解錠	-	かいじょう
+manga_fused_dictionary	かいじん	灰燼	と	かいじん
+manga_fused_dictionary	かいすい	海水	-	かいすい
+manga_fused_dictionary	かいせん	開戦	だ	かいせん
+manga_fused_dictionary	かいそく	海賊	が	かいぞく
+manga_fused_dictionary	かいぞく	海賊	-	かいぞく
+manga_fused_dictionary	かいぞく	海賊	だ	かいぞく
+manga_fused_dictionary	かいぞく	海賊	な	かいぞく
+manga_fused_dictionary	かいぞく	海賊	に	かいぞく
+manga_fused_dictionary	かいぞく	海賊	の	かいぞく
+manga_fused_dictionary	かいぞく	海賊	や	かいぞく
+manga_fused_dictionary	かいぞくぉう	海賊王	-	かいぞくおう
+manga_fused_dictionary	かいぞくおう	海賊王	じ	かいぞくおう
+manga_fused_dictionary	かいぞくおう	海賊王	に	かいぞくおう
+manga_fused_dictionary	かいぞくじょてい	海賊女帝	-	かいぞくじょてい
+manga_fused_dictionary	かいぞくじょてい	海賊女帝	に	かいぞくじょてい
+manga_fused_dictionary	かいぞくせん	海賊船	-	かいぞくせん
+manga_fused_dictionary	かいぞくせん	海賊船	の	かいぞくせん
+manga_fused_dictionary	かいぞくだん	海賊団	-	かいぞくだん
+manga_fused_dictionary	かいぞくだん	海賊団	が	かいぞくだん
+manga_fused_dictionary	かいぞくだん	海賊団	の	かいぞくだん
+manga_fused_dictionary	かいぞくだん	海賊団	は	かいぞくだん
+manga_fused_dictionary	かいぞくどうめい	海賊同盟	-	かいぞくどうめい
+manga_fused_dictionary	かいだん	階段	が	かいだん
+manga_fused_dictionary	かいだん	階段	だ	かいだん
+manga_fused_dictionary	かいてい	海底	の	かいてい
+manga_fused_dictionary	かいてき	会敵	-	かいてき
+manga_fused_dictionary	かいてき	快適	-	かいてき
+manga_fused_dictionary	かいてん	廻転	し	かいてん
+manga_fused_dictionary	かいぶっ	怪物	-	かいぶつ
+manga_fused_dictionary	かいほう	解放	-	かいほう
+manga_fused_dictionary	かいほう	解放	さ	かいほう
+manga_fused_dictionary	かいもん	開門	-	かいもん
+manga_fused_dictionary	かいりゅう	海流	よ	かいりゅう
+manga_fused_dictionary	かおいろ	顔色	が	かおいろ
+manga_fused_dictionary	かくこ	覚悟	し	かくご
+manga_fused_dictionary	かくしん	確信	し	かくしん
+manga_fused_dictionary	かくじっ	確実	に	かくじつ
+manga_fused_dictionary	かくにん	確認	-	かくにん
+manga_fused_dictionary	かくにん	確認	を	かくにん
+manga_fused_dictionary	かくめいか	革命家	-	かくめいか
+manga_fused_dictionary	かご	加護	を	かご
+manga_fused_dictionary	かじ	火事	が	かじ
+manga_fused_dictionary	かじ	火事	に	かじ
+manga_fused_dictionary	かたいなか	片田舎	で	かたいなか
+manga_fused_dictionary	かち	価値	や	かち
+manga_fused_dictionary	かっこう	学校	を	がっこう
+manga_fused_dictionary	かって	勝手	な	かって
+manga_fused_dictionary	かって	勝手	に	かって
+manga_fused_dictionary	かって	勝手	や	かって
+manga_fused_dictionary	かっぱっ	活発	に	かっぱつ
+manga_fused_dictionary	かのじょ	彼女	に	かのじょ
+manga_fused_dictionary	かのじょ	彼女	の	かのじょ
+manga_fused_dictionary	かみさま	神様	-	かみさま
+manga_fused_dictionary	かみしろまたさが	神代叉栄	-	かみしろまたさか
+manga_fused_dictionary	かめん	仮面	の	かめん
+manga_fused_dictionary	からくらちょう	空座町	を	からくらちょう
+manga_fused_dictionary	からて	空手	-	からて
+manga_fused_dictionary	かるがる	軽々	し	かるがる
+manga_fused_dictionary	かわい	可愛	ら	かわい
+manga_fused_dictionary	かわた	河田	-	かわた
+manga_fused_dictionary	かわまつ	河松	-	かわまつ
+manga_fused_dictionary	かわら	河原	で	かわら
+manga_fused_dictionary	かんけい	関係	な	かんけい
+manga_fused_dictionary	かんけい	関係	ね	かんけい
+manga_fused_dictionary	かんしゃく	癇癪	に	かんしゃく
+manga_fused_dictionary	かんじょう	感情	は	かんじょう
+manga_fused_dictionary	かんぜん	完全	に	かんぜん
+manga_fused_dictionary	かんたん	簡単	に	かんたん
+manga_fused_dictionary	かんねん	観念	し	かんねん
+manga_fused_dictionary	かんねん	観念	せ	かんねん
+manga_fused_dictionary	かんぱい	乾杯	す	かんぱい
+manga_fused_dictionary	かんひ	甘美	-	かんび
+manga_fused_dictionary	かんべん	勘弁	し	かんべん
+manga_fused_dictionary	がいくん	海軍	を	かいぐん
+manga_fused_dictionary	がいけん	外見	は	がいけん
+manga_fused_dictionary	がいじょう	海上	-	かいじょう
+manga_fused_dictionary	がいぞくおう	海賊王	-	かいぞくおう
+manga_fused_dictionary	がおだ	顔出	し	かおだ
+manga_fused_dictionary	がたな	形無	し	かたな
+manga_fused_dictionary	がっこう	学校	だ	がっこう
+manga_fused_dictionary	がまん	我慢	し	がまん
+manga_fused_dictionary	きおく	記憶	が	きおく
+manga_fused_dictionary	きけん	危険	な	きけん
+manga_fused_dictionary	きさま	貴様	-	きさま
+manga_fused_dictionary	きさま	貴様	で	きさま
+manga_fused_dictionary	きさま	貴様	と	きさま
+manga_fused_dictionary	きさま	貴様	は	きさま
+manga_fused_dictionary	きさま	貴様	ら	きさま
+manga_fused_dictionary	きさま	貴様	を	きさま
+manga_fused_dictionary	きのう	昨日	の	きのう
+manga_fused_dictionary	きほう	希望	な	きぼう
+manga_fused_dictionary	きぼう	希望	が	きぼう
+manga_fused_dictionary	きぼう	希望	を	きぼう
+manga_fused_dictionary	きみ	気味	が	きみ
+manga_fused_dictionary	きみたち	君達	-	きみたち
+manga_fused_dictionary	きみたち	君達	が	きみたち
+manga_fused_dictionary	きみたち	君達	の	きみたち
+manga_fused_dictionary	きょう	今日	-	きょう
+manga_fused_dictionary	きょう	今日	か	きょう
+manga_fused_dictionary	きょう	今日	だ	きょう
+manga_fused_dictionary	きょう	今日	で	きょう
+manga_fused_dictionary	きょう	今日	の	きょう
+manga_fused_dictionary	きょう	今日	は	きょう
+manga_fused_dictionary	きょう	今日	ま	きょう
+manga_fused_dictionary	きょう	今日	も	きょう
+manga_fused_dictionary	きょうだい	兄弟	-	きょうだい
+manga_fused_dictionary	きょうりょく	協力	を	きょうりょく
+manga_fused_dictionary	きょくげい	曲芸	-	きょくげい
+manga_fused_dictionary	きょじん	巨人	-	きょじん
+manga_fused_dictionary	きょじん	魚人	と	ぎょじん
+manga_fused_dictionary	きょじんとう	魚人島	-	ぎょじんとう
+manga_fused_dictionary	きょたい	巨体	で	きょたい
+manga_fused_dictionary	きょだい	巨大	な	きょだい
+manga_fused_dictionary	きょり	距離	も	きょり
+manga_fused_dictionary	きょり	距離	を	きょり
+manga_fused_dictionary	きりしま	霧嶋	-	きりしま
+manga_fused_dictionary	きろん	議論	す	ぎろん
+manga_fused_dictionary	きんし	禁止	だ	きんし
+manga_fused_dictionary	きんぱつ	金髪	は	きんぱつ
+manga_fused_dictionary	ぎゃくゆにゅう	逆輸入	み	ぎゃくゆにゅう
+manga_fused_dictionary	ぎょじん	魚人	-	ぎょじん
+manga_fused_dictionary	ぎょじん	魚人	っ	ぎょじん
+manga_fused_dictionary	ぎょじん	魚人	は	ぎょじん
+manga_fused_dictionary	ぎょるい	魚類	-	ぎょるい
+manga_fused_dictionary	くぅふく	空腹	に	くうふく
+manga_fused_dictionary	くうきょ	空虚	な	くうきょ
+manga_fused_dictionary	くさかべあつや	日下部篤也	-	くさかべあつや
+manga_fused_dictionary	くちと	口止	め	くちど
+manga_fused_dictionary	くれぐれ	呉々	も	くれぐれ
+manga_fused_dictionary	くろう	苦労	し	くろう
+manga_fused_dictionary	くろさき	黒崎	-	くろさき
+manga_fused_dictionary	くろさき	黒崎	か	くろさき
+manga_fused_dictionary	くろさき	黒崎	く	くろさき
+manga_fused_dictionary	くろさきいちご	黒崎一護	-	くろさきいちご
+manga_fused_dictionary	くろさきいっしん	黒崎一心	-	くろさきいっしん
+manga_fused_dictionary	くろまく	黒幕	っ	くろまく
+manga_fused_dictionary	ぐぁい	具合	は	ぐあい
+manga_fused_dictionary	ぐしゃ	愚者	で	ぐしゃ
+manga_fused_dictionary	ぐれっ	愚劣	だ	ぐれつ
+manga_fused_dictionary	ぐんかん	軍艦	-	ぐんかん
+manga_fused_dictionary	ぐんかん	軍艦	か	ぐんかん
+manga_fused_dictionary	ぐんかん	軍艦	が	ぐんかん
+manga_fused_dictionary	けっこう	結構	だ	けっこう
+manga_fused_dictionary	けっこう	結構	で	けっこう
+manga_fused_dictionary	けっこん	結婚	く	けっこん
+manga_fused_dictionary	けっこん	結婚	し	けっこん
+manga_fused_dictionary	けっこん	結婚	は	けっこん
+manga_fused_dictionary	けっこん	血痕	と	けっこん
+manga_fused_dictionary	けっせん	決戦	の	けっせん
+manga_fused_dictionary	けってい	決定	-	けってい
+manga_fused_dictionary	けっぱく	潔白	さ	けっぱく
+manga_fused_dictionary	けっれっ	決裂	し	けつれつ
+manga_fused_dictionary	けどくさい	解毒剤	-	げどくざい
+manga_fused_dictionary	けはい	気配	は	けはい
+manga_fused_dictionary	けんきゅうざいりょう	研究材料	の	けんきゅうざいりょう
+manga_fused_dictionary	けんしょうきん	懸賞金	-	けんしょうきん
+manga_fused_dictionary	けんとう	健闘	を	けんとう
+manga_fused_dictionary	けんどうし	剣闘士	の	けんとうし
+manga_fused_dictionary	けんぱち	剣八	-	けんぱち
+manga_fused_dictionary	げきは	撃破	-	げきは
+manga_fused_dictionary	げんかい	限界	か	げんかい
+manga_fused_dictionary	げんかい	限界	が	げんかい
+manga_fused_dictionary	げんかく	幻覚	か	げんかく
+manga_fused_dictionary	げんかん	玄関	ぃ	げんかん
+manga_fused_dictionary	げんき	元気	そ	げんき
+manga_fused_dictionary	げんきょう	元凶	に	げんきょう
+manga_fused_dictionary	げんこっ	拳骨	で	げんこつ
+manga_fused_dictionary	げんざい	現在	-	げんざい
+manga_fused_dictionary	げんざいち	現在地	-	げんざいち
+manga_fused_dictionary	げんすい	元帥	-	げんすい
+manga_fused_dictionary	げんそうてき	幻想的	-	げんそうてき
+manga_fused_dictionary	こうかい	後悔	な	こうかい
+manga_fused_dictionary	こうかっ	狡猾	で	こうかつ
+manga_fused_dictionary	こうかんじょうけん	交換条件	を	こうかんじょうけん
+manga_fused_dictionary	こうけいじゃ	後継者	と	こうけいしゃ
+manga_fused_dictionary	こうげき	攻撃	-	こうげき
+manga_fused_dictionary	こうげき	攻撃	し	こうげき
+manga_fused_dictionary	こうげき	攻撃	は	こうげき
+manga_fused_dictionary	こうしゃ	校舎	の	こうしゃ
+manga_fused_dictionary	こうじょう	工場	だ	こうじょう
+manga_fused_dictionary	こうじょう	工場	の	こうじょう
+manga_fused_dictionary	こうせん	高専	に	こうせん
+manga_fused_dictionary	こうそく	高速	で	こうそく
+manga_fused_dictionary	こうちゃ	紅茶	だ	こうちゃ
+manga_fused_dictionary	こうっこう	好都合	し	こうつごう
+manga_fused_dictionary	こうつき	光月	-	こうづき
+manga_fused_dictionary	こうとう	行動	-	こうどう
+manga_fused_dictionary	こうもん	拷問	は	ごうもん
+manga_fused_dictionary	こうやく	口約	を	こうやく
+manga_fused_dictionary	こうりゅうかい	交流会	-	こうりゅうかい
+manga_fused_dictionary	こくおう	国王	-	こくおう
+manga_fused_dictionary	こくおう	国王	に	こくおう
+manga_fused_dictionary	ここ	午後	で	ごご
+manga_fused_dictionary	ここ	此処	で	ここ
+manga_fused_dictionary	こじんてき	個人的	に	こじんてき
+manga_fused_dictionary	こそう	小僧	-	こぞう
+manga_fused_dictionary	こそう	小僧	か	こぞう
+manga_fused_dictionary	こそう	小僧	に	こぞう
+manga_fused_dictionary	こっけい	滑稽	-	こっけい
+manga_fused_dictionary	ことは	言葉	ね	ことば
+manga_fused_dictionary	ことは	言葉	を	ことば
+manga_fused_dictionary	ことばっか	言葉使	い	ことばづか
+manga_fused_dictionary	ことも	子供	だ	こども
+manga_fused_dictionary	ことも	子供	と	こども
+manga_fused_dictionary	ことも	子供	の	こども
+manga_fused_dictionary	ことも	子供	よ	こども
+manga_fused_dictionary	ことも	子供	を	こども
+manga_fused_dictionary	こともたち	子供達	は	こどもたち
+manga_fused_dictionary	こなこな	粉々	に	こなこな
+manga_fused_dictionary	こまむら	狛村	-	こまむら
+manga_fused_dictionary	こまむら	狛村	た	こまむら
+manga_fused_dictionary	こんかい	今回	は	こんかい
+manga_fused_dictionary	こんけんてき	根源的	な	こんげんてき
+manga_fused_dictionary	こんこ	今後	の	こんご
+manga_fused_dictionary	こんと	今度	-	こんど
+manga_fused_dictionary	こんと	今度	は	こんど
+manga_fused_dictionary	こんぼん	根本	を	こんぼん
+manga_fused_dictionary	こんや	今夜	-	こんや
+manga_fused_dictionary	ごうかく	合格	だ	ごうかく
+manga_fused_dictionary	ごうかく	合格	や	ごうかく
+manga_fused_dictionary	ごうごう	轟々	と	ごうごう
+manga_fused_dictionary	ごえい	護衛	が	ごえい
+manga_fused_dictionary	ごえい	護衛	も	ごえい
+manga_fused_dictionary	ごめん	御免	だ	ごめん
+manga_fused_dictionary	ごろう	五郎	-	ごろう
+manga_fused_dictionary	ごろう	五郎	っ	ごろう
+manga_fused_dictionary	さいきょう	最強	の	さいきょう
+manga_fused_dictionary	さいこ	最後	の	さいご
+manga_fused_dictionary	さいこう	最高	じ	さいこう
+manga_fused_dictionary	さいご	最後	ま	さいご
+manga_fused_dictionary	さいしゅうゎ	最終話	-	さいしゅうわ
+manga_fused_dictionary	さいしょ	最初	で	さいしょ
+manga_fused_dictionary	さいしょ	最初	に	さいしょ
+manga_fused_dictionary	さいじゅうよう	最重要	さ	さいじゅうよう
+manga_fused_dictionary	さいてい	最低	だ	さいてい
+manga_fused_dictionary	さいてい	最低	で	さいてい
+manga_fused_dictionary	さいてい	最低	の	さいてい
+manga_fused_dictionary	さいのう	才能	は	さいのう
+manga_fused_dictionary	さつい	殺意	の	さつい
+manga_fused_dictionary	さまざま	様々	-	さまざま
+manga_fused_dictionary	さらあら	皿洗	い	さらあら
+manga_fused_dictionary	さんけっ	斬月	な	ざんげつ
+manga_fused_dictionary	さんこうにん	参考人	と	さんこうにん
+manga_fused_dictionary	さんとうりゅう	三刀流	-	さんとうりゅう
+manga_fused_dictionary	さんねん	残念	で	ざんねん
+manga_fused_dictionary	ざいほう	財宝	-	ざいほう
+manga_fused_dictionary	ざいりょう	材料	だ	ざいりょう
+manga_fused_dictionary	ざつよう	雑用	-	ざつよう
+manga_fused_dictionary	ざれごと	戯言	だ	ざれごと
+manga_fused_dictionary	ざんねん	残念	だ	ざんねん
+manga_fused_dictionary	しか	仕掛	け	しか
+manga_fused_dictionary	しかい	視界	か	しかい
+manga_fused_dictionary	しかく	死角	じ	しかく
+manga_fused_dictionary	しかく	自覚	し	じかく
+manga_fused_dictionary	しかた	仕方	ね	しかた
+manga_fused_dictionary	しかたな	仕方無	く	しかたな
+manga_fused_dictionary	しかん	時間	が	じかん
+manga_fused_dictionary	しかん	時間	は	じかん
+manga_fused_dictionary	しかん	時間	も	じかん
+manga_fused_dictionary	しきがみ	式神	と	しきがみ
+manga_fused_dictionary	しけい	死刑	っ	しけい
+manga_fused_dictionary	しけい	死刑	で	しけい
+manga_fused_dictionary	しけん	事件	じ	じけん
+manga_fused_dictionary	しこく	地獄	を	じごく
+manga_fused_dictionary	しこと	仕事	だ	しごと
+manga_fused_dictionary	しこと	仕事	に	しごと
+manga_fused_dictionary	しこと	仕事	の	しごと
+manga_fused_dictionary	しこと	仕事	を	しごと
+manga_fused_dictionary	しごと	仕事	は	しごと
+manga_fused_dictionary	ししょう	師匠	-	ししょう
+manga_fused_dictionary	しじ	指示	を	しじ
+manga_fused_dictionary	したい	事態	だ	じたい
+manga_fused_dictionary	したい	事態	で	じたい
+manga_fused_dictionary	したい	事態	を	じたい
+manga_fused_dictionary	したい	次第	だ	しだい
+manga_fused_dictionary	したい	死体	で	したい
+manga_fused_dictionary	しっかく	失格	-	しっかく
+manga_fused_dictionary	しっけい	失敬	だ	しっけい
+manga_fused_dictionary	しっこう	執行	す	しっこう
+manga_fused_dictionary	しっと	嫉妬	-	しっと
+manga_fused_dictionary	しっと	嫉妬	し	しっと
+manga_fused_dictionary	しっない	室内	だ	しつない
+manga_fused_dictionary	しっぱい	失敗	し	しっぱい
+manga_fused_dictionary	しっぱい	失敗	だ	しっぱい
+manga_fused_dictionary	しっぱい	失敗	っ	しっぱい
+manga_fused_dictionary	しっもん	質問	す	しつもん
+manga_fused_dictionary	しっもん	質問	だ	しつもん
+manga_fused_dictionary	しっもん	質問	み	しつもん
+manga_fused_dictionary	しっれい	失礼	-	しつれい
+manga_fused_dictionary	しっれい	失礼	し	しつれい
+manga_fused_dictionary	しにがみ	死神	-	しにがみ
+manga_fused_dictionary	しにがみ	死神	か	しにがみ
+manga_fused_dictionary	しにがみ	死神	が	しにがみ
+manga_fused_dictionary	しにがみ	死神	た	しにがみ
+manga_fused_dictionary	しにがみ	死神	と	しにがみ
+manga_fused_dictionary	しにがみ	死神	に	しにがみ
+manga_fused_dictionary	しにがみ	死神	を	しにがみ
+manga_fused_dictionary	しにん	視認	で	しにん
+manga_fused_dictionary	しのはら	篠原	さ	しのはら
+manga_fused_dictionary	しのはら	篠原	な	しのはら
+manga_fused_dictionary	しはい	支配	す	しはい
+manga_fused_dictionary	しぶやじへん	渋谷事変	-	しぶやじへん
+manga_fused_dictionary	しぶやじへん	渋谷事変	の	しぶやじへん
+manga_fused_dictionary	しゃこう	社交	に	しゃこう
+manga_fused_dictionary	しゅうかん	週間	-	しゅうかん
+manga_fused_dictionary	しゅうこう	集合	し	しゅうごう
+manga_fused_dictionary	しゅうちょう	酋長	-	しゅうちょう
+manga_fused_dictionary	しゅじん	主人	だ	しゅじん
+manga_fused_dictionary	しゅだいか	主題歌	-	しゅだいか
+manga_fused_dictionary	しゅだん	手段	は	しゅだん
+manga_fused_dictionary	しゅっこう	出航	し	しゅっこう
+manga_fused_dictionary	しゅっぱつ	出発	-	しゅっぱつ
+manga_fused_dictionary	しゅひん	主賓	が	しゅひん
+manga_fused_dictionary	しゅび	首尾	は	しゅび
+manga_fused_dictionary	しゅんさつ	瞬殺	で	しゅんさつ
+manga_fused_dictionary	しゅんすい	春水	さ	しゅんすい
+manga_fused_dictionary	しょうぐん	将軍	-	しょうぐん
+manga_fused_dictionary	しょうしん	昇進	-	しょうしん
+manga_fused_dictionary	しょうじき	正直	だ	しょうじき
+manga_fused_dictionary	しょうじょう	症状	は	しょうじょう
+manga_fused_dictionary	しょうせい	将星	-	しょうせい
+manga_fused_dictionary	しょうにん	使用人	-	しようにん
+manga_fused_dictionary	しょおう	女王	-	じょおう
+manga_fused_dictionary	しょきか	初期化	で	しょきか
+manga_fused_dictionary	しょけい	処刑	が	しょけい
+manga_fused_dictionary	しょし	庶子	の	しょし
+manga_fused_dictionary	しょじ	所持	し	しょじ
+manga_fused_dictionary	しょとう	諸島	-	しょとう
+manga_fused_dictionary	しようしょう	少将	-	しょうしょう
+manga_fused_dictionary	しよかい	除外	し	じょがい
+manga_fused_dictionary	しよけい	処刑	よ	しょけい
+manga_fused_dictionary	しよし	所持	-	しょじ
+manga_fused_dictionary	しれい	指令	だ	しれい
+manga_fused_dictionary	しれい	指令	で	しれい
+manga_fused_dictionary	しろうと	素人	め	しろうと
+manga_fused_dictionary	しわざ	仕業	だ	しわざ
+manga_fused_dictionary	しんい	新入	り	しんい
+manga_fused_dictionary	しんかい	深海	へ	しんかい
+manga_fused_dictionary	しんがっき	新学期	が	しんがっき
+manga_fused_dictionary	しんけい	神経	を	しんけい
+manga_fused_dictionary	しんせい	人生	の	じんせい
+manga_fused_dictionary	しんせい	神聖	な	しんせい
+manga_fused_dictionary	しんせん	新鮮	だ	しんせん
+manga_fused_dictionary	しんそう	心臓	よ	しんぞう
+manga_fused_dictionary	しんどう	震動	が	しんどう
+manga_fused_dictionary	しんどう	震動	だ	しんどう
+manga_fused_dictionary	しんにゅう	侵入	は	しんにゅう
+manga_fused_dictionary	しんねん	信念	-	しんねん
+manga_fused_dictionary	しんばい	心配	で	しんぱい
+manga_fused_dictionary	しんばい	心配	な	しんぱい
+manga_fused_dictionary	しんばい	心配	ね	しんぱい
+manga_fused_dictionary	しんぱい	心配	し	しんぱい
+manga_fused_dictionary	しんぱい	心配	で	しんぱい
+manga_fused_dictionary	しんぶん	新聞	で	しんぶん
+manga_fused_dictionary	しんぶん	新聞	を	しんぶん
+manga_fused_dictionary	しんほう	辛抱	を	しんぼう
+manga_fused_dictionary	しんぼう	辛抱	を	しんぼう
+manga_fused_dictionary	しんゆう	親友	だ	しんゆう
+manga_fused_dictionary	しんらい	信頼	-	しんらい
+manga_fused_dictionary	じかん	時間	が	じかん
+manga_fused_dictionary	じかん	時間	で	じかん
+manga_fused_dictionary	じかん	時間	を	じかん
+manga_fused_dictionary	じき	時期	じ	じき
+manga_fused_dictionary	じけん	事件	-	じけん
+manga_fused_dictionary	じけん	事件	っ	じけん
+manga_fused_dictionary	じけん	事件	に	じけん
+manga_fused_dictionary	じけん	事件	を	じけん
+manga_fused_dictionary	じこ	事故	の	じこ
+manga_fused_dictionary	じこく	地獄	だ	じごく
+manga_fused_dictionary	じこく	地獄	の	じごく
+manga_fused_dictionary	じじっ	事実	は	じじつ
+manga_fused_dictionary	じたい	事態	が	じたい
+manga_fused_dictionary	じたい	事態	だ	じたい
+manga_fused_dictionary	じだい	時代	へ	じだい
+manga_fused_dictionary	じったい	実体	に	じったい
+manga_fused_dictionary	じつりょくしゃ	実力者	を	じつりょくしゃ
+manga_fused_dictionary	じてん	時点	で	じてん
+manga_fused_dictionary	じぶん	自分	が	じぶん
+manga_fused_dictionary	じぶん	自分	で	じぶん
+manga_fused_dictionary	じぶん	自分	の	じぶん
+manga_fused_dictionary	じめん	地面	が	じめん
+manga_fused_dictionary	じめん	地面	に	じめん
+manga_fused_dictionary	じゃくてん	弱点	に	じゃくてん
+manga_fused_dictionary	じゃま	邪魔	が	じゃま
+manga_fused_dictionary	じゃま	邪魔	す	じゃま
+manga_fused_dictionary	じゃま	邪魔	だ	じゃま
+manga_fused_dictionary	じゃま	邪魔	も	じゃま
+manga_fused_dictionary	じゃま	邪魔	を	じゃま
+manga_fused_dictionary	じゅう	自由	-	じゆう
+manga_fused_dictionary	じゅう	自由	な	じゆう
+manga_fused_dictionary	じゅう	自由	は	じゆう
+manga_fused_dictionary	じゅうぶん	充分	だ	じゅうぶん
+manga_fused_dictionary	じゅぐ	呪具	は	じゅぐ
+manga_fused_dictionary	じゅじゅっこうせん	呪術高専	-	じゅじゅつこうせん
+manga_fused_dictionary	じゅりょく	呪力	に	じゅりょく
+manga_fused_dictionary	じゅんべい	順平	の	じゅんぺい
+manga_fused_dictionary	じょうだん	冗談	じ	じょうだん
+manga_fused_dictionary	じょうだん	冗談	だ	じょうだん
+manga_fused_dictionary	じょうとう	上等	-	じょうとう
+manga_fused_dictionary	じょうはっ	蒸発	し	じょうはつ
+manga_fused_dictionary	じょうりく	上陸	の	じょうりく
+manga_fused_dictionary	じりき	自力	で	じりき
+manga_fused_dictionary	じんこう	人口	い	じんこう
+manga_fused_dictionary	じんせい	人生	の	じんせい
+manga_fused_dictionary	じんぼう	人望	-	じんぼう
+manga_fused_dictionary	すいもん	水門	が	すいもん
+manga_fused_dictionary	すくな	宿儺	の	すくな
+manga_fused_dictionary	すてき	素敵	っ	すてき
+manga_fused_dictionary	すなつぶ	砂粒	よ	すなつぶ
+manga_fused_dictionary	ずいぶん	随分	と	ずいぶん
+manga_fused_dictionary	せいこう	成功	-	せいこう
+manga_fused_dictionary	せいちょう	成長	し	せいちょう
+manga_fused_dictionary	せいもん	正門	-	せいもん
+manga_fused_dictionary	せかい	世界	-	せかい
+manga_fused_dictionary	せかい	世界	で	せかい
+manga_fused_dictionary	せかい	世界	を	せかい
+manga_fused_dictionary	せっかい	切開	す	せっかい
+manga_fused_dictionary	せっしゃ	拙者	が	せっしゃ
+manga_fused_dictionary	せっしゃ	拙者	こ	せっしゃ
+manga_fused_dictionary	せっしゃ	拙者	も	せっしゃ
+manga_fused_dictionary	せったん	切断	す	せつだん
+manga_fused_dictionary	せっとくりょく	説得力	ね	せっとくりょく
+manga_fused_dictionary	せなか	背中	-	せなか
+manga_fused_dictionary	せなか	背中	の	せなか
+manga_fused_dictionary	せわ	世話	の	せわ
+manga_fused_dictionary	せんい	船医	-	せんい
+manga_fused_dictionary	せんいん	全員	の	ぜんいん
+manga_fused_dictionary	せんさく	詮索	は	せんさく
+manga_fused_dictionary	せんし	戦士	の	せんし
+manga_fused_dictionary	せんじょう	戦場	で	せんじょう
+manga_fused_dictionary	せんじょう	戦場	に	せんじょう
+manga_fused_dictionary	せんじょう	戦場	よ	せんじょう
+manga_fused_dictionary	せんせい	先生	-	せんせい
+manga_fused_dictionary	せんせん	戦線	か	せんせん
+manga_fused_dictionary	せんそう	戦争	じ	せんそう
+manga_fused_dictionary	せんそう	戦争	は	せんそう
+manga_fused_dictionary	せんたく	選択	-	せんたく
+manga_fused_dictionary	せんちょう	船長	-	せんちょう
+manga_fused_dictionary	せんちょう	船長	が	せんちょう
+manga_fused_dictionary	せんちょう	船長	は	せんちょう
+manga_fused_dictionary	せんとう	戦闘	う	せんとう
+manga_fused_dictionary	せんとうふのう	戦闘不能	に	せんとうふのう
+manga_fused_dictionary	せんぱい	先輩	に	せんぱい
+manga_fused_dictionary	ぜったい	絶対	-	ぜったい
+manga_fused_dictionary	ぜったい	絶対	に	ぜったい
+manga_fused_dictionary	ぜっぼう	絶望	の	ぜつぼう
+manga_fused_dictionary	ぜつぼう	絶望	を	ぜつぼう
+manga_fused_dictionary	ぜんいん	全員	-	ぜんいん
+manga_fused_dictionary	ぜんいん	全員	す	ぜんいん
+manga_fused_dictionary	ぜんいん	全員	で	ぜんいん
+manga_fused_dictionary	ぜんいん	全員	を	ぜんいん
+manga_fused_dictionary	ぜんかい	全開	に	ぜんかい
+manga_fused_dictionary	ぜんかん	全艦	の	ぜんかん
+manga_fused_dictionary	ぜんしん	全身	に	ぜんしん
+manga_fused_dictionary	ぜんそくぜんしん	全速前進	-	ぜんそくぜんしん
+manga_fused_dictionary	ぜんのう	全能	な	ぜんのう
+manga_fused_dictionary	ぜんめっ	全滅	-	ぜんめつ
+manga_fused_dictionary	ぜんめん	前面	か	ぜんめん
+manga_fused_dictionary	ぜんりょくしっそう	全力疾走	-	ぜんりょくしっそう
+manga_fused_dictionary	そうじ	掃除	し	そうじ
+manga_fused_dictionary	そうすけ	惣右介	-	そうすけ
+manga_fused_dictionary	そうそう	想像	し	そうぞう
+manga_fused_dictionary	そうちょう	曹長	-	そうちょう
+manga_fused_dictionary	そげきしゅ	狙撃手	-	そげきしゅ
+manga_fused_dictionary	そんけい	尊敬	し	そんけい
+manga_fused_dictionary	そんさい	存在	そ	そんざい
+manga_fused_dictionary	そんざい	存在	さ	そんざい
+manga_fused_dictionary	そんざい	存在	す	そんざい
+manga_fused_dictionary	たいか	対価	で	たいか
+manga_fused_dictionary	たいくっ	退屈	っ	たいくつ
+manga_fused_dictionary	たいけん	体験	か	たいけん
+manga_fused_dictionary	たいさ	大佐	-	たいさ
+manga_fused_dictionary	たいさ	大佐	が	たいさ
+manga_fused_dictionary	たいさ	大佐	の	たいさ
+manga_fused_dictionary	たいさい	滞在	す	たいざい
+manga_fused_dictionary	たいしょ	対処	せ	たいしょ
+manga_fused_dictionary	たいしょう	大賞	-	たいしょう
+manga_fused_dictionary	たいしょう	大賞	だ	たいしょう
+manga_fused_dictionary	たいせっ	大切	に	たいせつ
+manga_fused_dictionary	たいせつ	大切	な	たいせつ
+manga_fused_dictionary	たいちょう	隊長	-	たいちょう
+manga_fused_dictionary	たいちょうかく	隊長格	-	たいちょうかく
+manga_fused_dictionary	たいちょうかく	隊長格	よ	たいちょうかく
+manga_fused_dictionary	たいへん	大変	だ	たいへん
+manga_fused_dictionary	たいへん	大変	な	たいへん
+manga_fused_dictionary	たいへん	大変	れ	たいへん
+manga_fused_dictionary	たいめん	対面	が	たいめん
+manga_fused_dictionary	たけうま	竹馬	に	たけうま
+manga_fused_dictionary	たけだ	武田	さ	たけだ
+manga_fused_dictionary	たちは	立場	が	たちば
+manga_fused_dictionary	たちは	立場	を	たちば
+manga_fused_dictionary	たてもの	建物	だ	たてもの
+manga_fused_dictionary	たぶん	多分	-	たぶん
+manga_fused_dictionary	だいさ	大佐	-	だいさ
+manga_fused_dictionary	だいさんぽう	大参謀	-	だいさんぼう
+manga_fused_dictionary	だいしょう	大賞	-	たいしょう
+manga_fused_dictionary	だいしょう	大賞	っ	たいしょう
+manga_fused_dictionary	だいじ	大事	な	だいじ
+manga_fused_dictionary	だいじ	大事	に	だいじ
+manga_fused_dictionary	だいじゃ	大蛇	が	だいじゃ
+manga_fused_dictionary	だいじょうぶ	大丈夫	-	だいじょうぶ
+manga_fused_dictionary	だいじょうぶ	大丈夫	か	だいじょうぶ
+manga_fused_dictionary	だいじょうぶ	大丈夫	だ	だいじょうぶ
+manga_fused_dictionary	だいじょぶ	大丈夫	だ	だいじょぶ
+manga_fused_dictionary	だいせんぱい	大先輩	-	だいせんぱい
+manga_fused_dictionary	だいたい	大体	お	だいたい
+manga_fused_dictionary	だいたん	大胆	に	だいたん
+manga_fused_dictionary	だいち	台地	-	だいち
+manga_fused_dictionary	だいな	台無	し	だいな
+manga_fused_dictionary	だっしゅっ	脱出	だ	だっしゅつ
+manga_fused_dictionary	だっしゅっ	脱出	で	だっしゅつ
+manga_fused_dictionary	だれひとり	誰一人	-	だれひとり
+manga_fused_dictionary	ちくしょう	畜生	-	ちくしょう
+manga_fused_dictionary	ちゅうがくせい	中学生	の	ちゅうがくせい
+manga_fused_dictionary	ちゅうこく	忠告	し	ちゅうこく
+manga_fused_dictionary	ちゅうしんかい	中心街	-	ちゅうしんがい
+manga_fused_dictionary	ちゅうぼう	厨房	に	ちゅうぼう
+manga_fused_dictionary	ちょうはっ	挑発	す	ちょうはつ
+manga_fused_dictionary	ちんぁっ	鎮圧	さ	ちんあつ
+manga_fused_dictionary	ちんじゅう	珍獣	だ	ちんじゅう
+manga_fused_dictionary	っうしん	通信	が	つうしん
+manga_fused_dictionary	っきゃま	月山	さ	つきやま
+manga_fused_dictionary	つうよう	通用	し	つうよう
+manga_fused_dictionary	てあ	手当	て	てあ
+manga_fused_dictionary	ていこう	抵抗	は	ていこう
+manga_fused_dictionary	ていれっ	低劣	-	ていれつ
+manga_fused_dictionary	ておく	手遅	れ	ておく
+manga_fused_dictionary	てがみ	手紙	か	てがみ
+manga_fused_dictionary	てがみ	手紙	に	てがみ
+manga_fused_dictionary	てきしゅう	敵襲	だ	てきしゅう
+manga_fused_dictionary	てした	手下	に	てした
+manga_fused_dictionary	てながぞく	手長族	と	てながぞく
+manga_fused_dictionary	てんか	点火	の	てんか
+manga_fused_dictionary	てんせい	転生	し	てんせい
+manga_fused_dictionary	でぁ	手当	て	てあ
+manga_fused_dictionary	でお	手負	い	てお
+manga_fused_dictionary	できこと	出来事	-	できごと
+manga_fused_dictionary	でこわ	手強	い	てごわ
+manga_fused_dictionary	ではいしょ	手配書	だ	てはいしょ
+manga_fused_dictionary	ではいしょ	手配書	は	てはいしょ
+manga_fused_dictionary	ではいじょ	手配書	と	てはいしょ
+manga_fused_dictionary	でんせっ	伝説	が	でんせつ
+manga_fused_dictionary	とうきょ	闘魚	が	とうぎょ
+manga_fused_dictionary	とうぐ	道具	だ	どうぐ
+manga_fused_dictionary	とうじ	当時	ば	とうじ
+manga_fused_dictionary	とうじょう	登場	-	とうじょう
+manga_fused_dictionary	とうぜん	当然	-	とうぜん
+manga_fused_dictionary	とうぜん	当然	だ	とうぜん
+manga_fused_dictionary	とうだい	灯台	か	とうだい
+manga_fused_dictionary	とうとう	東堂	か	とうどう
+manga_fused_dictionary	とうとうあおい	東堂葵	-	とうどうあおい
+manga_fused_dictionary	とうどう	藤堂	-	とうどう
+manga_fused_dictionary	とうぶっ	動物	-	どうぶつ
+manga_fused_dictionary	とうめいにんげん	透明人間	が	とうめいにんげん
+manga_fused_dictionary	とくしゅ	特殊	な	とくしゅ
+manga_fused_dictionary	とくしん	得心	の	とくしん
+manga_fused_dictionary	とくぼう	独房	と	どくぼう
+manga_fused_dictionary	とくめい	特命	を	とくめい
+manga_fused_dictionary	とけい	時計	な	とけい
+manga_fused_dictionary	とっしん	突進	だ	とっしん
+manga_fused_dictionary	とてっ	途轍	も	とてつ
+manga_fused_dictionary	とまと	戸惑	い	とまど
+manga_fused_dictionary	ともたち	友達	な	ともだち
+manga_fused_dictionary	ともだち	友達	-	ともだち
+manga_fused_dictionary	ともだち	友達	が	ともだち
+manga_fused_dictionary	ともだち	友達	な	ともだち
+manga_fused_dictionary	とりぃ	鳥居	の	とりい
+manga_fused_dictionary	どうかん	同感	-	どうかん
+manga_fused_dictionary	どうかん	同感	だ	どうかん
+manga_fused_dictionary	どうくっ	洞窟	に	どうくつ
+manga_fused_dictionary	どうじ	同時	で	どうじ
+manga_fused_dictionary	どうじょう	同情	す	どうじょう
+manga_fused_dictionary	どうせい	統制	さ	とうせい
+manga_fused_dictionary	どうせん	同然	の	どうぜん
+manga_fused_dictionary	どうでん	動転	し	どうてん
+manga_fused_dictionary	どうどう	堂々	と	どうどう
+manga_fused_dictionary	どうぶっ	動物	に	どうぶつ
+manga_fused_dictionary	どうぶったち	動物達	も	どうぶつたち
+manga_fused_dictionary	どうほう	同胞	よ	どうほう
+manga_fused_dictionary	どくぞ	毒素	か	どくそ
+manga_fused_dictionary	どこ	何処	へ	どこ
+manga_fused_dictionary	どれい	奴隷	に	どれい
+manga_fused_dictionary	どろほうねこ	泥棒猫	-	どろぼうねこ
+manga_fused_dictionary	どろぼう	泥棒	は	どろぼう
+manga_fused_dictionary	ないしょ	内緒	だ	ないしょ
+manga_fused_dictionary	ないみっ	内密	に	ないみつ
+manga_fused_dictionary	なかじま	中島	さ	なかじま
+manga_fused_dictionary	なかなか	中々	や	なかなか
+manga_fused_dictionary	なかま	仲間	さ	なかま
+manga_fused_dictionary	なかま	仲間	だ	なかま
+manga_fused_dictionary	なかま	仲間	に	なかま
+manga_fused_dictionary	なかま	仲間	の	なかま
+manga_fused_dictionary	なかま	仲間	も	なかま
+manga_fused_dictionary	なかま	仲間	を	なかま
+manga_fused_dictionary	なかまはず	仲間外	れ	なかまはず
+manga_fused_dictionary	なかよ	仲良	く	なかよ
+manga_fused_dictionary	なだか	名高	い	なだか
+manga_fused_dictionary	なっとく	納得	し	なっとく
+manga_fused_dictionary	なにこと	何事	じ	なにごと
+manga_fused_dictionary	なにこと	何事	で	なにごと
+manga_fused_dictionary	なにこと	何事	も	なにごと
+manga_fused_dictionary	なにさま	何様	-	なにさま
+manga_fused_dictionary	なにもの	何者	だ	なにもの
+manga_fused_dictionary	なにもの	何者	で	なにもの
+manga_fused_dictionary	なにもの	何者	な	なにもの
+manga_fused_dictionary	なにもの	何者	に	なにもの
+manga_fused_dictionary	なまえ	名前	が	なまえ
+manga_fused_dictionary	なまえ	名前	な	なまえ
+manga_fused_dictionary	なまえ	名前	は	なまえ
+manga_fused_dictionary	なまえ	名前	を	なまえ
+manga_fused_dictionary	なみあと	波跡	に	なみあと
+manga_fused_dictionary	なんと	何度	か	なんど
+manga_fused_dictionary	なんと	何度	も	なんど
+manga_fused_dictionary	なんにち	何日	-	なんにち
+manga_fused_dictionary	なんにん	何人	も	なんにん
+manga_fused_dictionary	なんぱ	軟派	-	なんぱ
+manga_fused_dictionary	にぁ	似合	う	にあ
+manga_fused_dictionary	にいさま	兄様	-	にいさま
+manga_fused_dictionary	にくたい	肉体	に	にくたい
+manga_fused_dictionary	にくたい	肉体	を	にくたい
+manga_fused_dictionary	にもっ	荷物	-	にもつ
+manga_fused_dictionary	にんぎょ	人魚	か	にんぎょ
+manga_fused_dictionary	にんぎょ	人魚	の	にんぎょ
+manga_fused_dictionary	にんぎょう	人形	-	にんぎょう
+manga_fused_dictionary	にんげん	人間	-	にんげん
+manga_fused_dictionary	にんげん	人間	じ	にんげん
+manga_fused_dictionary	にんげん	人間	で	にんげん
+manga_fused_dictionary	にんげん	人間	の	にんげん
+manga_fused_dictionary	にんげん	人間	や	にんげん
+manga_fused_dictionary	にんぼう	忍法	-	にんぽう
+manga_fused_dictionary	にんむ	任務	を	にんむ
+manga_fused_dictionary	のうりょく	能力	を	のうりょく
+manga_fused_dictionary	のうりょくしゃ	能力者	か	のうりょくしゃ
+manga_fused_dictionary	はか	馬鹿	っ	ばか
+manga_fused_dictionary	はかい	破壊	が	はかい
+manga_fused_dictionary	はかい	破壊	さ	はかい
+manga_fused_dictionary	はかい	破壊	の	はかい
+manga_fused_dictionary	はき	覇気	-	はき
+manga_fused_dictionary	はくげきほう	迫撃砲	-	はくげきほう
+manga_fused_dictionary	はくだん	爆弾	が	ばくだん
+manga_fused_dictionary	はしょ	場所	を	ばしょ
+manga_fused_dictionary	はちみっ	蜂蜜	-	はちみつ
+manga_fused_dictionary	はっかく	発覚	-	はっかく
+manga_fused_dictionary	はっけん	発見	-	はっけん
+manga_fused_dictionary	はっけん	発見	さ	はっけん
+manga_fused_dictionary	はっしゃ	発射	-	はっしゃ
+manga_fused_dictionary	はなばたけ	花畑	げ	はなばたけ
+manga_fused_dictionary	はめっ	破滅	さ	はめつ
+manga_fused_dictionary	はれっ	破裂	す	はれつ
+manga_fused_dictionary	はんかい	卍解	ま	ばんかい
+manga_fused_dictionary	はんけい	半径	お	はんけい
+manga_fused_dictionary	はんげき	反撃	は	はんげき
+manga_fused_dictionary	はんげん	半減	し	はんげん
+manga_fused_dictionary	はんころ	半殺	し	はんごろ
+manga_fused_dictionary	はんたい	反対	の	はんたい
+manga_fused_dictionary	はんとし	半年	-	はんとし
+manga_fused_dictionary	はんのう	反応	し	はんのう
+manga_fused_dictionary	はんのう	反応	で	はんのう
+manga_fused_dictionary	はんのう	反応	は	はんのう
+manga_fused_dictionary	ばぁい	場合	か	ばあい
+manga_fused_dictionary	ばくはっ	爆発	が	ばくはつ
+manga_fused_dictionary	ばんらんぐん	反乱軍	の	はんらんぐん
+manga_fused_dictionary	ぱんかい	卍解	-	ばんかい
+manga_fused_dictionary	ひさぎ	檜佐木	も	ひさぎ
+manga_fused_dictionary	ひさく	秘策	じ	ひさく
+manga_fused_dictionary	ひだりあし	左足	も	ひだりあし
+manga_fused_dictionary	ひっがや	日番谷	た	ひつがや
+manga_fused_dictionary	ひっょう	必要	が	ひつよう
+manga_fused_dictionary	ひっよう	必要	が	ひつよう
+manga_fused_dictionary	ひっよう	必要	は	ひつよう
+manga_fused_dictionary	ひてい	否定	で	ひてい
+manga_fused_dictionary	ひとあしさき	一足先	に	ひとあしさき
+manga_fused_dictionary	ひとあんしん	一安心	じ	ひとあんしん
+manga_fused_dictionary	ひとおも	一思	い	ひとおも
+manga_fused_dictionary	ひとこと	一言	だ	ひとこと
+manga_fused_dictionary	ひとじち	人質	に	ひとじち
+manga_fused_dictionary	ひとたち	一太刀	で	ひとたち
+manga_fused_dictionary	ひとちが	人違	い	ひとちが
+manga_fused_dictionary	ひとばん	一晩	で	ひとばん
+manga_fused_dictionary	ひとまえ	人前	で	ひとまえ
+manga_fused_dictionary	ひとり	一人	-	ひとり
+manga_fused_dictionary	ひとり	一人	か	ひとり
+manga_fused_dictionary	ひとり	一人	で	ひとり
+manga_fused_dictionary	ひとり	一人	に	ひとり
+manga_fused_dictionary	ひとり	一人	の	ひとり
+manga_fused_dictionary	ひとり	一人	は	ひとり
+manga_fused_dictionary	ひとり	一人	を	ひとり
+manga_fused_dictionary	ひなもり	雛森	-	ひなもり
+manga_fused_dictionary	ひなもり	雛森	を	ひなもり
+manga_fused_dictionary	ひまっ	火祭	り	ひまつ
+manga_fused_dictionary	ひみつ	秘密	-	ひみつ
+manga_fused_dictionary	ひめさま	姫様	な	ひめさま
+manga_fused_dictionary	ひゃくじゅうかいぞくだん	百獣海賊団	-	ひゃくじゅうかいぞくだん
+manga_fused_dictionary	ひゃぐじゅうかいぞくだん	百獣海賊団	-	ひゃくじゅうかいぞくだん
+manga_fused_dictionary	ひょうてき	標的	だ	ひょうてき
+manga_fused_dictionary	ひょうてき	標的	は	ひょうてき
+manga_fused_dictionary	ひょうのう	氷嚢	が	ひょうのう
+manga_fused_dictionary	ひょうりんまる	氷輪丸	が	ひょうりんまる
+manga_fused_dictionary	ひより	日和	と	ひより
+manga_fused_dictionary	ひろう	疲労	し	ひろう
+manga_fused_dictionary	ひろは	広場	の	ひろば
+manga_fused_dictionary	ひんかく	品格	を	ひんかく
+manga_fused_dictionary	びじょ	美女	だ	びじょ
+manga_fused_dictionary	ふくたいちょう	副隊長	あ	ふくたいちょう
+manga_fused_dictionary	ふざま	無様	な	ぶざま
+manga_fused_dictionary	ふしぐろ	伏黒	-	ふしぐろ
+manga_fused_dictionary	ふじぐろ	伏黒	の	ふしぐろ
+manga_fused_dictionary	ふなかげ	船影	-	ふなかげ
+manga_fused_dictionary	ふなだいく	船大工	が	ふなだいく
+manga_fused_dictionary	ぶか	部下	だ	ぶか
+manga_fused_dictionary	ぶんかい	分解	だ	ぶんかい
+manga_fused_dictionary	ぶんしん	分身	を	ぶんしん
+manga_fused_dictionary	ぶんじん	分身	が	ぶんしん
+manga_fused_dictionary	へびひめさま	蛇姫様	に	へびひめさま
+manga_fused_dictionary	へんけい	変型	-	へんけい
+manga_fused_dictionary	へんしん	変身	も	へんしん
+manga_fused_dictionary	ほうえきせん	貿易船	-	ぼうえきせん
+manga_fused_dictionary	ほうかん	傍観	と	ぼうかん
+manga_fused_dictionary	ほうがく	方角	が	ほうがく
+manga_fused_dictionary	ほうがく	方角	へ	ほうがく
+manga_fused_dictionary	ほうけん	冒険	が	ぼうけん
+manga_fused_dictionary	ほうげき	砲撃	-	ほうげき
+manga_fused_dictionary	ほうげき	砲撃	の	ほうげき
+manga_fused_dictionary	ほうこく	報告	-	ほうこく
+manga_fused_dictionary	ほうこく	報告	し	ほうこく
+manga_fused_dictionary	ほうし	帽子	だ	ぼうし
+manga_fused_dictionary	ほうし	帽子	を	ぼうし
+manga_fused_dictionary	ほうしき	方式	な	ほうしき
+manga_fused_dictionary	ほうだい	砲台	の	ほうだい
+manga_fused_dictionary	ほうだん	砲弾	を	ほうだん
+manga_fused_dictionary	ほうほう	方法	が	ほうほう
+manga_fused_dictionary	ほうほう	方法	だ	ほうほう
+manga_fused_dictionary	ほうほう	方法	は	ほうほう
+manga_fused_dictionary	ほうほう	方法	を	ほうほう
+manga_fused_dictionary	ほんたい	本体	に	ほんたい
+manga_fused_dictionary	ほんたい	本体	も	ほんたい
+manga_fused_dictionary	ほんと	本土	へ	ほんど
+manga_fused_dictionary	ほんとう	本当	か	ほんとう
+manga_fused_dictionary	ほんとう	本当	だ	ほんとう
+manga_fused_dictionary	ほんとう	本当	な	ほんとう
+manga_fused_dictionary	ほんとう	本当	に	ほんとう
+manga_fused_dictionary	ほんとう	本当	の	ほんとう
+manga_fused_dictionary	ほんとう	本当	は	ほんとう
+manga_fused_dictionary	ほんぼう	奔放	で	ほんぽう
+manga_fused_dictionary	ほんもの	本物	の	ほんもの
+manga_fused_dictionary	ぼうけん	冒険	の	ぼうけん
+manga_fused_dictionary	ぼうどう	暴動	を	ぼうどう
+manga_fused_dictionary	ぼんとう	本島	よ	ほんとう
+manga_fused_dictionary	まいにち	毎日	し	まいにち
+manga_fused_dictionary	まいにち	毎日	つ	まいにち
+manga_fused_dictionary	まき	真希	さ	まき
+manga_fused_dictionary	まさき	真咲	-	まさき
+manga_fused_dictionary	まさき	真咲	さ	まさき
+manga_fused_dictionary	まじょ	魔女	だ	まじょ
+manga_fused_dictionary	ますます	益々	-	ますます
+manga_fused_dictionary	まちが	間違	い	まちが
+manga_fused_dictionary	まちが	間違	え	まちが
+manga_fused_dictionary	まどあきら	真戸暁	-	まどあきら
+manga_fused_dictionary	まね	真似	だ	まね
+manga_fused_dictionary	まるこし	丸腰	だ	まるごし
+manga_fused_dictionary	まるこし	丸腰	と	まるごし
+manga_fused_dictionary	まんぞく	満足	だ	まんぞく
+manga_fused_dictionary	まんまん	満々	み	まんまん
+manga_fused_dictionary	みがって	身勝手	な	みがって
+manga_fused_dictionary	みこと	見事	な	みごと
+manga_fused_dictionary	みこと	見事	に	みごと
+manga_fused_dictionary	みずは	水場	へ	みずば
+manga_fused_dictionary	みなころ	皆殺	し	みなごろ
+manga_fused_dictionary	みなごろ	皆殺	し	みなごろ
+manga_fused_dictionary	みなさま	皆様	っ	みなさま
+manga_fused_dictionary	みなみなさま	皆々様	-	みなみなさま
+manga_fused_dictionary	みなら	見習	い	みなら
+manga_fused_dictionary	みのが	見逃	す	みのが
+manga_fused_dictionary	みはな	見離	す	みはな
+manga_fused_dictionary	みまわ	見回	り	みまわ
+manga_fused_dictionary	みやげ	土産	を	みやげ
+manga_fused_dictionary	みれん	未練	は	みれん
+manga_fused_dictionary	みんしゅう	民衆	の	みんしゅう
+manga_fused_dictionary	むえき	無益	-	むえき
+manga_fused_dictionary	むかんけい	無関係	だ	むかんけい
+manga_fused_dictionary	むけっ	無欠	で	むけつ
+manga_fused_dictionary	むしゃ	武者	か	むしゃ
+manga_fused_dictionary	むだ	無駄	じ	むだ
+manga_fused_dictionary	むだ	無駄	な	むだ
+manga_fused_dictionary	むちゃ	無茶	し	むちゃ
+manga_fused_dictionary	むちゃ	無茶	を	むちゃ
+manga_fused_dictionary	むぼう	無謀	と	むぼう
+manga_fused_dictionary	むり	無理	し	むり
+manga_fused_dictionary	むり	無理	だ	むり
+manga_fused_dictionary	むり	無理	よ	むり
+manga_fused_dictionary	むろん	無論	で	むろん
+manga_fused_dictionary	めんぼく	面目	ね	めんぼく
+manga_fused_dictionary	もくてき	目的	は	もくてき
+manga_fused_dictionary	もちろん	勿論	-	もちろん
+manga_fused_dictionary	もちろん	勿論	だ	もちろん
+manga_fused_dictionary	もったい	勿体	ね	もったい
+manga_fused_dictionary	もともと	元々	の	もともと
+manga_fused_dictionary	もともと	元々	り	もともと
+manga_fused_dictionary	もんだい	問題	を	もんだい
+manga_fused_dictionary	ゃしん	野心	が	やしん
+manga_fused_dictionary	ゃろう	野郎	-	やろう
+manga_fused_dictionary	やくそく	約束	だ	やくそく
+manga_fused_dictionary	やくそく	約束	を	やくそく
+manga_fused_dictionary	やせい	野生	に	やせい
+manga_fused_dictionary	やっかい	厄介	だ	やっかい
+manga_fused_dictionary	やっかい	厄介	な	やっかい
+manga_fused_dictionary	やまもと	山本	-	やまもと
+manga_fused_dictionary	やまもと	山本	そ	やまもと
+manga_fused_dictionary	やろう	野郎	-	やろう
+manga_fused_dictionary	やろう	野郎	じ	やろう
+manga_fused_dictionary	やろう	野郎	だ	やろう
+manga_fused_dictionary	やろう	野郎	っ	やろう
+manga_fused_dictionary	やろうとも	野郎共	-	やろうども
+manga_fused_dictionary	ゆいいっ	唯一	の	ゆいいつ
+manga_fused_dictionary	ゆうかい	誘拐	し	ゆうかい
+manga_fused_dictionary	ゆうかい	誘拐	の	ゆうかい
+manga_fused_dictionary	ゆうざい	有罪	-	ゆうざい
+manga_fused_dictionary	ゆうじょ	遊女	を	ゆうじょ
+manga_fused_dictionary	ゆうどう	誘導	せ	ゆうどう
+manga_fused_dictionary	ゆうどう	誘導	で	ゆうどう
+manga_fused_dictionary	ゆうひ	夕日	が	ゆうひ
+manga_fused_dictionary	ゆうぼくみん	遊牧民	-	ゆうぼくみん
+manga_fused_dictionary	ゆうめい	有名	な	ゆうめい
+manga_fused_dictionary	ゆきお	雪緒	も	ゆきお
+manga_fused_dictionary	ゆみちか	弓親	-	ゆみちか
+manga_fused_dictionary	よいち	夜一	さ	よいち
+manga_fused_dictionary	ようかい	妖怪	-	ようかい
+manga_fused_dictionary	ようぎょ	幼魚	と	ようぎょ
+manga_fused_dictionary	ようじんぶか	用心深	い	ようじんぶか
+manga_fused_dictionary	ようす	様子	を	ようす
+manga_fused_dictionary	ようせい	妖精	だ	ようせい
+manga_fused_dictionary	ようせい	妖精	の	ようせい
+manga_fused_dictionary	ようだい	容体	-	ようだい
+manga_fused_dictionary	よかん	予感	が	よかん
+manga_fused_dictionary	よけい	余計	な	よけい
+manga_fused_dictionary	よそう	予想	だ	よそう
+manga_fused_dictionary	よそら	夜空	-	よぞら
+manga_fused_dictionary	よにん	四人	も	よにん
+manga_fused_dictionary	よるいち	夜一	-	よるいち
+manga_fused_dictionary	らんほう	乱暴	よ	らんぼう
+manga_fused_dictionary	りくっ	理屈	が	りくつ
+manga_fused_dictionary	りこう	利口	だ	りこう
+manga_fused_dictionary	りょうかい	了解	-	りょうかい
+manga_fused_dictionary	りょうかい	了解	し	りょうかい
+manga_fused_dictionary	りょうしょう	了承	し	りょうしょう
+manga_fused_dictionary	りろん	理論	だ	りろん
+manga_fused_dictionary	るいけい	累計	-	るいけい
+manga_fused_dictionary	れぃぁっ	霊圧	は	れいあつ
+manga_fused_dictionary	れいぁっ	霊圧	は	れいあつ
+manga_fused_dictionary	れいあつ	霊圧	-	れいあつ
+manga_fused_dictionary	れいあつ	霊圧	は	れいあつ
+manga_fused_dictionary	れいあつ	霊圧	を	れいあつ
+manga_fused_dictionary	れいおう	霊王	は	れいおう
+manga_fused_dictionary	れきし	歴史	を	れきし
+manga_fused_dictionary	れんらく	連絡	が	れんらく
+manga_fused_dictionary	れんらく	連絡	を	れんらく
+manga_fused_dictionary	ろうどうりょく	労働力	に	ろうどうりょく
+manga_fused_dictionary	わかぞう	若造	-	わかぞう
+manga_fused_dictionary	わがはい	我輩	-	わがはい
+manga_fused_dictionary	わしゅうきちむら	和修吉福	-	わしゅうきちむら
+manga_fused_dictionary	わたしたち	私達	は	わたしたち
+manga_fused_dictionary	われわれ	我々	-	われわれ
+manga_fused_dictionary	われわれ	我々	が	われわれ
+manga_fused_dictionary	われわれ	我々	こ	われわれ
+manga_fused_dictionary	われわれ	我々	だ	われわれ
+manga_fused_dictionary	われわれ	我々	と	われわれ
+manga_fused_dictionary	われわれ	我々	に	われわれ
+manga_fused_dictionary	われわれ	我々	の	われわれ
+manga_fused_dictionary	われわれ	我々	は	われわれ
+manga_fused_dictionary	われわれ	我々	も	われわれ
+manga_fused_dictionary	われわれ	我々	を	われわれ
+manga_fused_reviewed	kana	kanji	base	reading
+manga_fused_reviewed	うらみびがしちゅうがっこう	浦見東中学校	浦見東中学校	うらみひがしちゅうがっこう
+manga_fused_reviewed	いときはっかく	異常発覚	異常発覚	いじょうはっかく
+manga_fused_reviewed	ごじょうさとるげんちゃく	五条悟現着	五条悟現着	ごじょうさとるげんちゃく
+manga_fused_reviewed	ていきゅうじゅれぃ	低級呪霊	低級呪霊	ていきゅうじゅれい
+manga_fused_reviewed	なんほんぶん	何本分	何本分	なんほんぶん
+manga_fused_reviewed	おうれいほう	一応霊法	一応霊法	いちおうれいほう
+manga_fused_reviewed	せんかいもん	穿界門	穿界門	せんかいもん
+manga_fused_reviewed	ちょうろうどの	長老殿	長老殿	ちょうろうどの
+manga_fused_reviewed	たっふささま	辰房様	辰房様	たつふささま
+manga_fused_reviewed	どんじゅうきわ	鈍重窮	鈍重窮	どんじゅうきわ
+manga_fused_reviewed	あいぜんたいちょう	藍染隊長	藍染隊長	あいぜんたいちょう
+manga_fused_reviewed	あいぜんたち	藍染達	藍染達	あいぜんたち
+manga_fused_reviewed	あいぜんさま	藍染様	藍染様	あいぜんさま
+manga_fused_reviewed	だいきどうちょう	大鬼道長	大鬼道長	だいきどうちょう
+manga_fused_reviewed	いっぱうてき	一方的	一方的	いっぽうてき
+manga_fused_reviewed	ぜんそくぜんしん	全速全進	全速全進	ぜんそくぜんしん
+manga_fused_reviewed	かいぐんぽんぶちゅうじょう	海軍本部中将	海軍本部中将	かいぐんほんぶちゅうじょう
+manga_fused_reviewed	いったいなに	一体何	一体何	いったいなに
+manga_fused_reviewed	しんべいちょう	神兵長	神兵長	しんぺいちょう
+manga_fused_reviewed	ちゅうじょうどの	中将殿	中将殿	ちゅうじょうどの
+manga_fused_reviewed	はかいがんりょう	破壊完了	破壊完了	はかいかんりょう
+manga_fused_reviewed	かいぐんほんぶ	海軍本普	海軍本普	かいぐんほんぶ
+manga_fused_reviewed	けんいっほん	剣一本	剣一本	けんいっぽん
+manga_fused_reviewed	しゅうげきぐみ	襲撃組	襲撃組	しゅうげきぐみ
+manga_fused_reviewed	まるでいつも	丸手斎持	丸手斎	まるでいつき
+manga_fused_reviewed	わしゅうきちむら	和修吉福	和修吉福	わしゅうきちむら
+manga_fused_reviewed	ほうれいとも	亡霊共	亡霊共	ぼうれいども
+manga_fused_reviewed	きほうとお	希望通	希望通	きぼうどお
+manga_fused_exceptions	kana	kanji
+manga_fused_exceptions	かい	甲斐
+manga_fused_exceptions	ことは	言葉
+manga_fused_exceptions	ひこう	比較

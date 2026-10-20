@@ -1,5 +1,101 @@
 # Changelog
 
+## 2.0: i+1 sentences, search by reading, and Custom
+
+### Enhancements
+
+- **i+1 sentences.** Load the words you know (a word list, an Anki export, Jiten, Migaku, or your Anki decks through Aobana Reibun 1.2). **i+1 first** and **i+1 only** bring forward the sentences where the searched word is the only one you don't know, and each result shows how many of its words you know.
+- **Search by reading.** Join a word and its reading to find only that reading: `好く＝すく`, or `丸＝がん`, which also finds 弾丸. **Ruby only** keeps the lines where the reading is the author's own furigana.
+- **Custom.** Your own `.txt` and Markdown (`.md`) files are a fourth media, searched and read like the others. Each folder is a category, and a Notion export keeps its pages' order.
+- **Several folders per media.** Each media can read from more than one folder, added and removed in **Settings**.
+- **Library check.** Duplicates are grouped with one recommended copy each, subtitles that are not UTF-8 can be converted with a backup kept, and nothing is saved until you press **Save choices** or indexed until you press **Index library**.
+- **Open in Media.** The Media icon on a search result opens the Media reader at that line.
+
+**Search**
+
+- **i+1** has its own menu beside the sort, shown once a known-word list is loaded. Under **Recommended**, **i+1 first** lists the i+1 sentences, then those with one other unknown word, then two. For a word you already know, an i+1 sentence is one with a single other unknown word.
+- A search typed in kana keeps the reading typed: a line that writes the word in kana with another reading (つらい for からい) is left out of **i+1 only** and put last in **i+1 first**.
+- Every result shows its known words (**5/8 known**) when a list is loaded, with i+1 off too. A switch in **Settings** hides the counts.
+- Search by reading takes a dictionary form (`行った＝おこなう` searches 行う), a leading kana (`お茶＝ちゃ`), and readings with pitch marks or dots (`た↓べる`, `た・べる`). A reading guessed by the dictionary rather than written by the author is underlined with dots.
+- A search by reading reads only the lines that hold the word's kanji, through a new table in the index. The new table adds about 3% to the index; with 2.0's other new tables, about 8%.
+- Search workers stay running between searches and stop 5 minutes after the last one; a small table is searched without them.
+- Spaces doubled, full-width, after `-` or around `＝` do not change a search.
+- In a Japanese query, `ー` (the long-vowel mark, which the `-` key types with Japanese input on) before a word excludes it like `-`, so there is no need to switch to half-width.
+- Recent searches each have a ✕ to remove them; 20 are kept.
+- A result's context shows the 3 lines before and after it, in every media.
+
+**Known words**
+
+- **Settings** has a **Known words** card: import a list with a preview and a choice of column, see your lists, and remove one.
+- **Import from Anki** reads your decks through Aobana Reibun 1.2 while Anki is open: choose the decks, which cards count (mature at 21 days by default) and each note type's word and reading fields, with a live count. **Update from Anki** reads the same choice again.
+
+**Custom**
+
+- An Explorer-style browser with a Titles and Content search, a reader with ★ on each line, and a sort menu.
+- `漢字(かな)` written in a text file is shown as furigana and searchable by its reading; a switch in **Settings** turns it off.
+- Spaces at the start and end of each line are trimmed by default; a switch in **Settings** keeps them.
+- Markdown headings are sections; marks, links, images and table borders are left out.
+- **Check library** finds Custom's duplicates, files with no Japanese, bilingual files, and files that are empty or have no line breaks.
+
+**Library and indexing**
+
+- Subtitles are read strictly as UTF-8, UTF-16, Shift-JIS, EUC-JP or ISO-2022-JP, by their real format whatever the extension, and **Check library** says why a file can't be read.
+- **Convert to UTF-8** keeps the original in `backups/`, which uninstalling never deletes.
+- On Windows, uninstalling also offers the Manga and Custom folders, under one box that ticks every media folder, and the known words on their own row. A folder you chose yourself is never deleted.
+- **Index library** shows its phase and the time left.
+- Files queued for reading again are listed, and **Index library** reads them itself.
+- The estimate counts files to read again and includes manga and Custom.
+- Several folders per media are walked in their saved order; a path two folders share is read from the earlier one and listed.
+- A folder that is, holds or sits in another media's folder is refused, with the folder it overlaps.
+- A media turned off in **Settings** is never indexed or checked.
+- The database folder's small files live in subfolders: `choices/`, `check/`, `cache/` and `runs/`.
+
+**Reading files**
+
+- Subtitles with HTML ruby show it as furigana.
+- A subtitle's full-width `漢字（かな）` is drawn as furigana where it reads as one.
+- `.ass` times are read as a player reads them, and an event that ends at or before its start is left out.
+- ♫, ♩ and 🎵 lines are left out like ♪; dashes, middle dots and runs of dots are written one way.
+- Chinese credits and notes are left out, and a Japanese line with one simplified character is kept.
+- Books: contents pages label chapters better, and a speech that ends a sentence ends its line.
+- A book whose pages are copy-protected (DRM) is listed by **Check library**, not indexed.
+- Manga: furigana the OCR fused into a line is written back as furigana.
+
+**Media and the page**
+
+- Media remembers where you were, and a show's seasons, OVAs and films are grouped.
+- Every Media detail page has a path bar with ← and →, docked under the top bar while you scroll.
+- A Media page ends with "No more results" once nothing more is loading.
+- On a phone, the Search page's titles open in a sheet from the bottom, and the search row hides while scrolling down.
+- Every window closes on Esc with the choice that changes nothing.
+- The **Guide** has a **Contents** button and sections for i+1 and Custom.
+- Updating from inside Aobana works from 1.9. On an older version, install 2.0 from the release page.
+
+### Bug Fixes
+
+- **Stop** did not reach a run that was still reading files, cleaning up or optimizing tables, and indexing processes could outlive Aobana. **Stop** now answers within a second and keeps everything indexed up to there; the next **Index library** carries on from where it stopped.
+- A search during an index run could show no results instead of saying the index is busy.
+- On a large library, **Check library** sent its whole report to the page (341 MB on a 128,000-file test library), which froze it while loading. The results now come as counts, and each list's rows 200 at a time.
+- A query of symbols alone, like `♪`, found nearly every line instead of the lines that hold it.
+- An `=` in a query was dropped, so `2+2=4` found unrelated lines.
+- A word typed alone could be searched as another word: 好く found いい and よい.
+- **Chronological** listed a show's files by file name, so its seasons, OVAs and films were mixed. They now follow the Media tab's order.
+- A tap on a button, tab or menu could open Yomitan.
+- Books: text placed directly on a page, outside a paragraph, was not read.
+- A long sentence searched as typed often found nothing, while the same sentence ending in 。 found it.
+- A search with an exclusion that held the searched word, like `チェーン -チェーンロック`, dropped every line.
+- A word split by a symbol was found as the word: `海賊船` found （海賊）船.
+- A `"` inside a word made the search find nothing.
+- With **Exact** ticked, `?` and `!` typed half-width found no subtitle line.
+- Opening a line in a very large book index could take minutes.
+- macOS `._` files showed as empty episodes.
+- Captions written inside `[…]` were not read.
+- A book with a placeholder title, or a title wholly in square brackets, showed an empty title.
+- Book titles with `～` or `－` were sorted as if those were missing.
+- After a re-index, only the first 5,000 Favorites were checked.
+- **Optimize tables** was offered for media that **Index library** reads again anyway, and "Table optimization finished." appeared twice.
+- An update download without a SHA-256 digest was installed unchecked; it is now refused before it is downloaded.
+
 ## 1.9: Open folder scrolls to the file
 
 ### Enhancements

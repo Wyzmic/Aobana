@@ -6,6 +6,7 @@
   <meta name="aobana-handoff-pending" content="{{ '1' if handoff_pending else '' }}">
   <meta name="aobana-termux" content="{{ '1' if termux else '' }}">
   <script type="application/json" id="aobana-media">{{ media_boot|tojson }}</script>
+  <script type="application/json" id="aobana-known-words">{{ known_words|tojson }}</script>
   {% if handoff %}<script type="application/json" id="aobana-handoff">{{ handoff|tojson }}</script>{% endif %}
   <script>
     (function () {
@@ -66,6 +67,16 @@
   </style>
   <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   <script src="/static/i18n.js?v={{ asset_v }}"></script>
+  <script src="/static/core.js?v={{ asset_v }}"></script>
+  <script src="/static/search.js?v={{ asset_v }}"></script>
+  <script src="/static/cards.js?v={{ asset_v }}"></script>
+  <script src="/static/media.js?v={{ asset_v }}"></script>
+  <script src="/static/custom.js?v={{ asset_v }}"></script>
+  <script src="/static/settings.js?v={{ asset_v }}"></script>
+  <script src="/static/library.js?v={{ asset_v }}"></script>
+  <script src="/static/guide.js?v={{ asset_v }}"></script>
+  <script src="/static/notices.js?v={{ asset_v }}"></script>
+  <script src="/static/learn.js?v={{ asset_v }}"></script>
   <script src="/static/app.js?v={{ asset_v }}"></script>
 </head>
 <body>
@@ -111,6 +122,7 @@
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
     <div class="topbar-menu" id="topbar-menu"><nav class="menu-tabs"></nav><div class="topbar-right menu-right"></div></div>
+    <div class="topbar-path" id="topbar-path"></div>
   </header>
 
   <div class="flex-row" data-tab-panel="search">
@@ -120,11 +132,14 @@
         <div class="side-row">
           <input id="folder-filter" class="folder-filter" type="text" data-i18n-placeholder="filter_folders" placeholder="作品を検索" spellcheck="false" autocomplete="off">
           <button type="button" class="sq-btn furi-btn" onclick="toggleFurigana()" data-i18n-title="furigana" title="ふりがな">ふ</button>
+          <div class="media-dd" id="media-dd-side"></div>
+          <button type="button" class="sq-btn sheet-close" onclick="closeTitleSheet()" data-i18n-aria="close" aria-label="閉じる">✕</button>
         </div>
       </div>
       <ul class="folder-list" id="folder-list-dynamic">
       </ul>
     </div>
+    <div class="sheet-backdrop" onclick="closeTitleSheet()"></div>
     <div class="main-content">
       <form method="GET" class="search-bar" autocomplete="off" action="/" onsubmit="handleSearchSubmit(event, this)">
         <span id="hidden-folders" hidden></span>
@@ -147,13 +162,27 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
             <span data-i18n="exact">完全一致</span>
           </label>
+          <label class="exact-chip" id="ruby-only-chip" data-i18n-title="ruby_only_title">
+            <input type="checkbox" name="ruby_only" id="ruby-only-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            <span data-i18n="ruby_only">ルビのみ</span>
+          </label>
           <input type="hidden" name="media" id="media-input" value="all">
           <div class="sort-dd" id="sort-select"></div>
           <input type="hidden" name="sort" id="sort-input" value="recommended">
+          <div class="sort-dd learn-dd" id="learn-select" hidden></div>
+          <input type="hidden" name="learn" id="learn-input" value="off" disabled>
         </div>
       </form>
+      <div class="phone-row">
+        <div class="phone-titles dd"><button type="button" class="dd-btn" onclick="openTitleSheet()"><span class="dd-label" id="phone-titles-label"></span><span class="count-badge" hidden></span></button></div>
+        <button type="button" class="sq-btn furi-btn" onclick="toggleFurigana()" data-i18n-title="furigana" title="ふりがな">ふ</button>
+        <div class="media-dd" id="media-dd-phone"></div>
+      </div>
 
       <div class="filter-note" id="filter-note" hidden></div>
+      <p class="reading-note" id="reading-note" hidden></p>
+      <p class="reading-note" id="learn-note" hidden></p>
       <div id="history-state"></div>
       <div class="panel cta" id="empty-library" hidden>
         <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
@@ -184,8 +213,10 @@
       <div class="media-toolbar-wrap">
         <div class="media-toolbar">
           <div class="seg" id="media-seg"></div>
-          <div class="page-dd" id="media-sort"></div>
-          <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
+          <div class="media-find">
+            <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
+            <div id="media-sort"></div>
+          </div>
         </div>
       </div>
       <div class="media-summary" id="media-summary"></div>
@@ -212,6 +243,7 @@
       </div>
       <div class="lib-grid" id="lib-folders"></div>
       <div class="notice" id="lib-note" hidden></div>
+      <div id="lib-refresh" class="lib-refresh" role="status" hidden></div>
       <div class="lib-run-row">
         <button class="btn primary" id="lib-run" onclick="runIndex()" style="height:42px; padding:0 22px; font-size:1em;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -221,32 +253,35 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg>
           <span data-i18n="lib_tables_run">最適化する</span>
         </button>
-        <select id="lib-scope" class="lib-select" onchange="syncCheckScope()" data-i18n-aria="lib_scope_aria" aria-label="インデックスする対象">
-          <option value="" data-i18n="lib_scope_all">すべてのメディア</option>
-          <option value="subs" data-i18n="lib_scope_subs">字幕のみ</option>
-          <option value="epub" data-i18n="lib_scope_epub">書籍のみ</option>
-          <option value="manga" data-i18n="lib_scope_manga">漫画のみ</option>
-        </select>
       </div>
+      <div class="an-note" id="lib-media-off" hidden></div>
       <div class="notice" id="lib-outdated" hidden style="margin-top:0.8em;"></div>
       <div id="lib-estimate"></div>
       <div id="lib-status"></div>
       <div class="lib-card" id="lib-workers" style="margin-top:1em;">
         <h3 data-i18n="workers_title">並列処理</h3>
         <p class="muted" id="workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <details class="workers-compare" id="workers-table-box" hidden>
+          <summary data-i18n="workers_table_summary">ワーカー数ごとの速さ</summary>
+          <p class="workers-caption" data-i18n="workers_table_caption">おすすめの数と比べた速さと CPU 使用率の目安（24 スレッドのパソコンで測った値）</p>
+          <table class="summary-table workers-table" id="workers-table"></table>
+        </details>
         <div class="btns">
-          <input type="number" id="workers-input" min="1" oninput="workersHint()">
+          <label for="workers-input" data-i18n="workers_count">インデックス作成と点検で使う処理の数</label>
+          <input type="number" id="workers-input" min="1" step="1" oninput="workersHint()" onblur="workersHint(true)">
           <button class="btn" onclick="saveWorkers()" data-i18n="workers_save">保存</button>
           <button class="btn" onclick="saveWorkers('auto')" data-i18n="workers_auto">おすすめに戻す</button>
         </div>
         <div class="notice" id="workers-note" hidden style="margin:0.8em 0 0;"></div>
       </div>
+      <div id="an-loading" class="lib-refresh" role="status" hidden></div>
       <div class="lib-card" id="lib-analyse" style="margin-top:1.5em;">
         <h3 data-i18n="an_title">ライブラリの点検</h3>
         <div class="facts" data-i18n="an_lead"></div>
         <div class="btns">
-          <button class="btn" id="an-run" onclick="runAnalysis()"><span data-i18n="an_run">点検する</span></button>
+          <button class="btn primary" id="an-run" onclick="runAnalysis()"><span data-i18n="an_run">点検する</span></button>
         </div>
+        <div class="an-note" id="an-media-off" hidden></div>
         <div id="an-status"></div>
         <div id="an-report"></div>
       </div>
@@ -257,15 +292,19 @@
     <div class="panel">
       <h1 data-i18n="tab_settings">設定</h1>
       <div class="lib-card" id="set-media"></div>
+      <div class="lib-card" id="set-known-words" style="margin-top:1em;"></div>
       <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
       <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
         <h3 data-i18n="search_workers_title">検索の並列処理</h3>
         <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+        <details class="workers-compare" id="search-workers-table-box" hidden>
+          <summary data-i18n="workers_table_summary">ワーカー数ごとの速さ</summary>
+          <p class="workers-caption" data-i18n="workers_table_caption">おすすめの数と比べた速さと CPU 使用率の目安（24 スレッドのパソコンで測った値）</p>
+          <table class="summary-table workers-table" id="search-workers-table"></table>
+        </details>
         <div class="btns">
           <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
           <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
-          <label for="search-delay-input" data-i18n="search_workers_delay">追加するまでの秒数</label>
-          <input type="number" id="search-delay-input" min="0" max="60" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
           <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
           <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
         </div>
@@ -322,6 +361,16 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="anki-modal" onclick="if(event.target===this)closeAnkiDialog()">
+    <div class="modal-card welcome anki-card" role="dialog" aria-modal="true" aria-labelledby="anki-title">
+      <div class="modal-header">
+        <h3 class="modal-title" id="anki-title" data-i18n="anki_title">Anki から取り込む</h3>
+        <button type="button" class="modal-close" onclick="closeAnkiDialog()" data-i18n-aria="close" aria-label="閉じる">✕</button>
+      </div>
+      <div id="anki-body"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="welcome-modal">
     <div class="modal-card welcome big" id="welcome-card">
      <div id="welcome-pane">
@@ -333,6 +382,7 @@
         <li data-i18n-html="welcome_s1" id="welcome-s1"></li>
         <li data-i18n-html="welcome_s2"></li>
         <li data-i18n-html="welcome_s3"></li>
+        <li data-i18n-html="welcome_s4"></li>
       </ol>
       <p data-i18n-html="welcome_more"></p>
       <div class="btns" id="welcome-btns">
@@ -365,6 +415,17 @@
       <div class="btns">
         <button class="btn" onclick="closeReindex(false)" data-i18n="reindex_later">あとで</button>
         <button class="btn primary" onclick="closeReindex(true)" data-i18n="reindex_go">ライブラリを開く</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="tables-modal">
+    <div class="modal-card welcome">
+      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <h2 data-i18n="tables_title">読みでの検索を高速化できます</h2>
+      <p data-i18n-html="tables_body"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeTables(false)" data-i18n="reindex_later">あとで</button>
+        <button class="btn primary" onclick="closeTables(true)" data-i18n="reindex_go">ライブラリを開く</button>
       </div>
     </div>
   </div>

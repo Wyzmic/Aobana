@@ -10,9 +10,8 @@ set -e
 AOBANA_DIR="${AOBANA_DIR:-/storage/emulated/0/Aobana}"
 TARBALL="https://codeload.github.com/Wyzmic/Aobana/tar.gz/refs/heads/main"
 DISTRO="aobana"
-PHONE_FILES="aobana requirements.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
-OLD_ROOT_FILES="app.py engine.py utils.py paths.py library.py analyser.py indexer.py epub_indexer.py
-manga_indexer.py ass_ruby.py folder_picker.py updater.py index.html __pycache__"
+PHONE_FILES="aobana requirements.txt constraints.txt LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md data/ruby static"
+OLD_ROOT_FILES="app.py"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 
 say() { printf '\n== %s\n' "$1"; }
@@ -61,12 +60,7 @@ for f in $PHONE_FILES; do
     cp -r "$SRC/$f" "$AOBANA_DIR/$f"
 done
 for f in $OLD_ROOT_FILES; do rm -rf "${AOBANA_DIR:?}/$f"; done
-cat > "$AOBANA_DIR/app.py" <<'BRIDGE'
-import os, runpy, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-runpy.run_module("aobana.server.app", run_name="__main__", alter_sys=True)
-BRIDGE
-for name in Subtitles Books; do
+for name in Subtitles Books Manga Custom; do
     if [ ! -e "$AOBANA_DIR/content/$name" ]; then
         mkdir -p "$AOBANA_DIR/content/$name" && echo "made content/$name"
     fi
@@ -76,7 +70,7 @@ say "Python and the pinned packages, inside Ubuntu"
 proot-distro login "$DISTRO" -- env DEBIAN_FRONTEND=noninteractive \
     bash -c 'apt-get update && apt-get install -y python3 python3-pip'
 proot-distro login "$DISTRO" -- pip3 install --break-system-packages --no-cache-dir \
-    -r "$AOBANA_DIR/requirements.txt"
+    -r "$AOBANA_DIR/requirements.txt" -c "$AOBANA_DIR/constraints.txt"
 
 say "Home-screen shortcut (Termux:Widget)"
 mkdir -p "$HOME/.shortcuts"
@@ -89,9 +83,11 @@ cat <<EOF
 
 Aobana is installed.
 
-  1. Put the index in $AOBANA_DIR/data/db: copy subs.db and epub.db from a PC (fastest), or put
-     subtitles in content/Subtitles and books in content/Books there and press "Index library"
-     in the Library tab (slow on a phone).
+  1. Put the index in $AOBANA_DIR/data/db: copy subs.db, epub.db, manga.db and custom.db from
+     a PC (fastest), or put subtitles in content/Subtitles, books in content/Books, manga in
+     content/Manga and your own .txt and .md files in content/Custom there and press
+     "Index library" in the Library tab (slow on a phone). Custom is off until you turn it on
+     in Settings, under Media.
   2. Add the Termux:Widget widget to your home screen and tap "Aobana".
      It opens in Firefox if it is installed (Yomitan works there), else your default browser.
      If no browser opens, allow Termux "Display over other apps" in Android's settings.

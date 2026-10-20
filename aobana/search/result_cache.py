@@ -1,5 +1,7 @@
 
 import ast
+import functools
+import hashlib
 import os
 import sqlite3
 import threading
@@ -37,21 +39,62 @@ RESULT_CACHE_ENABLED = True
 RESULT_CACHE_MAX_ROWS = 4_000_000
 _RESULT_CACHE = OrderedDict()
 _RESULT_CACHE_LOCK = threading.Lock()
-_MEDIA_CODES = {"subs": 0, "epub": 1, "manga": 2}
-_MEDIA_NAMES = ("subs", "epub", "manga")
+_MEDIA_CODES = {"subs": 0, "epub": 1, "manga": 2, "custom": 3}
+_MEDIA_NAMES = ("subs", "epub", "manga", "custom")
 
 
 def _result_folder(media_type, file):
+    if media_type == 'custom':
+        from pathlib import PurePosixPath
+        parts = file.replace(chr(92), '/').split('/')
+        return parts[0] if len(parts) > 1 else PurePosixPath(file).stem
     if media_type == "epub":
         return file.rsplit('\\', 1)[0] if '\\' in file else file.partition("/")[0]
     return file.partition("\\")[0].partition("/")[0]
 
 
-def _result_cache_key(q, sort, seed, media, exact, folder, file, targets):
+@functools.lru_cache(maxsize=8)
+def _table_hash(files):
+    digest = hashlib.sha256()
+    for path, state in files:
+        digest.update(os.path.basename(path).encode('utf-8'))
+        if state is None:
+            digest.update(b'missing')
+        else:
+            with open(path, 'rb') as handle:
+                for chunk in iter(lambda: handle.read(65536), b''):
+                    digest.update(chunk)
+    return digest.hexdigest()[:12]
+
+
+def _rules_version():
+    from aobana.server.app import VERSION
+    files = []
+    for path in (paths.RUBY_TABLES_PATH, paths.KANJI_READINGS_PATH):
+        try:
+            stat = os.stat(path)
+            state = (stat.st_size, stat.st_mtime_ns)
+        except OSError:
+            state = None
+        files.append((path, state))
+    return ('order-2-5', VERSION, _table_hash(tuple(files)))
+
+
+# The key's fixed slots that the disk cache reads back: the options after the fingerprint vary
+_KEY_SORT, _KEY_FINGERPRINT = 2, 8
+
+
+def _result_cache_key(q, sort, seed, media, exact, folder, file, targets, ruby_only=False, learn=''):
     if not RESULT_CACHE_ENABLED or (sort == "random" and seed is None):
         return None
-    return (q, sort, seed if sort == "random" else None, media, bool(exact), folder or None,
-            file or None, db_fingerprint(*[conn for _, conn, _ in targets]))
+    key = (_rules_version(), q, sort, seed if sort == "random" else None, media, bool(exact), folder or None,
+           file or None, db_fingerprint(*[conn for _, conn, _ in targets])) + (('ruby-only',) if ruby_only else ())
+    # i+1: its mode and the known words' fingerprint, which names the rules too; 'groups-typed'
+    # names おすすめ's i+1 first by unknown words, a known target's i+1 and the reading typed, so an
+    # order saved under an older rule is never served
+    if learn:
+        key += ('learn', learn, 'groups-typed')
+    return key
 
 
 def _result_cache_get(key):
@@ -84,7 +127,7 @@ _DISK_ARRAYS = (("media", "b"), ("fidx", "i"), ("rowid", "q"), ("score", "d"), (
 
 
 def disk_cache_path():
-    return os.path.join(os.path.dirname(os.path.abspath(paths.subs_db())), "search_cache.db")
+    return paths.companion('search_cache.db')
 
 
 def _disk_open():
@@ -137,6 +180,8 @@ def _disk_cache_get(key):
                 return entry
             finally:
                 conn.close()
+        except sqlite3.OperationalError:
+            pass
         except sqlite3.DatabaseError:
             _disk_drop_file()
         except (sqlite3.Error, OSError, ValueError, TypeError):
@@ -166,7 +211,7 @@ def _disk_cache_put(key, entry):
                         dead.append((old_key,))
                 conn.executemany("DELETE FROM entries WHERE key = ?", dead)
                 conn.execute("INSERT OR REPLACE INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                             (repr(key), repr(key[-1]), len(entry["rowid"]), size, time.time(),
+                             (repr(key), repr(key[_KEY_FINGERPRINT]), len(entry["rowid"]), size, time.time(),
                               *blobs, folders, counts))
                 total = conn.execute("SELECT COALESCE(SUM(bytes), 0) FROM entries").fetchone()[0]
                 for old_key, old_bytes in conn.execute(
@@ -179,6 +224,8 @@ def _disk_cache_put(key, entry):
                 conn.execute("PRAGMA incremental_vacuum").fetchall()
             finally:
                 conn.close()
+        except sqlite3.OperationalError:
+            pass
         except sqlite3.DatabaseError:
             _disk_drop_file()
         except (sqlite3.Error, OSError):
@@ -186,7 +233,7 @@ def _disk_cache_put(key, entry):
 
 
 def _disk_cache_put_later(key, entry, seconds):
-    if (key is None or seconds < DISK_CACHE_MIN_SECONDS or key[1] == "random"
+    if (key is None or seconds < DISK_CACHE_MIN_SECONDS or key[_KEY_SORT] == "random"
             or not disk_cache_enabled()):
         return
     threading.Thread(target=_disk_cache_put, args=(key, entry), daemon=True).start()
@@ -249,7 +296,7 @@ def _result_cache_put(key, entry, seconds=None):
             total -= len(old["rowid"])
 
 
-def _result_cache_page(entry, idx, targets):
+def _result_cache_page(entry, idx, targets, keep_text=False):
     tables = {m_type: (table, conn) for table, conn, m_type in targets}
     wanted = {}
     for i in idx:
@@ -275,6 +322,7 @@ def _result_cache_page(entry, idx, targets):
         row_dict["folder"] = _result_folder(m_type, row_dict["file"])
         row_dict["score"] = entry["score"][i]
         row_dict["char_count"] = entry["char_count"][i]
-        del row_dict["clean_text"]
+        if not keep_text:
+            del row_dict["clean_text"]
         chunk.append(row_dict)
     return chunk

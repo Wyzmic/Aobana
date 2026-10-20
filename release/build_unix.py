@@ -25,12 +25,12 @@ from build import (BUILD, DIST, RELEASE, ROOT, VENDOR, VERSION, check_packages,
                    sha256, smoke, step)
 
 UNIX = os.path.join(RELEASE, "unix")
-PBS = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/"
+PBS = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/"
 PYTHONS = {
-    "mac": ("cpython-3.14.7+20260924-aarch64-apple-darwin-install_only.tar.gz",
-            "d3da099bb2bdd57e2f5ff8496cb9827f7d92eee332b09f8dc93706dabfc51a96"),
-    "linux": ("cpython-3.14.7+20260924-x86_64-unknown-linux-gnu-install_only.tar.gz",
-              "5539eaf1de20bd9b5f43ea11c3c1f84cbac74fe927ac050318a9210c022618cb"),
+    "mac": ("cpython-3.14.8+20261003-aarch64-apple-darwin-install_only.tar.gz",
+            "d15291f940cfecd2e54010d5e37d2e03aa192f076a65d26ab741372fff2dabfe"),
+    "linux": ("cpython-3.14.8+20261003-x86_64-unknown-linux-gnu-install_only.tar.gz",
+              "371b6c281bbb09b29279e9e3a2996bab4ae2ea03cca52bf869f8bd89286b0ae8"),
 }
 APPIMAGETOOL = ("https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage",
                 "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0")

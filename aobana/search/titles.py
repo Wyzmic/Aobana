@@ -50,7 +50,8 @@ SUB_LANG_SUFFIX_RE = re.compile(
 )
 SUB_CRC_RE = re.compile(r"\s*[\[\(（]\s*[0-9A-Fa-f]{8}\s*[\]\)）]")
 SUB_LEADING_GROUP_RE = re.compile(r"^\s*\[([^\]]*)\]\s*")
-SUB_PURE_EP_BRACKET_RE = re.compile(r"^\d{1,3}(?:v\d+)?(?:[～\-・/]\d{1,3}(?:v\d+)?)?$", re.IGNORECASE)
+SUB_PURE_EP_BRACKET_RE = re.compile(
+    r"^(?:\d{1,3}(?:v\d+)?(?:[～\-・/]\d{1,3}(?:v\d+)?)?|第\s*[0-9０-９]{1,4}\s*話)$", re.IGNORECASE)
 SUB_SEASON_IN_BRACKET_RE = re.compile(
     r"(?:\d+(?:st|nd|rd|th)\s+Season|Season\s+\d+|第[0-9０-９一二三四五六七八九十]+(?:期|季|シリーズ))",
     re.IGNORECASE,
@@ -187,7 +188,48 @@ def _episode_stem(filename):
     return s
 
 
-def format_episode_title(relpath):
+def subtitle_group(relpath):
+    parts = [part.translate(FW_TO_HW_DIGITS) for part in re.split(r"[\\/]", relpath)[1:]]
+    clues = "/".join(parts)
+    if re.search(r"(?<![A-Za-z0-9])OVA(?![A-Za-z0-9])", clues, re.I):
+        return {"kind": "ova", "label": "OVA", "order": 1001}
+    if re.search(r"劇場版|映画|\[映\]|(?<![A-Za-z0-9])(?:Movie|Film)(?![A-Za-z0-9])", clues, re.I):
+        return {"kind": "movie", "label": "劇場版", "order": 1002}
+    for part in reversed(parts):
+        match = SUB_SE_RE.search(part)
+        if not match:
+            match = re.search(r"(?<![0-9一二三四五六七八九十百])(?:第)?([0-9一二三四五六七八九十]{1,3})(?:期|季|シリーズ)", part)
+        if not match:
+            match = SUB_SEASON_WORD_RE.search(part)
+        if not match:
+            match = re.search(r"([0-9]+)(?:st|nd|rd|th)\b", part, re.I)
+        if not match:
+            match = re.search(r"(?<![A-Za-z0-9])(?:Season[\s_.-]*|S)(\d{1,2})(?!\d)(?:$|[\s_.-]|E\d)", part, re.I)
+        season = parse_int_or_kanji(match.group(1)) if match else None
+        if season and 1 <= season <= 99:
+            return {"kind": "season", "label": f"{season}期", "order": season}
+    return {"kind": "other", "label": "", "order": 1003}
+
+
+_FILM_FILE_RE = re.compile(r'(?:Movie|Film|劇場版|映画|劇場|\[映\])', re.IGNORECASE)
+
+
+def episode_order(items, grouping=True):
+    if any('話' in x['title'] for x in items):
+        items.sort(key=lambda x: (1 if '話' in x['title'] else (0 if _FILM_FILE_RE.search(x['file']) else 1),
+                                  x['file']))
+    if not grouping:
+        return
+    clues = [subtitle_group(x['file']) for x in items]
+    if (any(re.split(r"[\\/]", x['file'])[1:-1] for x in items)
+            or any(g['kind'] == 'season' for g in clues)
+            or (len(items) > 1 and any(g['kind'] == 'ova' for g in clues))):
+        for x, g in zip(items, clues):
+            x['subtitle_group'] = g
+        items.sort(key=lambda x: x['subtitle_group']['order'])
+
+
+def _format_episode_title_accepted(relpath):
     from aobana import utils
     parts = re.split(r"[\\/]", relpath)
     folder_name = parts[0]
@@ -349,6 +391,16 @@ def format_episode_title(relpath):
             if not title and not season_ep:
                 title = filename
 
+    title = _clean_episode_title(title)
+    if title:
+        return f"{folder_name}｜{title}｜{season_ep}" if season_ep else f"{folder_name}｜{title}"
+    if season_ep:
+        return f"{folder_name}｜{season_ep}"
+    return folder_name or filename
+
+
+def _clean_episode_title(title):
+    from aobana import utils
     if title:
         t = SUB_BRACKET_JUNK_RE.sub("", title).strip()
         t = SUB_EXACT_BRACKET_JUNK_RE.sub("", t).strip()
@@ -389,11 +441,183 @@ def format_episode_title(relpath):
             for old, new in utils.SUBS_STR_REPLACEMENTS:
                 title = title.replace(old, new)
             title = title.replace("(", "（").replace(")", "）")
-            if title:
-                return f"{folder_name}｜{title}｜{season_ep}" if season_ep else f"{folder_name}｜{title}"
-    if season_ep:
-        return f"{folder_name}｜{season_ep}"
-    return folder_name or filename
+    return title
+
+
+SUB_FORMATTED_COUNTER_RE = re.compile(
+    r"(?:^|｜)(?:[0-9０-９]+期)?[0-9０-９]+(?:\.[0-9０-９]+)?"
+    r"(?:[～\-・/][0-9０-９]+(?:\.[0-9０-９]+)?)?話(?:$|｜)"
+)
+_HYBRID_RANGE = r"(?:\s*[-~～‒–—・/,，]\s*(?:EP?|[#＃])?\s*([0-9０-９]{1,4})(?:v\d+)?)?"
+SUB_HYBRID_EXPLICIT_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:EP[\s._-]*|E[\s._]*)([0-9０-９]{1,4})(?:v\d+)?"
+    + _HYBRID_RANGE + r"(?![A-Za-z0-9])", re.I
+)
+SUB_HYBRID_BARE_RE = re.compile(
+    r"(?:^|[\s._\-‒–—\[（(])([0-9０-９]{1,4})(v\d+)?"
+    + _HYBRID_RANGE + r"(?![A-Za-z0-9])", re.I
+)
+SUB_HYBRID_PROTECTED_RE = re.compile(
+    r"劇場版|映画|\[映\]|(?<![A-Za-z0-9])(?:Movie|Film)(?![A-Za-z0-9])|"
+    r"(?:Cinematic|Cutscene|StoryMode|Mission|Quest)[\s_]*\d+", re.I
+)
+SUB_HYBRID_METADATA_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:\d{3,4}[x×]\d{3,4}|(?:480|576|720|1080|1440|1920|2160)[pi]|"
+    r"(?:480|576|720|1080|1440|1920|2160)(?=[._](?:BD|WEB|HDTV))|"
+    r"H[._]?26[45]|x26[45]|(?:8|10|12)bit|\d+(?:fps|ch))(?![A-Za-z0-9])", re.I
+)
+SUB_HYBRID_RELEASE_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:Re-?Timed\b|(?:480|576|720|1080|1440|1920|2160)(?=[._](?:BD|WEB|HDTV)))", re.I
+)
+SUB_HYBRID_BROADCAST_RE = re.compile(r"^(?:\d{8}|\d{4}[._-]\d{2}[._-]\d{2})[\s_-]+\d{4}(?!\d)")
+SUB_HYBRID_LIST_RE = re.compile(r"\s*[,，]\s*(?:EP?)?([0-9０-９]{1,4})(?:v\d+)?(?![A-Za-z0-9])", re.I)
+SUB_HYBRID_LANG_SUFFIX_RE = re.compile(r"[._-](?:sc_jp|sc&ja|jps)(?=\.(?:ass|srt|ssa)$)", re.I)
+SUB_HYBRID_ANNOTATION_RE = re.compile(
+    r"[\[(](?:Japanese|WhisperAI|AI Generated|Contains mistakes|Creators\+Repack|"
+    r"includes songs|v\d+|first \d+(?:\.\d+)?\s*MB trimmed from TS)[\])]", re.I
+)
+SUB_HYBRID_COPY_RE = re.compile(
+    r"([._-](?:ja|jp|jpn|jap|chs|cht|en|eng))\s*\(\d+\)(?=\.(?:srt|ass|ssa)$)", re.I
+)
+
+
+def _hybrid_range_end(inspected, match_end, first, last):
+    if re.match(r"\.\d|[-~～‒–—・/]\s*(?:EP?)?\d", inspected[match_end:], re.I):
+        return last, match_end, False
+    while match := SUB_HYBRID_LIST_RE.match(inspected, match_end):
+        following = int(match.group(1).translate(FW_TO_HW_DIGITS))
+        if last is None or following != last + 1:
+            return last, match_end, False
+        last, match_end = following, match.end()
+    return last, match_end, last is None or first < last <= first + 50
+
+
+def _hybrid_inspection(stem, folder):
+    inspected = list(stem.translate(FW_TO_HW_DIGITS))
+    for pattern in (SUB_BRACKET_JUNK_RE, SUB_EXACT_BRACKET_JUNK_RE,
+                    SUB_TECH_BRACKET_RE, SUB_HYBRID_METADATA_RE):
+        for match in pattern.finditer(stem):
+            inspected[match.start():match.end()] = " " * (match.end() - match.start())
+    work = re.sub(r"\[[^\]]*\]", "", folder).translate(FW_TO_HW_DIGITS)
+    work_tokens = re.findall(r"[^\W_]+", work.casefold())
+    stem_tokens = list(re.finditer(r"[^\W_]+", stem.translate(FW_TO_HW_DIGITS)))
+    for expected, actual in zip(work_tokens, stem_tokens):
+        expected = re.sub(r"^(\d+)(?:st|nd|rd|th)$", r"\1", expected)
+        if expected != actual.group().casefold():
+            break
+        if expected.isdigit():
+            inspected[actual.start():actual.end()] = " " * (actual.end() - actual.start())
+    if re.search(r"Gundam|ガンダム", stem, re.I):
+        for match in re.finditer(r"(?<![A-Za-z0-9])0080(?![A-Za-z0-9])", stem):
+            inspected[match.start():match.end()] = " " * 4
+    return "".join(inspected)
+
+
+def _format_episode_title_hybrid(relpath):
+    accepted = _format_episode_title_accepted(relpath)
+    parts = re.split(r"[\\/]", relpath)
+    folder, raw = parts[0], parts[-1]
+    inspected_name = SUB_HYBRID_COPY_RE.sub(r'\1', raw)
+    if inspected_name != raw:
+        corrected, metadata = _format_episode_title_hybrid('/'.join(parts[:-1] + [inspected_name]))
+        corrected_counter = SUB_FORMATTED_COUNTER_RE.search(corrected)
+        if corrected_counter:
+            old_counter = SUB_FORMATTED_COUNTER_RE.search(accepted)
+            return corrected, {**metadata, "rule": "download_copy", "changed": corrected != accepted,
+                               "counter_corrected": bool(old_counter and old_counter.group() != corrected_counter.group())}
+    if SUB_FORMATTED_COUNTER_RE.search(accepted):
+        return accepted, {"rule": "accepted", "changed": False}
+    if SUB_HYBRID_PROTECTED_RE.search(relpath):
+        return accepted, {"rule": "protected", "changed": False}
+    stem = _episode_stem(SUB_HYBRID_LANG_SUFFIX_RE.sub('', raw))
+    if SUB_HYBRID_BROADCAST_RE.search(stem):
+        return accepted, {"rule": "protected", "changed": False}
+    inspected = _hybrid_inspection(stem, folder)
+
+    explicit = list(SUB_HYBRID_EXPLICIT_RE.finditer(inspected))
+    candidates = []
+    invalid_range = False
+    if explicit:
+        for match in explicit:
+            if candidates and match.start() < candidates[-1][3]:
+                continue
+            first = int(match.group(1))
+            last = int(match.group(2)) if match.group(2) else None
+            if last is not None and re.search(r"[,，]", match.group()) and last != first + 1:
+                invalid_range = True
+            last, end, valid = _hybrid_range_end(inspected, match.end(), first, last)
+            if not valid:
+                invalid_range = True
+            candidates.append((first, last, match.start(), end, "explicit"))
+    else:
+        for match in SUB_HYBRID_BARE_RE.finditer(inspected):
+            first = int(match.group(1))
+            last = int(match.group(3)) if match.group(3) else None
+            if last is not None and re.search(r"[,，]", match.group()) and last != first + 1:
+                invalid_range = True
+            last, end, valid = _hybrid_range_end(inspected, match.end(), first, last)
+            if re.match(r"\.\d", inspected[match.end():]) or re.search(r"\d\.$", inspected[:match.start(1)]):
+                continue
+            padded = len(match.group(1)) == 4 and match.group(1).startswith('0')
+            if first == 0 or (first in SUB_BOGUS_EP_NUMS and not padded) or 1900 <= first <= 2099:
+                continue
+            if last is not None:
+                padded_end = len(match.group(3)) == 4 and match.group(3).startswith('0')
+                if (not valid or (last in SUB_BOGUS_EP_NUMS and not padded_end) or 1900 <= last <= 2099):
+                    invalid_range = True
+                    continue
+                rule = "range"
+            elif len(match.group(1)) == 4 and first <= 1899:
+                rule = "four_digit"
+            elif re.search(r"[‒–—]\s*$", stem[:match.start(1)]):
+                rule = "alternate_dash"
+            elif re.match(r"\s*\[", stem[match.end():]):
+                rule = "attached_bracket"
+            elif (len(match.group(1)) >= 2 and stem[:match.start(1)].endswith('_')
+                  and re.match(r"_(?:480|576|720|1080|1440|1920|2160)[._](?:BD|WEB|HDTV)",
+                               stem[match.end():], re.I)):
+                rule = "underscore_release"
+            elif match.group(2) and len(match.group(1)) >= 2 and "_" in stem[:match.start(1)]:
+                rule = "versioned"
+            else:
+                continue
+            if not valid:
+                invalid_range = True
+                continue
+            candidates.append((first, last, match.start(), end, rule))
+
+    values = {(first, last) for first, last, _, _, _ in candidates}
+    if invalid_range or len(values) != 1:
+        rule = "ambiguous" if candidates or invalid_range else "unclassified"
+        return accepted, {"rule": rule, "changed": False}
+    first, last, _, _, rule = candidates[0]
+    title_parts, previous = [], 0
+    for _, _, start, end, _ in sorted(candidates, key=lambda item: item[2]):
+        title_parts.append(stem[previous:start].strip(" ._ -‒–—"))
+        previous = end
+    title_parts.append(stem[previous:].strip(" ._ -‒–—"))
+    title_raw = " ".join(part for part in title_parts if part)
+    title_raw = SUB_HYBRID_ANNOTATION_RE.sub('', title_raw)
+    title_raw = re.sub(r"(?:[-_.\s]*(?:JPN|JP|JA)[-_.\s]*)?内封用.*$", "", title_raw, flags=re.I)
+    for match in SUB_BRACKET_JUNK_RE.finditer(title_raw):
+        if re.fullmatch(r"[\s_]*(?:\([A-Za-z][A-Za-z0-9_-]{1,30}\)|\[[A-Za-z][A-Za-z0-9_-]{1,30}\])\s*",
+                        title_raw[match.end():]):
+            title_raw = title_raw[:match.end()]
+            break
+    title_raw = SUB_HYBRID_RELEASE_RE.split(title_raw, maxsplit=1)[0]
+    title = _clean_episode_title(title_raw.strip(" ._ -‒–—"))
+    title = re.sub(r"\s+", " ", title).strip(" -‒–—")
+    if title.casefold() == folder.casefold():
+        title = ""
+    counter = to_fullwidth(first, 2)
+    if last is not None:
+        counter += "～" + to_fullwidth(last, 2)
+    result = f"{folder}｜{title}｜{counter}話" if title else f"{folder}｜{counter}話"
+    return result, {"rule": rule, "changed": result != accepted, "episode": first, "end": last}
+
+
+def format_episode_title(relpath):
+    return _format_episode_title_hybrid(relpath)[0]
 
 
 GLOBAL_BOOK_AUTHORS = {}
@@ -471,7 +695,19 @@ def format_manga_title(file_key):
     return res
 
 
+def format_custom_title(file_key):
+    from pathlib import PurePosixPath
+    if file_key.lower().endswith('.md'):
+        from aobana.custom_source import clean_path
+        file_key = clean_path(file_key)
+    parts = file_key.replace(chr(92), '/').split('/')
+    parts[-1] = PurePosixPath(parts[-1]).stem
+    return '｜'.join(parts)
+
+
 def title_of(media_type, file, db_subs=None, db_epub=None):
+    if media_type == 'custom':
+        return format_custom_title(file)
     if media_type == "epub":
         return format_book_title(file, db_epub=db_epub)
     if media_type == "manga":
@@ -482,4 +718,4 @@ def title_of(media_type, file, db_subs=None, db_epub=None):
 def get_sort_key(f):
     from aobana import utils
     mixed = utils.katakana_to_hiragana(f).replace('ゔ', 'う').lower()
-    return mixed.encode('shift_jis', errors='ignore')
+    return mixed.encode('cp932', errors='ignore')

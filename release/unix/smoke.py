@@ -1,5 +1,6 @@
 """Start a built Aobana the way a user does, index a tiny library through the Library tab's API,
-and search it. Exit 0 only if the subtitle, the book and the manga line all come back.
+and search it. Exit 0 only if the subtitle, the book, the manga line and both Custom lines (a
+.txt and a .md) all come back.
 
     python release/unix/smoke.py <command that starts Aobana> [args...]
 
@@ -22,6 +23,8 @@ BASE = f"http://127.0.0.1:{PORT}"
 SRT_LINE = "猫が屋根の上で昼寝をしている"
 BOOK_LINE = "図書館で古い地図を見つけた。"
 MANGA_LINES = ["その傘は誰のだ？", "駅前で拾ったんだ．．．"]
+TXT_LINE = "庭の桜が満開になった。"
+MD_LINE = "川の向こうに灯台が見える。"
 
 
 def make_library(root):
@@ -58,7 +61,13 @@ def make_library(root):
     with open(os.path.join(manga, "テスト漫画", "テスト漫画 01.mokuro"), "w", encoding="utf-8") as fh:
         json.dump({"version": "0.2.5", "title": "テスト漫画", "volume": "テスト漫画 01",
                    "pages": [dict(page, img_path="001.jpg")]}, fh, ensure_ascii=False)
-    return subs, books, manga
+    custom = os.path.join(root, "media", "カスタム")
+    os.makedirs(os.path.join(custom, "テスト"))
+    with open(os.path.join(custom, "テスト", "日記.txt"), "w", encoding="utf-8") as fh:
+        fh.write(f"{TXT_LINE}\n風が少し冷たい。\n")
+    with open(os.path.join(custom, "テスト", "ノート.md"), "w", encoding="utf-8") as fh:
+        fh.write(f"# 第一章\n\n{MD_LINE}\n\n夜になると光る。\n")
+    return subs, books, manga, custom
 
 
 def get(path, timeout=10):
@@ -86,13 +95,33 @@ def wait_for(what, check, timeout):
     sys.exit(f"smoke: timed out waiting for {what}")
 
 
+def update_check_ok(update, network_available):
+    return bool(update.get('checked') and (update.get('latest') or not network_available))
+
+
+def release_network_available():
+    try:
+        req = urllib.request.Request('https://api.github.com/repos/Wyzmic/Aobana/releases/latest',
+                                     headers={'User-Agent': 'Aobana-smoke'})
+        with urllib.request.urlopen(req, timeout=10):
+            return True
+    except urllib.error.HTTPError as error:
+        return error.code not in (403, 429)
+    except (OSError, urllib.error.URLError):
+        return False
+
+
 def main(cmd):
     root = tempfile.mkdtemp(prefix="aobana-smoke-")
-    subs, books, manga = make_library(root)
+    subs, books, manga, custom = make_library(root)
     env = dict(os.environ, HOME=os.path.join(root, "home"), AOBANA_DATA_DIR=os.path.join(root, "data"),
-               SUBS_ROOT_DIR=subs, EPUB_ROOT_DIR=books, MANGA_ROOT_DIR=manga, AOBANA_PORT=str(PORT), AOBANA_DEBUG="0",
+               SUBS_ROOT_DIR=subs, EPUB_ROOT_DIR=books, MANGA_ROOT_DIR=manga, CUSTOM_ROOT_DIR=custom,
+               AOBANA_PORT=str(PORT), AOBANA_DEBUG="0",
                AOBANA_NO_TERMINAL="1", BROWSER="true", PYTHONIOENCODING="utf-8")
     os.makedirs(env["HOME"])
+    os.makedirs(env["AOBANA_DATA_DIR"])
+    with open(os.path.join(env["AOBANA_DATA_DIR"], "config.json"), "w", encoding="utf-8") as fh:
+        json.dump({"media": {"subs": True, "books": True, "manga": True, "custom": True}}, fh)
     log = open(os.path.join(root, "server.log"), "w", encoding="utf-8")
     print(f"smoke: {' '.join(cmd)}", flush=True)
     proc = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -110,14 +139,24 @@ def main(cmd):
         subs_hits = get(f"/api/search?q={q('昼寝')}&media=subs")["results"]
         book_hits = get(f"/api/search?q={q('地図')}&media=epub")["results"]
         manga_hits = get(f"/api/search?q={q('傘')}&media=manga")["results"]
+        txt_hits = get(f"/api/search?q={q('桜')}&media=custom")["results"]
+        md_hits = get(f"/api/search?q={q('灯台')}&media=custom")["results"]
         print(f"smoke: 昼寝 -> {len(subs_hits)} subtitle line(s), 地図 -> {len(book_hits)} book sentence(s), "
-              f"傘 -> {len(manga_hits)} manga line(s)")
+              f"傘 -> {len(manga_hits)} manga line(s), 桜 -> {len(txt_hits)} and 灯台 -> {len(md_hits)} "
+              "Custom line(s)")
         update = wait_for("the update check", lambda: (lambda u: u if u.get("checked") else None)(
             get("/api/update")), 30)
         print(f"smoke: /api/update current {update['current']}, latest {update['latest']}")
         page = urllib.request.urlopen(BASE + "/", timeout=10).read().decode("utf-8")
-        ok = bool(subs_hits) and bool(book_hits) and bool(manga_hits) and "露草" in page
-        stray = [n for n in ("subs.db", "epub.db", "manga.db")
+        ok = (bool(subs_hits) and bool(book_hits) and bool(manga_hits) and bool(txt_hits) and bool(md_hits)
+              and "露草" in page)
+        network = bool(update.get('latest')) or release_network_available()
+        if not update_check_ok(update, network):
+            print('smoke: FAIL update check finished with network but no latest release')
+            ok = False
+        elif not network:
+            print('smoke: SKIP latest-release assertion: release endpoint is unreachable')
+        stray = [n for n in ("subs.db", "epub.db", "manga.db", "custom.db")
                  if not os.path.exists(os.path.join(env["AOBANA_DATA_DIR"], "db", n))]
         if stray:
             print(f"smoke: {stray} not in the data folder's db folder: the build does not use the installed layout")

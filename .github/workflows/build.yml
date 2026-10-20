@@ -6,15 +6,25 @@ on:
   push:
     branches: [ci-unix]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "A draft release's tag: its downloads are attached, then the draft is published"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
 
 jobs:
   macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -34,15 +44,17 @@ jobs:
           name: aobana-macos
           path: release/dist/*
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" release/dist/*.dmg --clobber
+        run: gh release upload "$TAG" release/dist/*.dmg --clobber
 
   linux:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -77,7 +89,17 @@ jobs:
           name: aobana-linux
           path: release/dist/*
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" release/dist/*.AppImage release/dist/*.tar.gz --clobber
+        run: gh release upload "$TAG" release/dist/*.AppImage release/dist/*.tar.gz --clobber
+
+  publish:
+    needs: [macos, linux]
+    if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false --latest
