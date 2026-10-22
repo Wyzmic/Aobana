@@ -711,6 +711,9 @@ def missing_tables(conn, media) -> list:
         from aobana.indexing import kanji_table
         if kanji_table.supported() and not kanji_table.ready(conn, table):
             out.append("kanji")
+        from aobana.indexing import line_repeats
+        if not line_repeats.ready(conn, media):
+            out.append("repeats")
         return out
     except sqlite3.Error:
         return []
@@ -783,12 +786,14 @@ def ensure_ruby_lexicon(conn, table, media, workers=1) -> bool:
             actual = min(workers, len(jobs))
             say(f"LEXICON Workers: {actual}")
             running = parallel_map(_ruby_chunk, jobs, actual, ordered=False, stop=stop_requested)
+            span, done = {job[5]: job[4] - job[3] + 1 for job in jobs}, 0
             try:
                 for i, part in enumerate(running, 1):
                     parts.append(part)
                     if stop_requested():
                         return False
-                    emit("phase", f"LEXICON {i}/{len(jobs)}", phase="lexicon", done=i, total=len(jobs))
+                    done += span[part]
+                    emit("phase", f"LEXICON {i}/{len(jobs)}", phase="lexicon", done=done, total=top[0])
             finally:
                 running.close()
         if stop_requested():
@@ -1535,12 +1540,14 @@ def ensure_line_lengths(conn, db_path, table, media, workers=1) -> bool:
                 for i, (lo, hi) in enumerate(_table_ranges(top[0], workers))]
         actual = min(workers, len(jobs))
         say(f"LENGTHS Workers: {actual}")
+        span, done = {job[5]: job[4] - job[3] + 1 for job in jobs}, 0
         for i, part in enumerate(parallel_map(_lengths_chunk, jobs, actual, ordered=False,
                                               stop=stop_requested), 1):
             parts.append(part)
             if stop_requested():
                 break
-            emit("phase", f"LENGTHS {i}/{len(jobs)}", phase="lengths", done=i, total=len(jobs))
+            done += span[part]
+            emit("phase", f"LENGTHS {i}/{len(jobs)}", phase="lengths", done=done, total=top[0])
         if stop_requested():
             shutil.rmtree(work, ignore_errors=True)
             return False

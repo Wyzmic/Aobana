@@ -36,8 +36,10 @@ def api_custom_folder():
     if conn is None:
         return jsonify({'items': [], 'total': 0, 'has_more': False})
     args = request.args
+    # The query as /api/search reads it: `ー` the minus, `- ない` one word, 者 (U+FA5B) as 者 (audit 13, A13-01)
+    q = server.fold_compat(server.normalize_query(args.get('q', '')))
     return _media_request(conn, lambda stop: folder_page(
-        conn, args.get('path', ''), args.get('q', ''), args.get('mode', 'title'),
+        conn, args.get('path', ''), q, args.get('mode', 'title'),
         max(0, args.get('offset', 0, type=int)), max(1, min(500, args.get('limit', 500, type=int))),
         args.get('exact') == 'on', args.get('ruby_only') == 'on', args.get('sort', 'default'), stop), 'Unknown folder')
 
@@ -50,8 +52,9 @@ def api_custom_file():
         return jsonify({'error': 'Unknown file'}), 404
     args = request.args
     # A .txt or .md comes a page at a time: from `offset`, around line `at`, or just above `before`
+    q = server.fold_compat(server.normalize_query(args.get('q', '')))
     return _media_request(conn, lambda stop: file_page(
-        conn, args.get('file', ''), args.get('q', '').strip(),
+        conn, args.get('file', ''), q,
         args.get('exact') == 'on', args.get('ruby_only') == 'on', stop,
         offset=max(0, args.get('offset', 0, type=int)), limit=max(1, min(2000, args.get('limit', 500, type=int))),
         at=args.get('at', type=int), before=args.get('before', type=int), heading=args.get('heading', '').strip()), 'Unknown file')

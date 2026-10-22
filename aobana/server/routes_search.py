@@ -121,7 +121,7 @@ def api_search_counts():
             dbs, q, exact=exact, db_epub=db_epub, media=media,
             db_manga=db_manga, abort_flag=abort_flag,
             search_workers=paths.search_workers(), search_delay=paths.search_worker_delay(),
-            search_started=accepted_at)
+            search_started=accepted_at, sort=sort)
         if abort_flag[0]:
             return jsonify({"aborted": True}), 499
     except sqlite3.OperationalError as e:

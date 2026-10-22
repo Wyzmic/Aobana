@@ -375,7 +375,10 @@
     function setEmptyStateForFolders(folders) {
       const empty = document.getElementById('empty-state');
       if (!empty) return;
-      if (folders.length && folders.every(f => outsideMedia.has(f))) {
+      if (onlyExcludes(PARAMS.get('q') || '')) {
+        empty.dataset.i18n = 'no_results_only_excluded';
+        empty.textContent = t('no_results_only_excluded');
+      } else if (folders.length && folders.every(f => outsideMedia.has(f))) {
         empty.dataset.i18n = 'no_results_outside_media';
         empty.textContent = t('no_results_outside_media', { n: folders.length });
       } else if (folders.length) {

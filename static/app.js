@@ -539,6 +539,7 @@
           document.documentElement.style.overflow = '';
           return;
         }
+        if (isOpen('unsaved-modal')) { closeUnsaved(); return; }
         if (isOpen('whatsnew-modal')) { closeWhatsNew(); return; }
         if (closeGuideToc()) return;
         if (isOpen('reindex-modal')) { closeReindex(false); return; }

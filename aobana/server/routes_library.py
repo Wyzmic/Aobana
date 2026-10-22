@@ -105,6 +105,16 @@ def api_library_check_asked():
     return jsonify({"ok": True})
 
 
+@app.route("/api/library/findings-asked", methods=["POST"])
+def api_library_findings_asked():
+    server._require_page()
+    key = (request.get_json(silent=True) or {}).get("key")
+    if not isinstance(key, str) or not key:
+        return jsonify({"error": "no key"}), 400
+    library.mark_findings_asked(key)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/library/analyse", methods=["POST"])
 def api_library_analyse():
     server._require_page()
@@ -144,7 +154,7 @@ def api_library_analysis():
     return jsonify({"status": status, "report": report, "filtered": summary["filtered"],
                     "view": summary["view"], "current_roots": roots,
                     "data_dir":paths.db_dir(), "backups_dir": paths.backups_dir('encoding'),
-                    "selection_valid":valid})
+                    "selection_valid":valid, "findings_asked": library.findings_asked()})
 
 
 @app.route("/api/library/analysis/page", methods=["GET"])

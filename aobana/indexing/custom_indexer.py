@@ -9,7 +9,7 @@ from datetime import datetime
 
 from sudachipy import dictionary, tokenizer
 from aobana import paths, utils
-from aobana.indexing import kanji_table, run_control as control, subtitle_input
+from aobana.indexing import kanji_table, line_repeats, run_control as control, subtitle_input
 from aobana.custom_source import Catalog, natural_key
 from aobana.indexing.preparation import prepare_changed
 from aobana.search.titles import get_sort_key
@@ -256,6 +256,7 @@ def run_tables():
             return
         build_tables(conn)
         conn.commit()
+        line_repeats.ensure(conn, 'custom', DB_PATH, paths.index_workers(), show=True)
     utils.say('Tables ready.')
 
 
@@ -282,6 +283,7 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
             for table in (TABLE, 'sources', 'custom_lines', 'custom_folders', 'custom_skipped', 'custom_sections', 'custom_quiet', 'custom_source_meta', 'line_lengths', 'token_lengths', 'ruby_lexicon'):
                 conn.execute(f'DROP TABLE IF EXISTS {table}')
             kanji_table.drop(conn, TABLE)
+            line_repeats.drop(conn, 'custom')
             conn.commit()
         create_schema(conn)
         utils.report_outdated(conn, 'custom')
@@ -319,9 +321,13 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
         conn.executemany('INSERT INTO custom_source_meta VALUES (?, ?, ?, ?)',
                          [(job[1], meta['path'], meta['folder_page'], meta['paired_folder']) for job in jobs
                           if (meta := catalog.get(job[1])) is not None])
-        for relpath, meta in catalog.meta.items():
-            conn.execute('UPDATE sources SET category = ?, title = ?, order_key = ? WHERE replace(relpath, char(92), ?) = ?',
-                         (meta['category'], meta['title'], meta['order_key'], '/', relpath))
+        # By id: a WHERE on replace(relpath, ...) read every source once a page (16,000 files: 19 s)
+        ids = {}
+        for source_id, relpath in conn.execute('SELECT id, relpath FROM sources'):
+            ids.setdefault(utils.name_key(relpath), []).append(source_id)
+        conn.executemany('UPDATE sources SET category = ?, title = ?, order_key = ? WHERE id = ?',
+                         [(meta['category'], meta['title'], meta['order_key'], source_id)
+                          for relpath, meta in catalog.meta.items() for source_id in ids.get(relpath, ())])
         n_txt = sum(job[1].lower().endswith('.txt') for job in jobs)
         n_md = len(catalog.meta)
         utils.say(f'Found {n_txt} .txt and {n_md} .md file(s) in {CUSTOM_ROOT_DIR}.')
@@ -440,6 +446,7 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
         conn.execute('DELETE FROM custom_lines WHERE rowid NOT IN (SELECT rowid FROM custom) '
                      'AND rowid NOT IN (SELECT rowid FROM custom_quiet)')
         conn.commit()
+        line_repeats.ensure(conn, 'custom', DB_PATH, paths.index_workers())
         utils.compact_if_worth(conn, TABLE, deleted_rows, inserted_rows)
     excluded.close()
     if reasons.get('empty'):

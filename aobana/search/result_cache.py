@@ -77,7 +77,7 @@ def _rules_version():
         except OSError:
             state = None
         files.append((path, state))
-    return ('order-2-5', VERSION, _table_hash(tuple(files)))
+    return ('order-2-8', VERSION, _table_hash(tuple(files)))
 
 
 # The key's fixed slots that the disk cache reads back: the options after the fingerprint vary
@@ -267,10 +267,12 @@ def clear_disk_cache():
 _LEAN_LINE, _LEAN_ROWID, _LEAN_MEDIA, _LEAN_FOLDER, _LEAN_SCORE, _LEAN_CHARS = range(6)
 
 
-def _result_entry(valid_results, folder_counts):
-    names = {}
+def _result_entry(valid_results):
+    names, folder_counts = {}, {}
     for r in valid_results:
-        names.setdefault(r[_LEAN_FOLDER], len(names))
+        f = r[_LEAN_FOLDER]
+        names.setdefault(f, len(names))
+        folder_counts[f] = folder_counts.get(f, 0) + 1
     return {
         "media": array("b", (_MEDIA_CODES[r[_LEAN_MEDIA]] for r in valid_results)),
         "fidx": array("i", (names[r[_LEAN_FOLDER]] for r in valid_results)),
@@ -278,7 +280,7 @@ def _result_entry(valid_results, folder_counts):
         "rowid": array("q", (r[_LEAN_ROWID] for r in valid_results)),
         "score": array("d", (r[_LEAN_SCORE] for r in valid_results)),
         "char_count": array("q", (r[_LEAN_CHARS] for r in valid_results)),
-        "folder_counts": dict(folder_counts),
+        "folder_counts": folder_counts,
     }
 
 

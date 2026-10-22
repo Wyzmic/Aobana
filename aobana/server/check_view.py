@@ -71,7 +71,7 @@ def _sections(report):
 
 
 def build(path, key):
-    report = library.analysis_report()
+    report = library.analysis_report(with_key=True)
     header = {'key': key, 'report': None, 'sections': {}}
     tmp = f'{path}.{os.getpid()}.tmp'
     with open(tmp, 'wb') as out:

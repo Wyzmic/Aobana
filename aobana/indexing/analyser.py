@@ -929,6 +929,20 @@ TABLE_COST_PER_ROW = {
               'kanji': (15.99744, 0.00000340153)},
 }
 TABLE_COST_PER_ROW['custom'] = dict(TABLE_COST_PER_ROW['manga'])
+for _media, _seconds in (('subs', 0.00000500), ('epub', 0.00000763), ('manga', 0.00000108), ('custom', 0.00000380)):
+    TABLE_COST_PER_ROW[_media]['repeats'] = (0.125, _seconds)
+REPEATS_POOL_PER_ROW = {'subs': 15.0 / 53_622_566, 'epub': 152.4 / 136_963_885}
+
+
+def _repeats_seconds(media, rows, workers):
+    from aobana.indexing.line_repeats import POOL_MIN_ROWS
+    one = TABLE_COST_PER_ROW[media]['repeats'][1]
+    if workers <= 1 or rows < POOL_MIN_ROWS:
+        return rows * one
+    pooled = REPEATS_POOL_PER_ROW.get(media)
+    if pooled is None:
+        return rows * one / workers
+    return rows * pooled * max(1, TABLE_COST_WORKERS / workers)
 PARALLEL_EFFICIENCY = {"subs": 0.9, "epub": 0.89, "manga": 0.89, "custom": 0.89}
 SAMPLE = {"subs": 40, "epub": 40, "manga": 40, "custom": 400}
 SCALE_BY_BYTES = {"custom"}
@@ -1046,6 +1060,8 @@ def _sample_files(media, files, workers, rng):
 
 def estimate(only=None):
     import random
+    from aobana.indexing import line_repeats
+    from aobana.search.result_cache import _result_folder
     workers = paths.index_workers()
     out = {"workers": workers, "media": {}}
     cache = _load_estimate_cache()
@@ -1059,6 +1075,7 @@ def estimate(only=None):
             continue
         indexed = set()
         stale = set()
+        title_rows, title_of = {}, {}
         excluded = {name_key(r['name']) for r in filtered_rows(paths.filtered_list()) if r['media'] == media}
         if os.path.isfile(db):
             try:
@@ -1087,6 +1104,12 @@ def estimate(only=None):
                 if m['tables']:
                     from aobana.utils import count_rows
                     m['table_rows'] = count_rows(c, table)
+                if 'repeats' not in m['tables'] and media in line_repeats.TABLES:
+                    titles, _ = line_repeats._titles(c, media)
+                    title_rows = {t: sum(hi - lo + 1 for *_, lo, hi in runs) for t, runs in titles.items()}
+                    of_source = {run[0]: t for t, runs in titles.items() for run in runs}
+                    title_of = {name_key(rel): of_source[sid] for sid, rel in c.execute("SELECT id, relpath FROM sources")
+                                if sid in of_source}
                 c.close()
             except sqlite3.Error:
                 pass
@@ -1116,6 +1139,10 @@ def estimate(only=None):
                         if name_key(name) in stale and name_key(name) not in excluded]
         reread = [(p, name, size) for p, name, size, _ in stale_walked]
         m["reread_files"] = len(reread)
+        if title_rows:
+            names = {name_key(name) for _, name, _ in new + reread} | set(removals)
+            changed = {title_of.get(name) or (media != 'epub' and _result_folder(media, name)) for name in names}
+            m['repeats_rows'] = sum(title_rows.get(t, 0) for t in changed if t)
         if not new and not reread:
             continue
         key = _estimate_key(media, walked, workers, stale_walked)
@@ -1148,11 +1175,15 @@ def estimate(only=None):
         rows = m.get('table_rows', 0)
         m['table_add'] = sum(max(4096, int(rows * costs[name][0] + 4095) // 4096 * 4096)
                              for name in missing if name in costs and rows)
-        m['table_seconds'] = rows * sum(costs[name][1] *
+        m['table_seconds'] = sum(_repeats_seconds(media, rows, workers) if name == 'repeats' else rows * costs[name][1] *
             (max(1, TABLE_COST_WORKERS / max(1, workers)) if name in ('line_lengths', 'ruby_lexicon') else 1)
             for name in missing if name in costs)
         m['db_add'] += m['table_add']
         m['seconds'] += m['table_seconds']
+        if 'repeats_rows' in m:
+            m['repeats_rows'] += m['rows_add']
+            m['repeats_seconds'] = _repeats_seconds(media, m['repeats_rows'], workers)
+            m['seconds'] += m['repeats_seconds']
     total =sum(m["db_now"] + m["db_add"] for m in out["media"].values())
     out.update(total_bytes=total, warn=total > WARN_TOTAL_BYTES,
                seconds=sum(m["seconds"] for m in out["media"].values()))

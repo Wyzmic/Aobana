@@ -65,6 +65,13 @@ _LEXICON_OPEN_LOCK = threading.Lock()
 _LEXICON_MEMO_MAX = 50_000
 _DB_PATHS = (('subs', paths.subs_db, 'subtitles'), ('epub', paths.epub_db, 'epubs'),
              ('manga', paths.manga_db, 'manga'), ('custom', paths.custom_db, 'custom'))
+_BUILD_ABORT = None
+_BUILD_ABORT_STEPS = 10000
+
+
+def set_build_abort(check):
+    global _BUILD_ABORT
+    _BUILD_ABORT = check
 
 
 def work_key(media: str, file: str) -> tuple:
@@ -89,6 +96,9 @@ def get_ruby_lexicon():
             if not os.path.exists(path):
                 continue
             conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            check = _BUILD_ABORT
+            if check is not None:
+                conn.set_progress_handler(lambda: 1 if check() else 0, _BUILD_ABORT_STEPS)
             try:
                 rows += [(work_key(media, f), line) for f, line in conn.execute(
                     f"SELECT file, line FROM {table} WHERE instr(line, ?) > 0", ('(',))]
@@ -100,20 +110,34 @@ def get_ruby_lexicon():
         return lexicon
 
 
+def _lexicon_usable(conn):
+    if has_ruby_lexicon(conn):
+        return True, True
+    try:
+        if conn.execute("SELECT 1 FROM meta WHERE k = 'ruby_lexicon_version'").fetchone() is None:
+            return False, False
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(ruby_lexicon)")}
+    except sqlite3.Error:
+        return False, False
+    return {'base', 'folder', 'reading'} <= columns, 'alone' in columns
+
+
 def _lexicon_tables():
     local = _LEXICON_LOCAL
     if getattr(local, 'gen', None) != _LEXICON_GEN[0]:
         for conn in (getattr(local, 'conns', None) or {}).values():
             conn.close()
-        conns, complete = {}, True
+        conns, complete, alone = {}, True, {}
         for media, db_path, _ in _DB_PATHS:
             path = db_path()
             if not os.path.exists(path):
                 continue
             conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
             conns[media] = conn
-            complete = complete and has_ruby_lexicon(conn)
+            usable, alone[media] = _lexicon_usable(conn)
+            complete = complete and usable
         local.conns, local.complete, local.memo, local.gen = conns, complete, {}, _LEXICON_GEN[0]
+        local.alone = alone
         thread = threading.current_thread()
         with _LEXICON_OPEN_LOCK:
             _LEXICON_OPEN[thread] = conns
@@ -198,9 +222,14 @@ def _lexicon_alone(conns, media, folder, word):
     if key not in memo:
         if len(memo) > _LEXICON_MEMO_MAX:
             memo.clear()
-        memo[key] = {r for (r,) in conns[media].execute(
-            "SELECT DISTINCT reading FROM ruby_lexicon WHERE base = ? AND folder = ? AND alone = 1",
-            (word, folder))} if media in conns else set()
+        if media not in conns:
+            memo[key] = set()
+        elif not getattr(_LEXICON_LOCAL, 'alone', {}).get(media, True):
+            memo[key] = set(_lexicon_lookup(conns, media, folder, word)[0])
+        else:
+            memo[key] = {r for (r,) in conns[media].execute(
+                "SELECT DISTINCT reading FROM ruby_lexicon WHERE base = ? AND folder = ? AND alone = 1",
+                (word, folder))}
     return memo[key]
 
 
@@ -292,7 +321,7 @@ def calculate_display_length(line: str, media: str = 'subs') -> int:
     if not line: return 0
     if media == 'subs':
         line = normalize_subtitle_ruby(line, lookup=_sudachi_reading, prefixes=_native_prefixes)
-    processed = display_ruby_re(media).sub(r'\1\2', line)
+    processed = line if media == 'custom' else display_ruby_re(media).sub(r'\1\2', line)
     processed = _DISPLAY_PUNCT_RE.sub('', processed)
     processed = _DISPLAY_NONWORD_RE.sub('', processed)
     return len(processed)
@@ -345,6 +374,11 @@ TAIL_SUFFIX_NA_POS1 = '形状詞的'
 PHONETIC_SKIP_POS = ('助詞', '助動詞', '補助記号', '空白')
 
 
+def _merged_span(run: list) -> dict:
+    return {'start': run[0]['start'], 'end': run[-1]['end'], 'furi': ''.join(sp['furi'] for sp in run),
+            'parts': [p for sp in run for p in sp.get('parts', (sp,))]}
+
+
 def merge_mono_ruby(clean_text: str, spans: list) -> list:
     if len(spans) < 2:
         return spans
@@ -365,8 +399,7 @@ def merge_mono_ruby(clean_text: str, spans: list) -> list:
             out.append(spans[i])
             i += 1
         else:
-            out.append({'start': spans[i]['start'], 'end': spans[k]['end'],
-                        'furi': ''.join(sp['furi'] for sp in spans[i:k + 1])})
+            out.append(_merged_span(spans[i:k + 1]))
             i = k + 1
     return out
 
@@ -394,8 +427,7 @@ def merge_dict_ruby(clean_text: str, spans: list) -> list:
             out.append(spans[i])
             i += 1
         else:
-            out.append({'start': spans[i]['start'], 'end': spans[k]['end'],
-                        'furi': ''.join(sp['furi'] for sp in spans[i:k + 1])})
+            out.append(_merged_span(spans[i:k + 1]))
             i = k + 1
     return out
 
@@ -726,8 +758,9 @@ def highlight_and_furigana(text: str, content_bases: list, q: str, mark: bool = 
                 if w['reading'] and w['reading'] in reading_set:
                     phonetic_matches.append((w['start'], w['end']))
             for r in ruby_spans:
-                if r['furi'] and katakana_to_hiragana(r['furi']) in reading_set:
-                    furi_matches.append((r['start'], r['end']))
+                for sp in (r, *r.get('parts', ())):
+                    if sp['furi'] and katakana_to_hiragana(sp['furi']) in reading_set:
+                        furi_matches.append((sp['start'], sp['end']))
 
     word_starts = [w['start'] for w in words_data]
     for m_start, m_end in phonetic_matches + furi_matches:

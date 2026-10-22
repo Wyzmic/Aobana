@@ -319,7 +319,7 @@ COMMIT_EVERY_FILES = 50
 COMMIT_EVERY_SECONDS = 20
 
 
-from aobana.indexing import run_control as control, kanji_table, manga_fused, rebuild as rebuilding
+from aobana.indexing import run_control as control, kanji_table, line_repeats, manga_fused, rebuild as rebuilding
 from aobana.indexing.preparation import prepare_changed
 from aobana.utils import media_walk
 
@@ -345,6 +345,8 @@ def run_tables():
             say("Tables ready: no manga index yet.")
             return
         build_tables(conn, conn.execute(f"SELECT rowid FROM {TABLE} ORDER BY rowid DESC LIMIT 1").fetchone())
+        if not stop_requested():
+            line_repeats.ensure(conn, "manga", DB_PATH, paths.index_workers(), show=True)
     if stop_requested():
         emit("stopped", "STOPPED")
     else:
@@ -384,6 +386,7 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
             for t in (TABLE, "sources", "manga_pages", "line_lengths", "token_lengths", "ruby_lexicon"):
                 conn.execute(f"DROP TABLE IF EXISTS {t}")
             kanji_table.drop(conn, TABLE)
+            line_repeats.drop(conn, "manga")
             conn.commit()
 
         conn.execute('''
@@ -581,6 +584,7 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
         if stopped:
             emit("stopped", "STOPPED")
         else:
+            line_repeats.ensure(conn, "manga", db, paths.index_workers())
             compact_if_worth(conn, TABLE, deleted_rows, inserted_rows)
 
     excluded.close()

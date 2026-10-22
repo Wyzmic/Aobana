@@ -733,7 +733,7 @@ COMMIT_EVERY_FILES = 200
 COMMIT_EVERY_SECONDS = 20
 
 
-from aobana.indexing import run_control as control, source_ranges, kanji_table, rebuild as rebuilding
+from aobana.indexing import run_control as control, source_ranges, kanji_table, line_repeats, rebuild as rebuilding
 from aobana.indexing.preparation import prepare_changed
 
 def build_lexicon(conn, top):
@@ -763,6 +763,8 @@ def build_tables():
         build_lexicon(conn, top)
         control.check_stop()
         kanji_table.build(conn, "subtitles")
+        control.check_stop()
+        line_repeats.ensure(conn, "subs", DB_PATH, paths.index_workers(), show=True)
         control.check_stop()
     say("Tables ready.")
 
@@ -817,6 +819,7 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
             conn.execute("DROP TABLE IF EXISTS _source_ranges_stage")
             conn.execute("DELETE FROM meta WHERE k='source_ranges_version'") if conn.execute("SELECT 1 FROM sqlite_master WHERE name='meta'").fetchone() else None
             kanji_table.drop(conn, "subtitles")
+            line_repeats.drop(conn, "subs")
             conn.commit()
 
         conn.execute('''
@@ -1029,6 +1032,7 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
         if stopped:
             emit("stopped", "STOPPED")
         else:
+            line_repeats.ensure(conn, "subs", db, paths.index_workers())
             compact_if_worth(conn, "subtitles", deleted_rows, inserted_rows)
 
     excluded.close()

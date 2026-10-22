@@ -82,6 +82,7 @@
           return;
         }
       }
+      if (askUnsaved(only)) return;
       document.getElementById('lib-note').hidden = true;
       const box = document.getElementById('lib-estimate');
       setLibStarting(true);
@@ -117,6 +118,41 @@
       if (!check) return runIndex();
       document.getElementById('lib-analyse').scrollIntoView({ behavior: 'smooth', block: 'start' });
       runAnalysis();
+    }
+
+    function anUnsaved(only) {
+      const S = anReport?.sections || {}, on = m => MEDIA_ON[m] && (!only || only === m);
+      const out = { dups: 0, files: 0, reread: on('subs') ? S.reindex?.count || 0 : 0 };
+      for (const [k, s] of Object.entries(S)) {
+        const [kind, media, reason] = k.split(':');
+        if (!on(media)) continue;
+        if (kind === 'dup') out.dups += s.size || 0;
+        else if (kind === 'find' && anDefaultTicked({ media, reason })) out.files += (s.ids || []).length;
+      }
+      return out;
+    }
+    function askUnsaved(only) {
+      const key = anReport?.findings_key;
+      if (!key || key === anFindingsAsked || !anCanSelect) return false;
+      const u = anUnsaved(only);
+      if (!u.dups && !u.files && !u.reread) return false;
+      anFindingsAsked = key;
+      apiPost('/api/library/findings-asked', { key }).catch(() => {});
+      const lines = [['dups', 'unsaved_dups'], ['files', 'unsaved_files'], ['reread', 'unsaved_reread']]
+        .filter(([k]) => u[k]).map(([k, label]) => `<li>${esc(t(label, { n: fmt(u[k]) }))}</li>`).join('');
+      const m = document.getElementById('unsaved-modal');
+      m.querySelector('ul').innerHTML = lines;
+      const hints = [u.dups ? 'unsaved_hint_dups' : u.files ? 'unsaved_hint_files' : '', u.reread ? 'unsaved_hint_reread' : ''];
+      m.querySelector('.unsaved-hint').textContent = hints.filter(Boolean).map(k => t(k)).join(LANG === 'ja' ? '' : ' ');
+      m.classList.add('open');
+      document.documentElement.style.overflow = 'hidden';
+      return true;
+    }
+    function closeUnsaved(review) {
+      document.getElementById('unsaved-modal').classList.remove('open');
+      document.documentElement.style.overflow = '';
+      if (review === false) return runIndex();
+      if (review) document.getElementById('an-completed')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function fmtDuration(s) {
@@ -309,7 +345,7 @@
 
     const AN_PAGE = 200;
     const AN_FILTERABLE = ['bilingual', 'other_language', 'language_review', 'image_only', 'drm', 'garbled', 'unreadable', 'unsupported', 'html_error', 'no_japanese', 'empty_or_wall'];
-    let anSections = [], anReport = null, anView = '', anViewMedia = '';
+    let anSections = [], anReport = null, anView = '', anViewMedia = '', anFindingsAsked = null;
     let anPicked = new Set(), anUnpicked = new Set(), anRecheck = new Set(), anRecheckKeys = { dups: [], other: [] };
     let anGroups = new Map(), anIdMedia = new Map(), anGroupMedia = new Map();
     const anChoice = new Map();
@@ -522,6 +558,7 @@
       const generation = JSON.stringify([r?.selection_generation || r?.generation || 'no-report', r?.roots || {}, d?.current_roots || {}, d?.data_dir || '']);
       const open = new Set(generation === anDraftGeneration ? [...box.querySelectorAll('details.an-section[open]')].map(n => n.dataset.anKey) : []);
       anReport = r; anView = d?.view || ''; anCanSelect = d?.selection_valid !== false; anSections = []; anGroups = new Map();
+      anFindingsAsked = d?.findings_asked ?? null;
       anRecheckKeys = { dups: S['recheck-dups']?.keys || [], other: S.recheck?.keys || [] };
       const rechecked = new Set([...anRecheckKeys.dups, ...anRecheckKeys.other]);
       anRecheck = new Set([...anRecheck].filter(key => rechecked.has(key)));
@@ -851,6 +888,8 @@
     }
 
     const LINE_COUNTED_PHASES = ['preparation', 'writing'];
+    const phaseCount = s => t(s.phase === 'removals' ? 'lib_phase_files' : 'lib_phase_lines',
+                              { d: fmt(s.phase_done), n: fmt(s.phase_total) });
     function libErrorText(s) {
       if (s.error === 'companion_conflict') {
         const files = (s.folder_errors || []).filter(e => e.error === 'companion_conflict').map(e => e.file);
@@ -891,7 +930,7 @@
         const pct = s.total ? Math.round(100 * s.done / s.total) : 0;
         html += `<div class="progress"><div style="width:${pct}%"></div></div>
           <div class="progress-text">${esc(t('lib_stage_' + s.stage))} — ${s.phase
-            ? esc(t('lib_phase_' + s.phase)) + (s.phase_total && !LINE_COUNTED_PHASES.includes(s.phase) ? ` ${fmt(s.phase_done)} / ${fmt(s.phase_total)}` : '')
+            ? esc(t('lib_phase_' + s.phase)) + (s.phase_total && !LINE_COUNTED_PHASES.includes(s.phase) ? ' ' + esc(phaseCount(s)) : '')
             : (s.current ? esc(s.current) : '')}</div>
           <div class="progress-text">${esc(t(s.total ? 'lib_phase_counts_of' : 'lib_phase_counts', { p: fmt(s.prepared_done || 0), n: fmt(s.total || 0), c: fmt(s.committed_done || 0) }))}${s.remaining == null ? '' : ' · ' + esc(fmtEta(s.remaining))}</div>
           <div class="btns"><button class="btn" onclick="askStop('index', ${s.outdated ? 'true' : 'false'})" ${s.stopping ? 'disabled' : ''}>${esc(t(s.stopping ? 'stopping' : 'stop_btn'))}</button></div>`;

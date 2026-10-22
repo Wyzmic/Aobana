@@ -1,5 +1,55 @@
 # Changelog
 
+## 2.1: Title counts that match the results
+
+### Enhancements
+
+- **Title counts match the results.** On the Search page, the number beside each title is the number of sentences its list shows, and **All** is their sum. A line that a title repeats, such as a line of the opening in every episode, counts once, except under **Chronological**, which lists every line.
+- **Faster searches on a large library.** A new search takes over the search processes within about 2 seconds, instead of waiting for the one it replaces. A search by reading inside one title reads only that title's lines: under a second on a 142 GB test library, where 2.0 took 31 seconds.
+
+**Search**
+
+- **Index library** and **Optimize tables** mark the lines each title repeats, so the counts can leave them out without reading the text. The marks take about 6.7 MB for 53.6 million subtitle lines; on 12 processes the first build took 15 seconds for those lines and 2.5 minutes for 137 million book lines. Later runs redo only the titles whose files changed.
+- Until **Optimize tables** has run, a picked title's count can include its repeated lines; a note under the search bar then gives its number of sentences.
+- After a search, Aobana stays ready for the next one for 1 minute, not 5, so the memory it holds for that (about 1.3 GB with 12 search processes) is freed sooner.
+- A search that only excludes words, like `ーっ`, says so and how to search for it, instead of finding nothing.
+
+**Library and indexing**
+
+- After updating from 2.0, press **Optimize tables** in the **Library** tab once to build the marks; a notice asks for it. From 1.9, run **Check library**, then **Index library**.
+- When the recommendations of **Check library** are not saved yet, **Index library** first says how many duplicates and files the check recommends leaving out and how many subtitles to read again, and which buttons save them. **See check results** goes to them; **Index anyway** carries on.
+- **Convert to UTF-8** keeps each original file at its own folder and name inside the `backups/encoding` folder of Aobana's data folder, such as `backups/encoding/Show/ep01.srt.bak`.
+- **Index library** shows the marking as **Finding repeated lines...** with the lines done, and its time estimate counts it.
+- Where the Library's progress shows two numbers, it says what they count: lines or files.
+- The notice asking for **Optimize tables** says what the index gains, appears again for a later version that needs it, and its **Open Library** button goes straight to **Optimize tables**.
+- Updating from 1.9, the notice asking for **Index library** also says that the **Media** tab's subtitle list appears once it has run.
+- Backups made by 2.0's **Convert to UTF-8** move to the new folders at start, file by file, while the page is already open.
+- Updating from inside Aobana works from 1.9 and 2.0.
+
+**Media and the page**
+
+- On a phone, the sheet of titles on the Search page is 65% of the screen high, not 85%.
+- The **Media** list shows "Loading..." until its first answer.
+
+### Bug Fixes
+
+- Under **All**, a line found in two titles was listed once, under the first title only.
+- On an index from before 2.0, not yet rebuilt by **Index library**, each search process first read every line with ruby before searching: on a 142 GB test library, over 21 minutes and 11 GB of memory each.
+- The time left for a search by reading was guessed from the database's size: on a 142 GB test library it said 840 seconds at the start and rose to 1,121. It now follows the search: about 65 seconds at the start of a search that takes 110.
+- A search by reading for an adjective, like `辛い＝からい`, also found its stem in kana where those kana were another word, such as the から of 暑いからさ. Inflected forms in kana, like からそう or からすぎる, are still found.
+- A search in kana left the kanji it found unmarked when the book gave each kanji of the word its own ruby: かみ in 紙吹雪 (かみふぶき).
+- A manga series or a Custom folder picked before searching could leave out a few volumes or files that **Index library** had read again.
+- With nothing searched, **All** in the title list showed 0.
+- On a phone, the search box's example did not fit in the box. It is now `見る, 丸=がん, 飲む -酒`.
+- On a phone, the changelog window's buttons were at the very end of the changelog. They now stay at the top beside its title, and the text scrolls under them.
+- On a phone, the scrollbar of the title sheet ran past its rounded top corner.
+- With Custom on, **Index library** took longer with every `.txt` and `.md` file even when none had changed, growing with the square of their number: 25.6 seconds for 16,000 files, now 6.4.
+- In **Media**, Custom's **Content** search and the search in a file did not take `ー` before a word as an exclusion, `- ない` as one exclusion, or a compatibility kanji such as U+FA5B as its ordinary form, 者 (U+8005).
+- A title's page in **Media** waited for the Media list's count before listing its episodes, chapters or volumes: after an index run, until the whole list was counted, and on an index from before 2.0, forever.
+- On an index from before 2.0, the **Media** list asked Aobana for its state every 0.7 seconds for as long as the page was open, in a background tab too.
+- **Convert to UTF-8** refused a file when an earlier backup of it did not match. Another original at the same path is now kept beside the first, as `ep01.srt (2).bak`.
+- `/api/search` with an empty query and a Custom title answered with an error instead of the title's lines.
+
 ## 2.0: i+1 sentences, search by reading, and Custom
 
 ### Enhancements
@@ -14,12 +64,11 @@
 **Search**
 
 - **i+1** has its own menu beside the sort, shown once a known-word list is loaded. Under **Recommended**, **i+1 first** lists the i+1 sentences, then those with one other unknown word, then two. For a word you already know, an i+1 sentence is one with a single other unknown word.
-- A search typed in kana keeps the reading typed: a line that writes the word in kana with another reading (つらい for からい) is left out of **i+1 only** and put last in **i+1 first**.
 - Every result shows its known words (**5/8 known**) when a list is loaded, with i+1 off too. A switch in **Settings** hides the counts.
-- Search by reading takes a dictionary form (`行った＝おこなう` searches 行う), a leading kana (`お茶＝ちゃ`), and readings with pitch marks or dots (`た↓べる`, `た・べる`). A reading guessed by the dictionary rather than written by the author is underlined with dots.
-- A search by reading reads only the lines that hold the word's kanji, through a new table in the index. The new table adds about 3% to the index; with 2.0's other new tables, about 8%.
-- Search workers stay running between searches and stop 5 minutes after the last one; a small table is searched without them.
-- Spaces doubled, full-width, after `-` or around `＝` do not change a search.
+- Search by reading takes a dictionary form (`行った＝おこなう` searches 行う), a leading kana (`お茶＝ちゃ`), and readings with pitch marks or dots (`たべ↓る`, `た・べる`). A reading guessed by the dictionary rather than written by the author is underlined with dots.
+- A search by reading looks only at the lines that hold the word's kanji, so it stays fast. 2.0's index is about 8% larger than 1.9's.
+- A search right after another one starts faster: Aobana stays ready for 5 minutes after the last search.
+- Extra spaces, full-width spaces, and spaces after `-` or around `＝` no longer change a search.
 - In a Japanese query, `ー` (the long-vowel mark, which the `-` key types with Japanese input on) before a word excludes it like `-`, so there is no need to switch to half-width.
 - Recent searches each have a ✕ to remove them; 20 are kept.
 - A result's context shows the 3 lines before and after it, in every media.
@@ -40,26 +89,25 @@
 **Library and indexing**
 
 - Subtitles are read strictly as UTF-8, UTF-16, Shift-JIS, EUC-JP or ISO-2022-JP, by their real format whatever the extension, and **Check library** says why a file can't be read.
-- **Convert to UTF-8** keeps the original in `backups/`, which uninstalling never deletes.
-- On Windows, uninstalling also offers the Manga and Custom folders, under one box that ticks every media folder, and the known words on their own row. A folder you chose yourself is never deleted.
+- **Convert to UTF-8** first saves the original files to the `backups` folder in Aobana's data folder, and the window shows its full path. Uninstalling never deletes it.
+- On Windows, uninstalling can now also delete the Manga and Custom folders and your known words. One box ticks every media folder. A folder you chose yourself is never deleted.
 - **Index library** shows its phase and the time left.
-- Files queued for reading again are listed, and **Index library** reads them itself.
-- The estimate counts files to read again and includes manga and Custom.
-- Several folders per media are walked in their saved order; a path two folders share is read from the earlier one and listed.
-- A folder that is, holds or sits in another media's folder is refused, with the folder it overlaps.
+- Files you marked in **Check library** to be read again are listed, and the next **Index library** reads them.
+- The time estimate before indexing counts the files to read again, and manga and Custom too.
+- A media's folders are read in the order listed. A file at the same path in two of them is read from the first, and **Check library** lists it.
+- A folder can't be added if it is, holds or sits inside another media's folder; the message names that folder.
 - A media turned off in **Settings** is never indexed or checked.
-- The database folder's small files live in subfolders: `choices/`, `check/`, `cache/` and `runs/`.
 
 **Reading files**
 
 - Subtitles with HTML ruby show it as furigana.
 - A subtitle's full-width `漢字（かな）` is drawn as furigana where it reads as one.
-- `.ass` times are read as a player reads them, and an event that ends at or before its start is left out.
-- ♫, ♩ and 🎵 lines are left out like ♪; dashes, middle dots and runs of dots are written one way.
+- `.ass` times are read as a video player reads them, and a line that ends at or before its start is left out.
+- ♫, ♩ and 🎵 lines are left out like ♪; dashes, middle dots and runs of dots are stored in one form.
 - Chinese credits and notes are left out, and a Japanese line with one simplified character is kept.
-- Books: contents pages label chapters better, and a speech that ends a sentence ends its line.
+- Books: contents pages label chapters better, and when two quotes share a paragraph (「…。」「…」), each is its own line.
 - A book whose pages are copy-protected (DRM) is listed by **Check library**, not indexed.
-- Manga: furigana the OCR fused into a line is written back as furigana.
+- Manga: furigana that the OCR read as part of the line is shown as furigana again.
 
 **Media and the page**
 
@@ -67,7 +115,7 @@
 - Every Media detail page has a path bar with ← and →, docked under the top bar while you scroll.
 - A Media page ends with "No more results" once nothing more is loading.
 - On a phone, the Search page's titles open in a sheet from the bottom, and the search row hides while scrolling down.
-- Every window closes on Esc with the choice that changes nothing.
+- Esc closes every window the way its **Cancel**, **Later** or **Close** button does, so nothing starts or changes by accident.
 - The **Guide** has a **Contents** button and sections for i+1 and Custom.
 - Updating from inside Aobana works from 1.9. On an older version, install 2.0 from the release page.
 
@@ -92,7 +140,7 @@
 - Captions written inside `[…]` were not read.
 - A book with a placeholder title, or a title wholly in square brackets, showed an empty title.
 - Book titles with `～` or `－` were sorted as if those were missing.
-- After a re-index, only the first 5,000 Favorites were checked.
+- After a re-index, only the first 5,000 Favorites were matched to their lines in the new index.
 - **Optimize tables** was offered for media that **Index library** reads again anyway, and "Table optimization finished." appeared twice.
 - An update download without a SHA-256 digest was installed unchecked; it is now refused before it is downloaded.
 

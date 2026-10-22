@@ -196,12 +196,24 @@
 
     async function fetchMedia(params, signal, onWait) {
       for (;;) {
+        await whenShown(signal, true);
         const r = await fetch('/api/media?' + params.toString(), { signal });
         if (r.status !== 202) return r.json();
         const st = await r.json();
         if (onWait) onWait(st);
-        await new Promise(res => setTimeout(res, 700));
+        if (st.requires_index || st.requires_tables) await whenShown(signal, false);
+        else await new Promise(res => setTimeout(res, 700));
       }
+    }
+
+    function whenShown(signal, now) {
+      return new Promise((resolve, reject) => {
+        if (now && !document.hidden) return resolve();
+        const stop = () => { document.removeEventListener('visibilitychange', seen); };
+        const seen = () => { if (!document.hidden) { stop(); resolve(); } };
+        document.addEventListener('visibilitychange', seen);
+        if (signal) signal.addEventListener('abort', () => { stop(); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+      });
     }
 
     function mediaRowHtml(it) {
@@ -233,6 +245,9 @@
         offset: String(mediaOffset), limit: MEDIA_PAGE, sort: mediaSort() });
       const listEl = document.getElementById('media-list');
       const moreEl = document.getElementById('media-more');
+      if (!mediaOffset && !listEl.firstElementChild) {
+        listEl.innerHTML = `<div class="status-line" style="padding:2em;text-align:center;">${esc(t('loading'))}</div>`;
+      }
       let data;
       try {
         data = await fetchMedia(params, mediaCtrl.signal, st => {
@@ -477,22 +492,28 @@
         });
       }
       document.getElementById('main-loading').style.display = 'flex';
+      const libReq = fetchMedia(new URLSearchParams({ folder, media }), undefined, st => {
+        if (st.requires_index || st.requires_tables) throw new Error('no counts before an index');
+      }).catch(() => null);
+      const showLib = lib => {
+        const it = ((lib && lib.items) || [])[0];
+        if (!it || mediaDetailFolder !== folder || !document.getElementById('media-detail-meta')) return;
+        if (it.media && mediaDetailMedia === 'all') {
+          mediaDetailMedia = it.media;
+          const fEl = document.getElementById('media-detail-filter');
+          if (fEl) fEl.placeholder = t('media_detail_filter_' + it.media);
+        }
+        document.getElementById('media-detail-meta').innerHTML =
+          `${it.author ? `<div class="muted">${esc(it.author)}</div>` : ''}<div class="media-stats">${statPills(it)}</div>`;
+        head.querySelector('.path-reveal').innerHTML = revealIconHTML(it.media, '', folder);
+      };
       try {
         const [ep, lib] = await Promise.all([
           fetch(`/api/episodes?folder=${encodeURIComponent(folder)}&media=${encodeURIComponent(media)}`).then(r => r.json()),
-          fetchMedia(new URLSearchParams({ folder, media })),
+          media === 'all' ? libReq : null,
         ]);
-        const it = (lib.items || [])[0];
-        if (it) {
-          if (it.media && mediaDetailMedia === 'all') {
-            mediaDetailMedia = it.media;
-            const fEl = document.getElementById('media-detail-filter');
-            if (fEl) fEl.placeholder = t('media_detail_filter_' + it.media);
-          }
-          document.getElementById('media-detail-meta').innerHTML =
-            `${it.author ? `<div class="muted">${esc(it.author)}</div>` : ''}<div class="media-stats">${statPills(it)}</div>`;
-          head.querySelector('.path-reveal').innerHTML = revealIconHTML(it.media, '', folder);
-        }
+        if (media === 'all') showLib(lib);
+        else libReq.then(showLib);
         mediaDetailFiles = ep.files || [];
         renderEpisodesList(mediaDetailFiles);
         const state = readMediaState();

@@ -9,6 +9,7 @@
       searchGen++;
       hasMoreResults = false;
       stopSearchEta();
+      updateCountNote(null);
 
       if (!q) {
         document.getElementById('main-loading').style.display = 'none';
@@ -80,6 +81,7 @@
           renderSidebar(data, inPage);
           if (data.global_total != null) countsGen = gen;
         }
+        updateCountNote(data);
         renderBatches();
         setupLoadMoreSentinel();
         if (!inPage) restoreSearchReturn();
@@ -117,9 +119,20 @@
       note.hidden = !show;
     }
 
+    function updateCountNote(data) {
+      const note = document.getElementById('count-note');
+      if (!note) return;
+      const shown = (data && data.scoped && sidebarData && sidebarData.folder_counts) || {};
+      const real = (data && data.folder_counts) || {};
+      const lines = currentFolders.filter(f => (shown[f] || 0) > (real[f] || 0))
+        .map(f => t('count_note', { f, n: fmt(real[f] || 0) }));
+      note.textContent = lines.join(' ');
+      note.hidden = !lines.length;
+    }
+
     function scopedSidebar(data) {
       const prev = sidebarData && sidebarData.q === PARAMS.get('q') ? sidebarData : null;
-      const counts = { ...(prev ? prev.folder_counts : {}), ...data.folder_counts };
+      const counts = { ...data.folder_counts, ...(prev ? prev.folder_counts : {}) };
       const folders = prev ? prev.all_folders.slice() : [];
       for (const f of [...(data.all_folders || []), ...currentFolders]) if (!folders.includes(f)) folders.push(f);
       return { ...data, folder_counts: counts, all_folders: folders, q: PARAMS.get('q'),
@@ -151,7 +164,8 @@
         if (gen !== searchGen || all.aborted || !all.all_folders) return;
         countingGen = -1;
         countsGen = gen;
-        const counts = { ...all.folder_counts, ...scoped.folder_counts };
+        const drawn = sidebarData && sidebarData.q === PARAMS.get('q') ? sidebarData.folder_counts : scoped.folder_counts;
+        const counts = { ...all.folder_counts, ...drawn };
         const folders = all.all_folders.slice();
         for (const f of [...(scoped.all_folders || []), ...currentFolders]) if (!folders.includes(f)) folders.push(f);
         renderSidebar({ ...all, folder_counts: counts, all_folders: folders, q: PARAMS.get('q') }, true);
@@ -245,6 +259,18 @@
         if ('"“”'.includes(part) && part) { quotedPart = !quotedPart; return part; }
         return quotedPart ? part : part.replace(/(?<=[^\s=＝])[ \t　]*([=＝])[ \t　]*(?=[^\s=＝])/gu, '$1');
       }).join('');
+    }
+
+    function onlyExcludes(q) {
+      const words = [];
+      let current = '', quoted = false;
+      for (const char of normalizeQuery(q)) {
+        if ('"“”'.includes(char)) quoted = !quoted;
+        if (char === ' ' && !quoted) { if (current) words.push(current); current = ''; }
+        else current += char;
+      }
+      if (current) words.push(current);
+      return words.length > 0 && words.every(w => w.length > 1 && '-－'.includes(w[0]) && w.slice(1).replace(/["“”]/gu, ''));
     }
 
     function saveToHistory(q) {
@@ -461,7 +487,7 @@
         <li>
           <a href="#" data-folder="" class="folder-link ${!currentFolders.length ? 'selected' : ''}" id="folder-all" draggable="false">
             <span>${esc(t('all'))}</span>
-            ${sidebarData.global_total == null ? '' : `<span class="count-badge">${fmt(sidebarData.global_total)}</span>`}
+            ${!PARAMS.get('q') || sidebarData.global_total == null ? '' : `<span class="count-badge">${fmt(sidebarData.global_total)}</span>`}
           </a>
         </li>`;
       html += sidebarRows(0, sidebarShown);

@@ -553,6 +553,33 @@ def _ends_e_row(text: str) -> bool:
 
 _GUESSED = frozenset(('sudachi', 'split'))
 
+_STEM_ENDS = ('すぎ', 'スギ', '過ぎ')
+_STEM_END_WORDS = frozenset(('そう', 'そー', 'ソウ', 'さう', 'み', 'ミ', 'げ', 'ゲ', 'う', 'ウ'))
+
+
+@functools.lru_cache(maxsize=4096)
+def _spells_particle(kana: str) -> bool:
+    from aobana.search import furigana
+    with furigana.tagger():
+        entries = furigana._TAGGER_DICT[0].lookup(kana)
+    return any(m.part_of_speech()[0] == '助詞' and m.part_of_speech()[1] != '終助詞' for m in entries)
+
+
+def _stem_counts(seq, j: int, stem: str) -> bool:
+    if j >= len(seq):
+        return True
+    w = seq[j]
+    s = w['surface']
+    if w['pos'] == '補助記号' or s[0] in 'っッーｰ～〜ぇいイ' or s.startswith(_STEM_ENDS) or s in _STEM_END_WORDS:
+        return True
+    if w['pos'] == '接尾辞' and s[0] in 'がガ':
+        return True
+    if s in ('さ', 'サ') and w['pos'] == '接尾辞':
+        after = seq[j + 1]['pos_full'] if j + 1 < len(seq) else None
+        return (after is not None and after[0] == '助詞' and after[1] != '終助詞') \
+            or not _spells_particle(stem)
+    return False
+
 
 def occurrences(analysis, term: ReadingTerm, work=None, exact=False):
     from aobana.search.furigana import token_base
@@ -586,6 +613,9 @@ def occurrences(analysis, term: ReadingTerm, work=None, exact=False):
                 ok = r is not None and same_reading(r, term.stem, slang)
             else:
                 r = fold(run_text)
+                if (term.i_adj and str(run[-1].get('pos_full', ('',) * 6)[5]).startswith('語幹')
+                        and not _stem_counts(seq, k + n, run[-1]['surface'])):
+                    continue
                 if term.conjugates:
                     slang = term.i_adj and _ends_e_row(run_text)
                     ok = same_reading(r[:len(term.stem)], term.stem, slang)

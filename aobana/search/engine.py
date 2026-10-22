@@ -465,12 +465,15 @@ _SEARCH_POOL = None
 _SEARCH_POOL_SIZE = 0
 _SEARCH_POOL_CANCEL = None
 _SEARCH_POOL_PROGRESS = None
-_SEARCH_POOL_IDLE = 300.0
+_SEARCH_POOL_IDLE = 60.0
 _SEARCH_POOL_TIMER = None
 _SEARCH_POOL_USES = 0
 _SEARCH_POOL_GEN = [0]
 _SEARCH_POOL_BORN = 0
 _INDEX_RUN = threading.Event()
+_POOL_STOP_WAIT = 2.0
+_POOL_STOPPING = threading.Event()
+_POOL_HOLDER = [None]
 _SCAN_WORKER_CANCEL = None
 _SCAN_WORKER_PROGRESS = None
 _POOL_MIN_ROWS = 20000
@@ -485,9 +488,11 @@ def _init_scan_worker(cancel_event, progress_val=None):
     global _SCAN_WORKER_CANCEL, _SCAN_WORKER_PROGRESS
     _SCAN_WORKER_CANCEL = cancel_event
     _SCAN_WORKER_PROGRESS = progress_val
+    from aobana.search import furigana
+    furigana.set_build_abort(cancel_event.is_set)
 
 
-def _shut_search_pool():
+def _shut_search_pool(kill=False):
     global _SEARCH_POOL, _SEARCH_POOL_SIZE, _SEARCH_POOL_CANCEL, _SEARCH_POOL_PROGRESS, _SEARCH_POOL_TIMER
     if _SEARCH_POOL_TIMER is not None:
         _SEARCH_POOL_TIMER.cancel()
@@ -497,7 +502,18 @@ def _shut_search_pool():
             _SEARCH_POOL_CANCEL.set()
         except Exception:
             pass
-    if _SEARCH_POOL is not None:
+    if _SEARCH_POOL is not None and kill:
+        stop = getattr(_SEARCH_POOL, "terminate_workers", None)
+        if stop is not None:
+            stop()
+        else:
+            for proc in list((getattr(_SEARCH_POOL, "_processes", None) or {}).values()):
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+            _SEARCH_POOL.shutdown(wait=False, cancel_futures=True)
+    elif _SEARCH_POOL is not None:
         _SEARCH_POOL.shutdown(wait=True, cancel_futures=True)
     _SEARCH_POOL = None
     _SEARCH_POOL_SIZE = 0
@@ -563,13 +579,40 @@ def _search_pool_done(futures):
     for future in left:
         future.cancel()
     if left:
-        concurrent.futures.wait(left)
+        _POOL_STOPPING.set()
+        try:
+            busy = concurrent.futures.wait(left, timeout=_POOL_STOP_WAIT).not_done
+            if busy:
+                _shut_search_pool(kill=True)
+                return
+        finally:
+            _POOL_STOPPING.clear()
     if _INDEX_RUN.is_set():
         _shut_search_pool()
     elif _SEARCH_POOL is not None:
         _SEARCH_POOL_TIMER = threading.Timer(_SEARCH_POOL_IDLE, _idle_search_pool, (_SEARCH_POOL_USES,))
         _SEARCH_POOL_TIMER.daemon = True
         _SEARCH_POOL_TIMER.start()
+
+
+def _take_pool_lock(abort_flag):
+    end = time.monotonic() + _POOL_STOP_WAIT + 2.0
+    wait = False
+    while True:
+        if _SEARCH_POOL_LOCK.acquire(timeout=0.1) if wait else _SEARCH_POOL_LOCK.acquire(blocking=False):
+            _POOL_HOLDER[0] = abort_flag
+            return True
+        holder = _POOL_HOLDER[0]
+        if not (_POOL_STOPPING.is_set() or (holder is not None and holder[0])):
+            return False
+        if (abort_flag and abort_flag[0]) or time.monotonic() >= end:
+            return False
+        wait = True
+
+
+def _give_pool_lock():
+    _POOL_HOLDER[0] = None
+    _SEARCH_POOL_LOCK.release()
 
 
 def _idle_search_pool(uses):
@@ -606,17 +649,17 @@ def _scan_chunk_worker(db_path, media, q, sort, exact, seed, lo, hi, abort_flag=
                                ruby_only=ruby_only, learn=learn)
     except sqlite3.OperationalError as e:
         if "interrupted" in str(e):
-            return [], {}, set(), 0
+            return [], set(), 0
         raise
     finally:
         conn.close()
 
 
-def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base, counts, raw,
+def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base, raw,
                              workers, abort_flag, entry, ruby_only=False, learn=''):
     hi = conn.execute(f"SELECT MAX(rowid) FROM {table}").fetchone()[0] or 0
     if lo > hi:
-        return base, counts, 0
+        return base, 0
     db_path = next((r[2] for r in conn.execute("PRAGMA database_list") if r[1] == "main"), "")
     if not db_path:
         return None
@@ -630,7 +673,7 @@ def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base,
         entry["parallel_first_done"] = 0
     done_seen = {}
     futures = None
-    locked = _SEARCH_POOL_LOCK.acquire(blocking=False)
+    locked = _take_pool_lock(abort_flag)
     try:
         if locked:
             try:
@@ -644,13 +687,13 @@ def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base,
 
         merged = list(base)
         seen_raw = dict.fromkeys(raw)
-        seen_raw.update((row[_LEAN_LINE], i) for i, row in enumerate(merged))
+        seen_raw.update(((row[_LEAN_FOLDER], row[_LEAN_LINE]), i) for i, row in enumerate(merged))
         total_seen = 0
         for i, (a, b) in enumerate(bounds):
             if abort_flag and abort_flag[0]:
                 return None
             if futures is None:
-                part, part_counts, part_raw, part_seen = _scan_chunk_worker(
+                part, part_raw, part_seen = _scan_chunk_worker(
                     db_path, media, q, sort, exact, seed, a, b, abort_flag, ruby_only=ruby_only, learn=learn)
                 total_seen += part_seen
                 if entry is not None:
@@ -664,14 +707,14 @@ def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base,
                         for k, fut in enumerate(futures):
                             if (fut is not None and k not in done_seen and fut.done()
                                     and not fut.cancelled() and fut.exception() is None):
-                                done_seen[k] = fut.result()[3]
+                                done_seen[k] = fut.result()[2]
                         best_done = max(live, sum(done_seen.values()))
                         if best_done > 0 and entry.get("parallel_start") is None:
                             entry["parallel_start"] = time.monotonic()
                             entry["parallel_first_done"] = best_done
                         entry["pass_done"] = max(entry.get("pass_done", 0), base_done + best_done)
                     try:
-                        part, part_counts, part_raw, part_seen = futures[i].result(timeout=0.2)
+                        part, part_raw, part_seen = futures[i].result(timeout=0.2)
                         futures[i] = None
                         done_seen[i] = part_seen
                         if entry is not None:
@@ -686,7 +729,7 @@ def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base,
                         continue
                     except Exception:
                         futures[i] = None
-                        part, part_counts, part_raw, part_seen = _scan_chunk_worker(
+                        part, part_raw, part_seen = _scan_chunk_worker(
                             db_path, media, q, sort, exact, seed, a, b, abort_flag, ruby_only=ruby_only,
                             learn=learn)
                         done_seen[i] = part_seen
@@ -697,27 +740,25 @@ def _parallel_scan_remainder(conn, table, media, q, sort, exact, seed, lo, base,
             for row_number, row in enumerate(part):
                 if row_number % 1000 == 0 and abort_flag and abort_flag[0]:
                     return None
-                line = row[_LEAN_LINE]
+                line = (row[_LEAN_FOLDER], row[_LEAN_LINE])
                 if line not in seen_raw:
                     seen_raw[line] = len(merged)
                     merged.append(row)
-            for title, n in part_counts.items():
-                counts[title] = counts.get(title, 0) + n
         if entry is not None and entry.get("merge_start") is None:
             entry["merge_start"] = time.monotonic()
         merged.sort(key=lambda row: row[_LEAN_LINE])
-        return merged, counts, total_seen
+        return merged, total_seen
     finally:
         if locked:
             try:
                 _search_pool_done(futures)
             finally:
-                _SEARCH_POOL_LOCK.release()
+                _give_pool_lock()
 
 
 def _parallel_chrono_runs(conn, table, media, q, exact, seed, runs, folder_set, workers, abort_flag, entry, ruby_only=False,
                           learn=''):
-    if not _SEARCH_POOL_LOCK.acquire(blocking=False):
+    if not _take_pool_lock(abort_flag):
         return None
     pool = None
     pending = {}
@@ -738,7 +779,7 @@ def _parallel_chrono_runs(conn, table, media, q, exact, seed, runs, folder_set, 
         pool = _search_pool(workers)
         if entry is not None:
             entry['workers'] = min(workers,len(bounds))
-        merged, counts, seen = [], {}, 0
+        merged, seen = [], 0
         cursor = iter(enumerate(bounds))
         while True:
             while len(pending) < workers*2:
@@ -754,14 +795,12 @@ def _parallel_chrono_runs(conn, table, media, q, exact, seed, runs, folder_set, 
                 if abort_flag and abort_flag[0]:
                     raise sqlite3.OperationalError('interrupted')
                 try:
-                    part, part_counts, _, n = pending[index].result(timeout=.2)
+                    part, _, n = pending[index].result(timeout=.2)
                     break
                 except concurrent.futures.TimeoutError:
                     continue
             del pending[index]
             merged.extend(part); seen += n
-            for name,count in part_counts.items():
-                counts[name] = counts.get(name,0)+count
             if entry is not None:
                 entry['pass_done'] = seen
         files = {}
@@ -770,7 +809,7 @@ def _parallel_chrono_runs(conn, table, media, q, exact, seed, runs, folder_set, 
             chunk = ids[i:i+500]
             files.update(conn.execute(f"SELECT rowid,file FROM {table} WHERE rowid IN ({','.join('?' for _ in chunk)})",chunk))
         merged.sort(key=lambda r:(files[r[_LEAN_ROWID]],r[_LEAN_ROWID]))
-        return merged,seen,counts
+        return merged,seen
     except (ImportError,OSError,NotImplementedError,BrokenProcessPool):
         return None
     finally:
@@ -778,7 +817,7 @@ def _parallel_chrono_runs(conn, table, media, q, exact, seed, runs, folder_set, 
             if pool is not None:
                 _search_pool_done(list(pending.values()))
         finally:
-            _SEARCH_POOL_LOCK.release()
+            _give_pool_lock()
 
 
 def _scan_columns(conn, table, tokens=False):
@@ -803,7 +842,7 @@ class _ChronoHandoff(Exception):
     pass
 
 
-def _scan_rows(conn, cols, where_clause, params, sort, m_type, pass1, abort_flag, entry, counts,
+def _scan_rows(conn, cols, where_clause, params, sort, m_type, pass1, abort_flag, entry,
                raw_lines=None, split_state=None, folder_filter=None):
     rowid = cols.split(".", 1)[0] + ".rowid"
     if sort == "chrono":
@@ -822,8 +861,6 @@ def _scan_rows(conn, cols, where_clause, params, sort, m_type, pass1, abort_flag
                 continue
             got = pass1(r, m_type)
             if got is not None:
-                f = got[_LEAN_FOLDER]
-                counts[f] = counts.get(f, 0) + 1
                 lean.append(got)
         return lean, seen
     base = entry.get("pass_base", 0) if entry is not None else 0
@@ -850,18 +887,15 @@ def _scan_rows(conn, cols, where_clause, params, sort, m_type, pass1, abort_flag
                 reported = seen
         if r[0] < prev:
             cur.close()
-            counts.clear()
             return _scan_grouped(conn, cols, rowid, where_clause, params, m_type, pass1,
-                                 abort_flag, counts, folder_filter=folder_filter)
+                                 abort_flag, folder_filter=folder_filter)
         prev = r[0]
         if folder_filter is not None and _result_folder(m_type, r[2]) not in folder_filter:
             continue
-        line = r[1]
         got = pass1(r, m_type)
         if got is None:
             continue
-        f = got[_LEAN_FOLDER]
-        counts[f] = counts.get(f, 0) + 1
+        line = (got[_LEAN_FOLDER], r[1])
         if line not in first:
             first[line] = len(lean)
             lean.append(got)
@@ -874,8 +908,9 @@ def _scan_rows(conn, cols, where_clause, params, sort, m_type, pass1, abort_flag
 
 
 def _scan_runs(conn, cols, where_clause, params, runs, table, sort, m_type, pass1,
-               abort_flag, entry, counts, folder_filter=None):
-    clause = where_clause[:-1] + f" AND {table}.rowid BETWEEN ? AND ?)"
+               abort_flag, entry, folder_filter=None):
+    bounded = any(p is _SLICE_LO for p in params)
+    clause = where_clause if bounded else where_clause[:-1] + f" AND {table}.rowid BETWEEN ? AND ?)"
     lean, seen = [], 0
     keep_file = sort == "chrono" and len(runs) > 1
     if keep_file:
@@ -887,28 +922,27 @@ def _scan_runs(conn, cols, where_clause, params, runs, table, sort, m_type, pass
     for lo, hi, _ in runs:
         if entry is not None:
             entry["pass_base"] = seen
-        run_counts = {}
-        part, n = _scan_rows(conn, cols, clause, list(params) + [lo, hi], sort, m_type, row_pass1,
-                             abort_flag, entry, run_counts, folder_filter=folder_filter)
+        part, n = _scan_rows(conn, cols, clause, _in_slice(params, lo, hi) if bounded else [*params, lo, hi],
+                             sort, m_type, row_pass1,
+                             abort_flag, entry, folder_filter=folder_filter)
         seen += n
         if part is None:
             return None, seen
         lean.extend(part)
-        for f, count in run_counts.items():
-            counts[f] = counts.get(f, 0) + count
     if keep_file:
         lean.sort(key=lambda x: (x[6], x[_LEAN_ROWID]))
         lean = [x[:6] for x in lean]
     elif sort != "chrono" and len(runs) > 1:
         first = {}
         for x in lean:
-            if x[_LEAN_LINE] not in first or x[_LEAN_ROWID] < first[x[_LEAN_LINE]][_LEAN_ROWID]:
-                first[x[_LEAN_LINE]] = x
+            line = (x[_LEAN_FOLDER], x[_LEAN_LINE])
+            if line not in first or x[_LEAN_ROWID] < first[line][_LEAN_ROWID]:
+                first[line] = x
         lean = sorted(first.values(), key=lambda x: x[_LEAN_LINE])
     return lean, seen
 
 
-def _scan_grouped(conn, cols, rowid, where_clause, params, m_type, pass1, abort_flag, counts, folder_filter=None):
+def _scan_grouped(conn, cols, rowid, where_clause, params, m_type, pass1, abort_flag, folder_filter=None):
     first = {}
     seen = 0
     for n, r in enumerate(conn.execute(f"SELECT {cols} {where_clause}", params)):
@@ -919,9 +953,7 @@ def _scan_grouped(conn, cols, rowid, where_clause, params, m_type, pass1, abort_
             continue
         got = pass1(r, m_type)
         if got is not None:
-            f = got[_LEAN_FOLDER]
-            counts[f] = counts.get(f, 0) + 1
-            line = got[_LEAN_LINE]
+            line = (got[_LEAN_FOLDER], got[_LEAN_LINE])
             if line not in first or got[_LEAN_ROWID] < first[line][_LEAN_ROWID]:
                 first[line] = got
     return sorted(first.values(), key=lambda x: x[_LEAN_LINE]), seen
@@ -965,97 +997,47 @@ def _source_runs(conn, table, m_type, folder_set):
         return None
     if m_type == 'subs':
         from aobana.indexing.source_ranges import ready
-        if ready(conn):
-            runs = []
-            for folder in sorted(folder_set):
-                where, params = folder_prefix_where('s.relpath', folder)
-                runs.extend([a, b, rel] for a, b, rel in conn.execute(
-                    'SELECT r.first_rowid,r.last_rowid,s.relpath FROM source_ranges r '
-                    f'JOIN sources s ON s.id=r.source_id WHERE {where}', params))
-            return _merge_runs(runs)
+        if not ready(conn):
+            return None
+        runs = []
+        for folder in sorted(folder_set):
+            where, params = folder_prefix_where('s.relpath', folder)
+            runs.extend([a, b, rel] for a, b, rel in conn.execute(
+                'SELECT r.first_rowid,r.last_rowid,s.relpath FROM source_ranges r '
+                f'JOIN sources s ON s.id=r.source_id WHERE {where}', params))
+        return _merge_runs(runs)
     key = (db_fingerprint(conn), m_type)
-    idx = _SOURCE_INDEX.get(key)
-    if idx is None:
+    folder_runs = _SOURCE_INDEX.get(key)
+    if folder_runs is None:
         try:
             if m_type == "manga":
-                rows = [(r[0], r[1], f"{r[1]}\\{r[2]}", r[3])
-                        for r in conn.execute("SELECT id, title, volume, indexed_at FROM sources")]
-            elif m_type == 'custom':
-                rows = [(r[0], r[1], r[2], r[3])
-                        for r in conn.execute('SELECT id, category, relpath, indexed_at FROM sources')]
+                names = {r[0]: (r[1], f"{r[1]}\\{r[2]}")
+                         for r in conn.execute("SELECT id, title, volume FROM sources")}
             else:
-                rows = [(r[0], _result_folder("subs", r[1]), r[1], r[2])
-                        for r in conn.execute("SELECT id, relpath, indexed_at FROM sources")]
-            if not rows:
-                return None
-            rows.sort(key=lambda r: ((r[3] or "").replace("T", " ")[:19], r[0]))
-            file_rank = {}
-            folder_spans = {}
-            for rank, (_, folder, file_key, _) in enumerate(rows):
-                file_rank[file_key] = rank
-                spans = folder_spans.setdefault(folder, [])
-                if spans and rank == spans[-1][1] + 1:
-                    spans[-1][1] = rank
-                    if file_key < spans[-1][2]:
-                        spans[-1][2] = file_key
-                else:
-                    spans.append([rank, rank, file_key])
-            max_id = conn.execute(f"SELECT MAX(id) FROM {table}_content").fetchone()[0] or 0
-            idx = (file_rank, folder_spans, max_id, {})
-            if len(_SOURCE_INDEX) > 8:
-                _SOURCE_INDEX.clear()
-            _SOURCE_INDEX[key] = idx
+                names = {r[0]: (r[1], r[2]) for r in conn.execute('SELECT id, category, relpath FROM sources')}
+            spans = sorted(tuple(r) for r in conn.execute(
+                f"SELECT MIN(id), MAX(id), c0 FROM {table}_content GROUP BY c0"))
         except sqlite3.Error:
             return None
-    file_rank, folder_spans, max_id, resolved = idx
-    if max_id <= 0:
-        return []
-
-    def probe(target_rank):
-        lo, hi = 1, max_id
-        ans = None
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            row = conn.execute(f"SELECT id, c1 FROM {table}_content WHERE id >= ? LIMIT 1", (mid,)).fetchone()
-            if row is None:
-                hi = mid - 1
-                continue
-            rid, c1 = row
-            rk = file_rank.get(c1)
-            if rk is None:
-                return False
-            if rk >= target_rank:
-                ans = rid
-                hi = mid - 1
-            else:
-                lo = rid + 1
-        return ans
-
-    all_spans = []
-    for f in folder_set:
-        f_runs = resolved.get(f)
-        if f_runs is None:
-            rank_spans = folder_spans.get(f)
-            if not rank_spans:
-                return None
-            f_runs = []
-            try:
-                for r_lo, r_hi, min_file in rank_spans:
-                    row_lo = probe(r_lo)
-                    if row_lo is False:
-                        return None
-                    after_hi = probe(r_hi + 1)
-                    if after_hi is False:
-                        return None
-                    row_hi = (after_hi - 1) if after_hi is not None else max_id
-                    if row_lo is None or row_lo > row_hi:
-                        continue
-                    f_runs.append([row_lo, row_hi, min_file])
-            except sqlite3.Error:
-                return None
-            resolved[f] = f_runs
-        all_spans.extend(f_runs)
-    return _merge_runs(all_spans)
+        if any(b[0] <= a[1] for a, b in zip(spans, spans[1:])) or any(s[2] not in names for s in spans):
+            folder_runs = False
+        else:
+            folder_runs, last = {}, None
+            for lo, hi, sid in spans:
+                folder, file_key = names[sid]
+                runs = folder_runs.setdefault(folder, [])
+                if last == folder:
+                    runs[-1][1] = hi
+                    runs[-1][2] = min(runs[-1][2], file_key)
+                else:
+                    runs.append([lo, hi, file_key])
+                last = folder
+        if len(_SOURCE_INDEX) > 8:
+            _SOURCE_INDEX.clear()
+        _SOURCE_INDEX[key] = folder_runs
+    if folder_runs is False:
+        return None
+    return _merge_runs([list(r) for f in folder_set for r in folder_runs.get(f, ())])
 
 
 def _search_key(q, sort, seed, media, exact, folder_set, file, targets, folder_media=None, ruby_only=False,
@@ -1108,13 +1090,36 @@ def _match_where(table_name, sql_bases, readings, script_type):
 
 
 _MATCH_COUNTS = OrderedDict()
+_COUNT_RUNS = {}
+_REPEAT_BITS = {}
+
+
+def _count_runs_of(conn, m_type):
+    key = (db_fingerprint(conn), m_type)
+    if key not in _COUNT_RUNS:
+        if len(_COUNT_RUNS) > 8:
+            _COUNT_RUNS.clear()
+        from aobana.indexing import line_repeats
+        _COUNT_RUNS[key] = line_repeats.runs(conn, m_type)
+    return _COUNT_RUNS[key]
+
+
+def _repeat_marks(conn, m_type):
+    key = (db_fingerprint(conn), m_type)
+    if key not in _REPEAT_BITS:
+        if len(_REPEAT_BITS) > 4:
+            _REPEAT_BITS.clear()
+        from aobana.indexing import line_repeats
+        _REPEAT_BITS[key] = line_repeats.bits(conn, m_type)
+    return _REPEAT_BITS[key]
 
 
 def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_manga=None, abort_flag=None,
-                        search_workers=1, search_delay=10, search_started=None):
+                        search_workers=1, search_delay=10, search_started=None, sort='chrono'):
     import time
     if search_started is None:
         search_started = time.monotonic()
+    fold = sort != 'chrono'
     if is_reading_search(q):
         return None
     pos_q, neg_terms = split_negated_terms(q)
@@ -1126,6 +1131,8 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
         return None
     _, sql_bases, readings, _ = analyze_query(clean_q)
     script_type = detect_script(clean_q)
+    if readings and (not sql_bases or (len(readings) >= 2 and script_type == 'hiragana')):
+        return None
     targets = _search_targets(db_subs, db_epub, media, db_manga)
     wheres = {}
     for table, conn, m_type in targets:
@@ -1134,7 +1141,7 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
         wheres[table] = _match_where(table, sql_bases, readings, script_type)
         if wheres[table] is None:
             return None
-    key = (q, media, db_fingerprint(*[c for _, c, _ in targets]))
+    key = (q, media, fold, db_fingerprint(*[c for _, c, _ in targets]))
     if result_cache.RESULT_CACHE_ENABLED and key in _MATCH_COUNTS:
         _MATCH_COUNTS.move_to_end(key)
         return _MATCH_COUNTS[key]
@@ -1148,15 +1155,10 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
             got = _count_by_chapters(conn, table, sql, params, abort_flag,
                                      search_workers=search_workers,
                                      search_delay=search_delay,
-                                     search_started=search_started)
+                                     search_started=search_started,
+                                     marked=fold and _repeat_marks(conn, m_type) is not None)
         else:
-            got = {}
-            for n, (file,) in enumerate(conn.execute(f"SELECT file FROM {table} WHERE {sql}", params)):
-                if abort_flag and abort_flag[0] and n % 10000 == 0:
-                    got = None
-                    break
-                f = _result_folder(m_type, file)
-                got[f] = got.get(f, 0) + 1
+            got = _count_by_runs(conn, table, m_type, sql, params, fold, abort_flag)
         if got is None:
             return None
         for f, n in got.items():
@@ -1169,20 +1171,83 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
     return out
 
 
-def _finish_chapter_counts(conn, table, names, per_chapter, stray):
+def _lines_by_rowid(conn, table, rowids):
+    out = {}
+    for k in range(0, len(rowids), 500):
+        part = rowids[k:k + 500]
+        out.update((r, (f, line)) for r, f, line in conn.execute(
+            f"SELECT rowid, file, line FROM {table} WHERE rowid IN ({','.join('?' * len(part))})", part))
+    return out
+
+
+def _count_by_runs(conn, table, m_type, sql, params, fold, abort_flag):
+    runs = _count_runs_of(conn, m_type)
+    starts, ends, names, by_line = runs if runs is not None else ([], [], [], set())
+    marks = _repeat_marks(conn, m_type) if fold else None
+    run_by_line = [fold and name in by_line for name in names]
+    per_run = [0] * len(starts)
+    later = []
+    i, lo, hi, here_by_line = -1, 1, 0, False
+    cur = conn.execute(f"SELECT rowid FROM {table} WHERE {sql}", params)
+    while True:
+        batch = cur.fetchmany(20000)
+        if not batch:
+            break
+        if abort_flag and abort_flag[0]:
+            cur.close()
+            return None
+        for (rowid,) in batch:
+            if not lo <= rowid <= hi:
+                k = bisect.bisect_right(starts, rowid) - 1
+                if k < 0 or rowid > ends[k]:
+                    later.append(rowid)
+                    continue
+                i, lo, hi, here_by_line = k, starts[k], ends[k], run_by_line[k]
+            if here_by_line:
+                later.append(rowid)
+            elif marks is not None and (rowid >> 3) < len(marks) and marks[rowid >> 3] >> (rowid & 7) & 1:
+                continue
+            else:
+                per_run[i] += 1
     counts = {}
-    for name, n in zip(names, per_chapter):
+    for name, n in zip(names, per_run):
         if n:
             counts[name] = counts.get(name, 0) + n
-    for k in range(0, len(stray), 500):
-        part = stray[k:k + 500]
-        for (file,) in conn.execute(f"SELECT file FROM {table} WHERE rowid IN ({','.join('?' * len(part))})", part):
-            f = _result_folder("epub", file)
+    if later:
+        if abort_flag and abort_flag[0]:
+            return None
+        seen = {}
+        for file, line in _lines_by_rowid(conn, table, later).values():
+            f = _result_folder(m_type, file)
+            if fold:
+                lines = seen.setdefault(f, set())
+                if line in lines:
+                    continue
+                lines.add(line)
             counts[f] = counts.get(f, 0) + 1
     return counts
 
 
-def _count_chunk_worker(db_path, table, sql, params, lo, hi, abort_flag=None):
+def _finish_chapter_counts(conn, table, names, per_chapter, stray, fold=False):
+    counts = {}
+    for name, n in zip(names, per_chapter):
+        if n:
+            counts[name] = counts.get(name, 0) + n
+    seen = {}
+    for k in range(0, len(stray), 500):
+        part = stray[k:k + 500]
+        for row in conn.execute(f"SELECT file{', line' if fold else ''} FROM {table} WHERE rowid IN ({','.join('?' * len(part))})", part):
+            f = _result_folder("epub", row[0])
+            if fold:
+                lines = seen.setdefault(f, set())
+                if row[1] in lines:
+                    continue
+                lines.add(row[1])
+            counts[f] = counts.get(f, 0) + 1
+    return counts
+
+
+def _count_chunk_worker(db_path, table, sql, params, lo, hi, abort_flag=None, marked=False):
     conn = sqlite3.connect(Path(db_path).as_uri() + "?mode=ro", uri=True)
     conn.execute("PRAGMA query_only=ON")
     if abort_flag is None:
@@ -1199,6 +1264,7 @@ def _count_chunk_worker(db_path, table, sql, params, lo, hi, abort_flag=None):
         names = [_result_folder("epub", c[2]) for c in chapters]
         per_chapter = [0] * len(chapters)
         stray = []
+        marks = _repeat_marks(conn, "epub") if marked else None
         i, c_lo, c_hi = 0, starts[0], ends[0]
         cur = conn.execute(
             f"SELECT {table}.rowid FROM {table} WHERE ({sql}) AND {table}.rowid BETWEEN ? AND ?",
@@ -1209,15 +1275,17 @@ def _count_chunk_worker(db_path, table, sql, params, lo, hi, abort_flag=None):
                 break
             if abort_flag and abort_flag[0]:
                 return {}
-            for (rowid,) in batch:
+            for row in batch:
+                rowid = row[0]
                 if not c_lo <= rowid <= c_hi:
                     i = max(bisect.bisect_right(starts, rowid) - 1, 0)
                     c_lo, c_hi = starts[i], ends[i]
                     if not c_lo <= rowid <= c_hi:
                         stray.append(rowid)
                         continue
-                per_chapter[i] += 1
-        return _finish_chapter_counts(conn, table, names, per_chapter, stray)
+                if marks is None or not ((rowid >> 3) < len(marks) and marks[rowid >> 3] >> (rowid & 7) & 1):
+                    per_chapter[i] += 1
+        return _finish_chapter_counts(conn, table, names, per_chapter, stray, marks is not None)
     except sqlite3.OperationalError as e:
         if "interrupted" in str(e):
             return {}
@@ -1226,14 +1294,14 @@ def _count_chunk_worker(db_path, table, sql, params, lo, hi, abort_flag=None):
         conn.close()
 
 
-def _parallel_count_remainder(conn, table, sql, params, lo, base_counts, workers, abort_flag):
+def _parallel_count_remainder(conn, table, sql, params, lo, base_counts, workers, abort_flag, marked=False):
     hi =conn.execute(f"SELECT MAX(rowid) FROM {table}").fetchone()[0] or 0
     if lo > hi:
         return dict(base_counts)
     db_path = next((r[2] for r in conn.execute("PRAGMA database_list") if r[1] == "main"), "")
     if not db_path:
         return None
-    locked = _SEARCH_POOL_LOCK.acquire(blocking=False)
+    locked = _take_pool_lock(abort_flag)
     if not locked:
         return None
     count = min(workers * 4, hi - lo + 1)
@@ -1243,7 +1311,7 @@ def _parallel_count_remainder(conn, table, sql, params, lo, base_counts, workers
     try:
         try:
             pool = _search_pool(workers)
-            futures = [pool.submit(_count_chunk_worker, db_path, table, sql, params, a, b)
+            futures = [pool.submit(_count_chunk_worker, db_path, table, sql, params, a, b, None, marked)
                        for a, b in bounds]
         except (ImportError, OSError, NotImplementedError, BrokenProcessPool):
             return None
@@ -1260,7 +1328,7 @@ def _parallel_count_remainder(conn, table, sql, params, lo, base_counts, workers
                     continue
                 except Exception:
                     futures[i] = None
-                    part_counts = _count_chunk_worker(db_path, table, sql, params, a, b, abort_flag)
+                    part_counts = _count_chunk_worker(db_path, table, sql, params, a, b, abort_flag, marked)
                     break
             for title, n in part_counts.items():
                 counts[title] = counts.get(title, 0) + n
@@ -1269,25 +1337,28 @@ def _parallel_count_remainder(conn, table, sql, params, lo, base_counts, workers
         try:
             _search_pool_done(futures)
         finally:
-            _SEARCH_POOL_LOCK.release()
+            _give_pool_lock()
 
 
-def _count_by_chapters(conn, table, sql, params, abort_flag, search_workers=1, search_delay=10, search_started=None):
+def _count_by_chapters(conn, table, sql, params, abort_flag, search_workers=1, search_delay=10, search_started=None,
+                       marked=False):
     import time
     chapters = conn.execute("SELECT first_rowid, last_rowid, file FROM chapters ORDER BY first_rowid").fetchall()
     if not chapters:
         return None
+    starts = [c[0] for c in chapters]
+    ends = [c[1] for c in chapters]
+    names = [_result_folder("epub", c[2]) for c in chapters]
+    marks = _repeat_marks(conn, "epub") if marked else None
     deadline = (search_started if search_started is not None else time.monotonic()) + search_delay
     parallel_ok = search_workers > 1 and not _small_table(conn, table)
     if parallel_ok and time.monotonic() >= deadline:
-        merged = _parallel_count_remainder(conn, table, sql, params, 1, {}, search_workers, abort_flag)
+        merged = _parallel_count_remainder(conn, table, sql, params, 1, {}, search_workers, abort_flag,
+                                           marks is not None)
         if merged is None and abort_flag and abort_flag[0]:
             return None
         if merged is not None:
             return merged
-    starts = [c[0] for c in chapters]
-    ends = [c[1] for c in chapters]
-    names = [_result_folder("epub", c[2]) for c in chapters]
     per_chapter = [0] * len(chapters)
     stray = []
     i, lo, hi = 0, starts[0], ends[0]
@@ -1306,11 +1377,12 @@ def _count_by_chapters(conn, table, sql, params, abort_flag, search_workers=1, s
                 if not lo <= rowid <= hi:
                     stray.append(rowid)
                     continue
-            per_chapter[i] += 1
+            if marks is None or not ((rowid >> 3) < len(marks) and marks[rowid >> 3] >> (rowid & 7) & 1):
+                per_chapter[i] += 1
         if parallel_ok and time.monotonic() >= deadline:
-            base_counts = _finish_chapter_counts(conn, table, names, per_chapter, stray)
+            base_counts = _finish_chapter_counts(conn, table, names, per_chapter, stray, marks is not None)
             merged = _parallel_count_remainder(conn, table, sql, params, batch[-1][0] + 1,
-                                               base_counts, search_workers, abort_flag)
+                                               base_counts, search_workers, abort_flag, marks is not None)
             if merged is None and abort_flag and abort_flag[0]:
                 cur.close()
                 return None
@@ -1318,7 +1390,7 @@ def _count_by_chapters(conn, table, sql, params, abort_flag, search_workers=1, s
                 cur.close()
                 return merged
             parallel_ok = False
-    return _finish_chapter_counts(conn, table, names, per_chapter, stray)
+    return _finish_chapter_counts(conn, table, names, per_chapter, stray, marks is not None)
 
 
 _RESULT_FLIGHT = {}
@@ -1354,6 +1426,11 @@ def _result_flight_release(held):
 SEARCH_COST = {"subtitles": 20e-6, "epubs": 16e-6, "manga": 20e-6, "custom": 20e-6, "pass": 0.0, "like": 0.6e-6, "fixed": 0.5,
                "reading": 0.2e-3}
 _READING_SLICES, _READING_SLICE_ROWS = 16, 2000
+_SLICE_LO, _SLICE_HI = object(), object()
+
+
+def _in_slice(params, lo, hi):
+    return [lo if p is _SLICE_LO else hi if p is _SLICE_HI else p for p in params]
 _SEARCH_PROGRESS = {}
 _SEARCH_PROGRESS_LOCK = threading.Lock()
 
@@ -1472,6 +1549,42 @@ def _reading_candidates(conn, table, sql, params, abort_flag=None):
     return round(found * max_id / read) if read else 0
 
 
+def _kanji_led_candidates(conn, table, sql, spec, abort_flag=None):
+    from aobana.indexing import kanji_table
+    k = spec["kanji"]
+    in_range = f"SELECT count(*) FROM {kanji_table.name(table)}(?) WHERE rowid BETWEEN ? AND ?"
+    runs = spec.get("runs")
+    if runs is None:
+        lead = conn.execute(f"SELECT count(*) FROM {kanji_table.name(table)}(?)", [k]).fetchone()[0]
+        runs = [(1, conn.execute(f"SELECT MAX(rowid) FROM {table}").fetchone()[0] or 0)]
+    else:
+        lead = sum(conn.execute(in_range, [k, lo, hi]).fetchone()[0] for lo, hi in runs)
+    if not lead:
+        return 0
+
+    def kept(lo, hi):
+        return conn.execute(sql, _in_slice(spec["slice"], lo, hi)).fetchone()[0]
+
+    width = sum(hi - lo + 1 for lo, hi in runs)
+    if width <= _READING_SLICES * _READING_SLICE_ROWS:
+        return sum(kept(lo, hi) for lo, hi in runs)
+    step = width // _READING_SLICES
+    found = held = 0
+    for s in range(_READING_SLICES):
+        if abort_flag and abort_flag[0]:
+            break
+        at = s * step
+        for r_lo, r_hi in runs:
+            if at <= r_hi - r_lo:
+                lo = r_lo + at
+                hi = min(lo + _READING_SLICE_ROWS - 1, r_hi)
+                break
+            at -= r_hi - r_lo + 1
+        found += kept(lo, hi)
+        held += conn.execute(in_range, [k, lo, hi]).fetchone()[0]
+    return round(lead * found / held) if held else lead
+
+
 def search_progress(db_subs, db_epub, q, sort="recommended", seed=None, media="all", exact=False,
                     folder=None, file=None, db_manga=None, status_only=False, abort_flag=None,
                     ruby_only=False, learn=''):
@@ -1514,10 +1627,12 @@ def search_progress(db_subs, db_epub, q, sort="recommended", seed=None, media="a
             try:
                 if sql is None:
                     rows[table] = ("like", conn.execute(f"SELECT MAX(rowid) FROM {table}").fetchone()[0] or 0)
+                elif kind == "kanji":
+                    rows[table] = ("reading", _kanji_led_candidates(conn, table, sql, params, abort_flag))
                 elif isinstance(params, dict):
                     rows[table] = ("reading" if kind == "reading" else "match",
                                    _count_runs(conn, sql, params, abort_flag))
-                elif kind == "reading" and "_kanji(" not in sql:
+                elif kind == "reading":
                     rows[table] = ("reading", _reading_candidates(conn, table, sql, params, abort_flag))
                 else:
                     t0 = time.monotonic()
@@ -1955,7 +2070,6 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         
         global_counts = {}
         valid_results = []
-        folder_counts = {}
 
         def pass1(r, m_type):
             line, clean_text, row_readings, row_bases = r[1], r[3], r[4], r[5]
@@ -2075,26 +2189,31 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             cached = None
 
         kanji_ok = ({t: c is not None and _kanji_ready(c, t) for t, c, _ in targets} if r_terms else {})
+        leads = {}
 
-        def kanji_lead(table_name, wheres, where_params, terms):
+        def kanji_lead(table_name, wheres, where_params, terms, scan_bounds):
             if not kanji_ok.get(table_name) or any("MATCH" in w and "rowid IN" not in w for w in wheres):
                 return
             from aobana.indexing import kanji_table
+            bound = " WHERE rowid BETWEEN ? AND ?" if scan_bounds is not None else ""
+            bounds = list(scan_bounds) if scan_bounds is not None else []
             for word, match in terms:
                 k = kanji_table.query(word)
                 if k is None:
                     continue
-                kanji_sql = f"SELECT rowid FROM {kanji_table.name(table_name)}(?)"
+                kanji_sql = f"SELECT rowid FROM {kanji_table.name(table_name)}(?){bound}"
                 if match:
-                    wheres.insert(0, f"{table_name}.rowid IN (SELECT rowid FROM {table_name} WHERE {match[0]}"
-                                     f" UNION ALL {kanji_sql})")
-                    where_params[0:0] = [*match[1], k]
+                    match_bound = " AND rowid BETWEEN ? AND ?" if bounds else ""
+                    wheres.insert(0, f"{table_name}.rowid IN (SELECT rowid FROM {table_name} WHERE ({match[0]})"
+                                     f"{match_bound} UNION ALL {kanji_sql})")
+                    where_params[0:0] = [*match[1], *bounds, k, *bounds]
                 else:
                     wheres.insert(0, f"{table_name}.rowid IN ({kanji_sql})")
-                    where_params[0:0] = [k]
+                    where_params[0:0] = [k, *bounds]
+                leads[table_name] = k
                 return
 
-        def build_where(table_name):
+        def build_where(table_name, scan_bounds=scan_bounds):
             wheres = []
             where_params = []
             own = (lambda s: media_query(s, 'subs')) if table_name == 'subtitles' else (lambda s: s)
@@ -2122,7 +2241,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 for word, *_ in term_queries:
                     wheres.append("instr(clean_text, ?) > 0")
                     where_params.append(word)
-                kanji_lead(table_name, wheres, where_params, [(word, None) for word, *_ in term_queries])
+                kanji_lead(table_name, wheres, where_params, [(word, None) for word, *_ in term_queries], scan_bounds)
             elif is_exact_phrase:
                 exact_where(clean_q, sql_bases, readings)
             elif r_terms:
@@ -2147,7 +2266,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                         wheres.append("instr(clean_text, ?) > 0")
                     where_params.append(word)
                     term_matches.append((word, match))
-                kanji_lead(table_name, wheres, where_params, term_matches)
+                kanji_lead(table_name, wheres, where_params, term_matches, scan_bounds)
             else:
                 match = _match_where(table_name, sql_bases, readings, script_type)
                 if match:
@@ -2193,6 +2312,12 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         def _count_sql(table_name, m_type):
             match = build_where(table_name)[2]
             m_runs = runs.get(m_type) if isinstance(runs, dict) else runs
+            if match is not None and match[2] == "reading" and table_name in leads:
+                s_sql, s_params, _ = build_where(table_name, (_SLICE_LO, _SLICE_HI))[2]
+                spec = {"kanji": leads[table_name], "slice": s_params}
+                if m_runs:
+                    spec["runs"] = [(lo, hi) for lo, hi, _ in m_runs]
+                return s_sql, spec, "kanji"
             if match is None or not m_runs:
                 return match or (None, None, None)
             m_sql, m_params, kind = match
@@ -2223,7 +2348,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         for table_name, db_conn, m_type in (scan_targets if cached is None else ()):
             if db_conn is None: continue
             if abort_flag and abort_flag[0]:
-                return ([], {}, set(), 0) if scan_only else ([], {}, 0, [], False)
+                return ([], set(), 0) if scan_only else ([], {}, 0, [], False)
             wheres, where_params, _ = build_where(table_name)
             if entry is not None:
                 entry["table"], entry["table_start"] = table_name, time.monotonic()
@@ -2237,10 +2362,13 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             where_clause = f"WHERE ({' AND '.join(wheres)})"
             cols = _scan_columns(db_conn, table_name, bool(r_terms))
             plain_cols = cols
-            table_counts = {}
             f_filter = folder_set if runs is not None else None
             m_runs = runs.get(m_type) if isinstance(runs, dict) else (runs if m_type == "epub" else None)
-            table_workers = search_workers if search_workers > 1 and not _small_table(db_conn, table_name) else 1
+            run_clause, run_params = where_clause, where_params
+            if m_runs is not None and not named and table_name in leads:
+                run_wheres, run_params, _ = build_where(table_name, (_SLICE_LO, _SLICE_HI))
+                run_clause = f"WHERE ({' AND '.join(run_wheres)})"
+            table_workers =search_workers if search_workers > 1 and not _small_table(db_conn, table_name) else 1
             table_parallel = parallel_ok and table_workers > 1
             if entry is not None:
                 entry.pop('chrono_deadline', None)
@@ -2251,25 +2379,24 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 if not scan_only and q and sort == 'chrono' and table_workers > 1 and not file and time.monotonic() >= deadline:
                     chrono_parallel = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,folder_set,search_workers,abort_flag,entry,ruby_only,learn)
                 if chrono_parallel is not None:
-                    lean, seen, table_counts = chrono_parallel
+                    lean, seen = chrono_parallel
                 elif m_runs is None:
                     if table_parallel and time.monotonic() >= deadline:
                         merged = _parallel_scan_remainder(
                             db_conn, table_name, m_type, q, sort, exact, seed, 1, [],
-                            table_counts, set(), search_workers, abort_flag, entry, ruby_only, learn)
+                            set(), search_workers, abort_flag, entry, ruby_only, learn)
                         if merged is None and abort_flag and abort_flag[0]:
                             return [], {}, 0, [], False
                         if merged is not None:
-                            lean, table_counts, seen = merged
+                            lean, seen = merged
                         else:
-                            table_counts.clear()
                             lean, seen = _scan_rows(db_conn, cols, where_clause, where_params,
-                                                    sort, m_type, pass1, abort_flag, entry, table_counts,
+                                                    sort, m_type, pass1, abort_flag, entry,
                                                     folder_filter=f_filter)
                     else:
                         split_state = {"deadline": deadline} if table_parallel else None
                         lean, seen = _scan_rows(db_conn, cols, where_clause, where_params, sort,
-                                                m_type, pass1, abort_flag, entry, table_counts,
+                                                m_type, pass1, abort_flag, entry,
                                                 raw_lines=scan_raw_lines, split_state=split_state,
                                                 folder_filter=f_filter)
                         if split_state is not None and "next_rowid" in split_state:
@@ -2277,34 +2404,32 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                                 entry["pass_done"] = seen
                             merged = _parallel_scan_remainder(
                                 db_conn, table_name, m_type, q, sort, exact, seed,
-                                split_state["next_rowid"], lean, table_counts,
+                                split_state["next_rowid"], lean,
                                 split_state["raw_lines"], search_workers, abort_flag, entry, ruby_only, learn)
                             if merged is None and abort_flag and abort_flag[0]:
                                 return [], {}, 0, [], False
                             if merged is not None:
-                                lean, table_counts, tail_seen = merged
+                                lean, tail_seen = merged
                                 seen += tail_seen
                             else:
-                                table_counts.clear()
                                 lean, seen = _scan_rows(db_conn, cols, where_clause,
                                                         where_params, sort, m_type, pass1,
-                                                        abort_flag, entry, table_counts,
+                                                        abort_flag, entry,
                                                         folder_filter=f_filter)
                 else:
-                    lean, seen = _scan_runs(db_conn, cols, where_clause, where_params, m_runs, table_name,
-                                            sort, m_type, pass1, abort_flag, entry, table_counts,
+                    lean, seen = _scan_runs(db_conn, cols, run_clause, run_params, m_runs, table_name,
+                                            sort, m_type, pass1, abort_flag, entry,
                                             folder_filter=f_filter)
             except _ChronoHandoff:
                 entry.pop('chrono_deadline',None)
                 combined = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,folder_set,search_workers,abort_flag,entry,ruby_only,learn)
                 if combined is not None:
-                    lean,seen,table_counts = combined
+                    lean,seen = combined
                 else:
-                    table_counts.clear()
                     if m_runs is not None:
-                        lean,seen = _scan_runs(db_conn,cols,where_clause,where_params,m_runs,table_name,sort,m_type,pass1,abort_flag,entry,table_counts,folder_filter=f_filter)
+                        lean,seen = _scan_runs(db_conn,cols,run_clause,run_params,m_runs,table_name,sort,m_type,pass1,abort_flag,entry,folder_filter=f_filter)
                     else:
-                        lean,seen = _scan_rows(db_conn,cols,where_clause,where_params,sort,m_type,pass1,abort_flag,entry,table_counts)
+                        lean,seen = _scan_rows(db_conn,cols,where_clause,where_params,sort,m_type,pass1,abort_flag,entry)
             except sqlite3.OperationalError as e:
                 if "interrupted" in str(e):
                     raise
@@ -2323,15 +2448,14 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                     fallback_wheres.append(f"{table_name}.rowid BETWEEN ? AND ?")
                     fallback_params.extend(scan_bounds)
                 fb_clause = f"WHERE ({' AND '.join(fallback_wheres)})"
-                table_counts.clear()
                 try:
                     if m_runs is not None:
                         lean, seen = _scan_runs(db_conn, plain_cols, fb_clause, fallback_params, m_runs, table_name,
-                                                sort, m_type, pass1, abort_flag, entry, table_counts,
+                                                sort, m_type, pass1, abort_flag, entry,
                                                 folder_filter=f_filter)
                     else:
                         lean, seen = _scan_rows(db_conn, plain_cols, fb_clause, fallback_params, sort, m_type,
-                                                pass1, abort_flag, entry, table_counts,
+                                                pass1, abort_flag, entry,
                                                 raw_lines=scan_raw_lines, folder_filter=f_filter)
                 except sqlite3.OperationalError as e2:
                     if "interrupted" in str(e2) or index_busy(e2):
@@ -2342,11 +2466,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                     print(f"search: {table_name} LIKE failed too ({e2!r})", file=sys.stderr)
                     lean, seen = [], 0
             if lean is None:
-                return ([], {}, set(), 0) if scan_only else ([], {}, 0, [], False)
+                return ([], set(), 0) if scan_only else ([], {}, 0, [], False)
             total_seen += seen
             valid_results.extend(lean)
-            for f, count in table_counts.items():
-                folder_counts[f] = folder_counts.get(f, 0) + count
             if entry is not None:
                 spent = time.monotonic() - entry["table_start"]
                 entry["sql_seconds"][table_name] = spent
@@ -2357,7 +2479,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                     _learn_cost(table_name, spent, seen, alone=alone, workers=entry.get("workers", 1))
 
     if scan_only:
-        return valid_results, folder_counts, scan_raw_lines, total_seen
+        return valid_results, scan_raw_lines, total_seen
 
     results = []
     global_total = 0
@@ -2383,7 +2505,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                          + [x for x in valid_results if -0.5 <= x[_LEAN_SCORE] <= 0.5]
                          + [x for x in valid_results if x[_LEAN_SCORE] < -0.5])
     if cached is None:
-        cached = _result_entry(valid_results, folder_counts)
+        cached = _result_entry(valid_results)
         valid_results = None
         _result_cache_put(cache_key, cached, time.monotonic() - compute_start)
         _result_flight_release(held)

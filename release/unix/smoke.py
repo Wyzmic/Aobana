@@ -10,6 +10,7 @@ Everything the app writes goes into one temporary folder (HOME, the data folder,
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -18,7 +19,14 @@ import urllib.error
 import urllib.request
 import zipfile
 
-PORT = 5095
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+PORT = free_port()
 BASE = f"http://127.0.0.1:{PORT}"
 SRT_LINE = "猫が屋根の上で昼寝をしている"
 BOOK_LINE = "図書館で古い地図を見つけた。"

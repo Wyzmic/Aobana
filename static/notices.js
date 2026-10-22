@@ -150,16 +150,18 @@
         store.set('reindex_told', APP_VERSION);
         if (outdated.length) {
           const m = document.getElementById('reindex-modal');
-          m.querySelector('#reindex-body').innerHTML = t('reindex_body');
+          const media = MEDIA_ON.subs && (lib.subs_tables || []).includes('source_ranges');
+          m.querySelector('#reindex-body').innerHTML = t('reindex_body') + (media ? ' ' + t('reindex_media') : '');
           m.classList.add('open');
           document.documentElement.style.overflow = 'hidden';
           return;
         }
       }
-      const kanji = lib && [['subs', lib.subs_tables], ['epub', lib.books_tables], ['manga', lib.manga_tables]]
-        .some(([kind, missing]) => MEDIA_ON[kind] && (missing || []).includes('kanji'));
-      if (kanji && !outdated.length && !store.get('tables_told')) {
-        store.set('tables_told', '1');
+      const tables = lib ? [['subs', lib.subs_tables], ['epub', lib.books_tables], ['manga', lib.manga_tables], ['custom', lib.custom_tables]]
+        .flatMap(([kind, missing]) => MEDIA_ON[kind] ? (missing || []).filter(m => m === 'repeats' || (m === 'kanji' && kind !== 'custom')) : []) : [];
+      if (tables.length && !outdated.length && store.get('tables_told') !== APP_VERSION) {
+        store.set('tables_told', APP_VERSION);
+        document.getElementById('tables-body').innerHTML = t('tables_body', { why: tablesWhy(tables) });
         document.getElementById('tables-modal').classList.add('open');
         document.documentElement.style.overflow = 'hidden';
         return;
@@ -175,7 +177,7 @@
     function closeTables(goLibrary) {
       document.getElementById('tables-modal').classList.remove('open');
       document.documentElement.style.overflow = '';
-      if (goLibrary) window.location.href = '/?tab=library';
+      if (goLibrary) window.location.href = '/?tab=library&focus=optimize';
       else checkForUpdate();
     }
 

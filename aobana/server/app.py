@@ -57,7 +57,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.0"
+VERSION = "2.1"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -94,7 +94,7 @@ from aobana.search.media_tab import warm_media_library
 
 
 def start_background():
-    targets = [check_for_update, warm_ruby_lexicon, warm_media_library]
+    targets = [check_for_update, warm_ruby_lexicon, warm_media_library, library.move_encoding_backups]
     if os.environ.get("AOBANA_CLIENT") == "reibun":
         update_info["checked"] = True
         targets = [warm_ruby_lexicon]

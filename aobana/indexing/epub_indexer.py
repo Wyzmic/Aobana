@@ -1772,7 +1772,7 @@ COMMIT_EVERY_BOOKS = 20
 COMMIT_EVERY_SECONDS = 20
 
 
-from aobana.indexing import run_control as control, kanji_table, rebuild as rebuilding
+from aobana.indexing import run_control as control, kanji_table, line_repeats, rebuild as rebuilding
 from aobana.indexing.preparation import prepare_changed
 from aobana.utils import media_walk
 
@@ -1805,6 +1805,8 @@ def run_tables():
             say("Tables ready: no book index yet.")
             return
         build_tables(conn, conn.execute("SELECT rowid FROM epubs ORDER BY rowid DESC LIMIT 1").fetchone())
+        if not stop_requested():
+            line_repeats.ensure(conn, "epub", DB_PATH, paths.index_workers(), show=True)
     if stop_requested():
         emit("stopped", "STOPPED")
     else:
@@ -1892,6 +1894,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
             conn.execute("DROP TABLE IF EXISTS token_lengths")
             conn.execute("DROP TABLE IF EXISTS ruby_lexicon")
             kanji_table.drop(conn, "epubs")
+            line_repeats.drop(conn, "epub")
             conn.commit()
 
         conn.execute('''
@@ -2177,6 +2180,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
         if stopped:
             emit("stopped", "STOPPED")
         else:
+            line_repeats.ensure(conn, "epub", db, paths.index_workers())
             compact_if_worth(conn, "epubs", deleted_rows, inserted_rows)
 
     excluded.close()

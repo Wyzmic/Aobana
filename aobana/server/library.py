@@ -472,6 +472,7 @@ def finish_setup(media, subs_dir=None, books_dir=None, manga_dir=None, custom_di
         for key in paths.MEDIA_DIR_LIST_KEYS.values():
             cfg.setdefault(key, [])
         cfg.pop("check_asked", None)
+        cfg.pop("findings_asked", None)
     paths.update_config(change)
     err = set_media(media)
     if not err:
@@ -492,6 +493,25 @@ def mark_check_asked():
         if cfg.get("check_asked") == CHECK_ASKED:
             return False
         cfg["check_asked"] = CHECK_ASKED
+    paths.update_config(change)
+
+
+def findings_key(report):
+    found = sorted([i['media'], i['reason'], i['name']] for i in report.get('items', []) if i['reason'] != 'duplicate_kept')
+    groups = sorted([g['media'], g['keeper'], sorted(m['name'] for m in g['members'])] for g in report.get('groups', []))
+    reread = sorted(i['name'] for i in (report.get('repair') or {}).get('items') or [])
+    return hashlib.sha256(json.dumps([found, groups, reread], ensure_ascii=False).encode('utf-8')).hexdigest()[:16]
+
+
+def findings_asked():
+    return paths.load_config().get("findings_asked")
+
+
+def mark_findings_asked(key):
+    def change(cfg):
+        if cfg.get("findings_asked") == key:
+            return False
+        cfg["findings_asked"] = key
     paths.update_config(change)
 
 
@@ -1784,12 +1804,14 @@ def _save_analysis_attempt():
         pass
 
 
-def analysis_report():
+def analysis_report(with_key=False):
     try:
         with open(_report_path(), encoding="utf-8") as fh:
             raw = fh.read()
             report = json.loads(raw)
         report['selection_generation'] = report.get('generation') or 'legacy-' + hashlib.sha256(raw.encode('utf-8')).hexdigest()
+        if with_key:
+            report['findings_key'] = findings_key(report)
         saved = {(r['media'], name_key(r['name'])):r for r in filtered_rows(paths.filtered_list())}
         for item in report.get('items', []):
             item['filtered'] = (item['media'],name_key(item['name'])) in saved
@@ -1872,7 +1894,7 @@ def check_view():
                 header = view.read_header(view_path())
             except (OSError, ValueError):
                 header = None
-            if not header or header.get('key') != key:
+            if not header or header.get('key') != key or 'findings_key' not in (header.get('report') or {'findings_key': None}):
                 flags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
                 try:
                     out = subprocess.run(_child_cmd('aobana.server.check_view', ['--view', json.dumps(key)]),
@@ -2050,7 +2072,15 @@ def save_subtitle_refresh(doc):
         return pending_reindex.save(doc)
 
 
+_BACKUPS_LOCK = threading.Lock()
+
+
 def _encoding_backups():
+    with _BACKUPS_LOCK:
+        return _move_old_backups()
+
+
+def _move_old_backups():
     target = Path(paths.backups_dir('encoding'))
     old = Path(paths.logs_dir()) / 'encoding-backups'
     if old.is_dir():
@@ -2072,7 +2102,16 @@ def _encoding_backups():
             old.rmdir()
         except OSError:
             pass
+    from aobana.indexing.encoding_repair import migrate_backups
+    migrate_backups(target)
     return target
+
+
+def move_encoding_backups():
+    try:
+        _encoding_backups()
+    except OSError:
+        pass
 
 
 def start_encoding_repair(report):
@@ -2103,7 +2142,6 @@ _ENCODING_ERRORS = {
     'read_only': 'read_only', 'Unsupported encoding repair': 'unsupported',
     'Ambiguous CP932 byte mapping': 'ambiguous', 'Damaged subtitle text': 'damaged',
     'Encoding round trip failed': 'round_trip', 'Subtitle content changed during conversion': 'round_trip',
-    'Encoding backup differs from source': 'backup_differs',
 }
 
 

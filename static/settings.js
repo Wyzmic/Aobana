@@ -272,18 +272,36 @@
       return [['subs', lib.subs_outdated], ['epub', lib.books_outdated], ['manga', lib.manga_outdated], ['custom', lib.custom_outdated]]
         .filter(([kind, count]) => MEDIA_ON[kind] && count > 0);
     }
+    function tablesWhy(missing) {
+      const all = new Set(missing);
+      const why = [];
+      if (all.has('repeats')) why.push(t('tables_why_counts'));
+      if (all.has('kanji')) why.push(t('tables_why_reading'));
+      else if ([...all].some(m => m !== 'repeats')) why.push(t('tables_why_search'));
+      return why.join(LANG === 'ja' ? '' : ' ');
+    }
+    let focusOptimize = PARAMS.get('focus') === 'optimize';
     function renderOutdated(lib) {
       const box = document.getElementById('lib-outdated');
       const button = document.getElementById('lib-optimize');
       const outdated = new Set(outdatedMedia(lib).map(([kind]) => kind));
-      const tables = [['subs', lib.subs_tables], ['epub', lib.books_tables], ['manga', lib.manga_tables], ['custom', lib.custom_tables]]
-        .filter(([kind, missing]) => MEDIA_ON[kind] && !outdated.has(kind) && (missing || []).length).map(([kind]) => kind);
+      const lacking = [['subs', lib.subs_tables], ['epub', lib.books_tables], ['manga', lib.manga_tables], ['custom', lib.custom_tables]]
+        .filter(([kind, missing]) => MEDIA_ON[kind] && !outdated.has(kind) && (missing || []).length);
+      const tables = lacking.map(([kind]) => kind);
       button.hidden = !(tables.length || optimizeDoneThisVisit);
       button.disabled = !!(lib.index && lib.index.running) || libBusy() || optimizeDoneThisVisit;
       button.querySelector('span').textContent = t(optimizeDoneThisVisit ? 'lib_tables_done_short' : 'lib_tables_run');
+      if (focusOptimize) {
+        focusOptimize = false;
+        const url = new URL(window.location.href);
+        url.searchParams.delete('focus');
+        history.replaceState(null, '', url);
+        if (!button.hidden) button.scrollIntoView({ block: 'center' });
+      }
       let html = '';
       if (tables.length && !optimizeDoneThisVisit) {
-        html += `<div>${esc(t('lib_tables', { which: tables.map(k => t('lib_stage_' + k)).join(LANG === 'ja' ? '・' : ' · ') }))}</div>`;
+        html += `<div>${esc(t('lib_tables', { which: tables.map(k => t('lib_stage_' + k)).join(LANG === 'ja' ? '・' : ' · '),
+                                              why: tablesWhy(lacking.flatMap(([, missing]) => missing)) }))}</div>`;
       }
       box.innerHTML = html;
       box.hidden = !html;

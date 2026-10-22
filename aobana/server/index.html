@@ -182,6 +182,7 @@
 
       <div class="filter-note" id="filter-note" hidden></div>
       <p class="reading-note" id="reading-note" hidden></p>
+      <p class="reading-note" id="count-note" hidden></p>
       <p class="reading-note" id="learn-note" hidden></p>
       <div id="history-state"></div>
       <div class="panel cta" id="empty-library" hidden>
@@ -421,8 +422,8 @@
   <div class="modal-overlay" id="tables-modal">
     <div class="modal-card welcome">
       <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
-      <h2 data-i18n="tables_title">読みでの検索を高速化できます</h2>
-      <p data-i18n-html="tables_body"></p>
+      <h2 data-i18n="tables_title">検索用の表を最適化できます</h2>
+      <p id="tables-body"></p>
       <div class="btns">
         <button class="btn" onclick="closeTables(false)" data-i18n="reindex_later">あとで</button>
         <button class="btn primary" onclick="closeTables(true)" data-i18n="reindex_go">ライブラリを開く</button>
@@ -438,6 +439,19 @@
       <div class="btns">
         <button class="btn" onclick="closeCheckFirst(false)" data-i18n="checkfirst_index">このままインデックス</button>
         <button class="btn primary" onclick="closeCheckFirst(true)" data-i18n="checkfirst_check">先に点検する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="unsaved-modal">
+    <div class="modal-card welcome">
+      <h2 data-i18n="unsaved_title">点検結果がまだ保存されていません</h2>
+      <p data-i18n="unsaved_body"></p>
+      <ul class="unsaved-list"></ul>
+      <p class="unsaved-hint"></p>
+      <div class="btns">
+        <button class="btn" onclick="closeUnsaved(false)" data-i18n="unsaved_index">このまま作成</button>
+        <button class="btn primary" onclick="closeUnsaved(true)" data-i18n="unsaved_review">点検結果を見る</button>
       </div>
     </div>
   </div>
@@ -502,12 +516,16 @@
 
   <div class="modal-overlay" id="changelog-modal" onclick="if (event.target === this) closeChangelog()">
     <div class="modal-card welcome big changelog-card">
-      <h2 data-i18n="changelog">変更履歴</h2>
-      <p id="changelog-lang" data-i18n="changelog_lang" hidden></p>
-      <div id="changelog-body"></div>
-      <div class="btns">
-        <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
-        <button class="btn primary" type="button" onclick="closeChangelog()" data-i18n="close">閉じる</button>
+      <div class="changelog-head">
+        <h2 data-i18n="changelog">変更履歴</h2>
+        <div class="btns">
+          <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
+          <button class="btn primary" type="button" onclick="closeChangelog()" data-i18n="close">閉じる</button>
+        </div>
+      </div>
+      <div class="changelog-scroll">
+        <p id="changelog-lang" data-i18n="changelog_lang" hidden></p>
+        <div id="changelog-body"></div>
       </div>
     </div>
   </div>
