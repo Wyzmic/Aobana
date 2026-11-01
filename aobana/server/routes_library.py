@@ -287,4 +287,5 @@ def api_index_stop():
 
 @app.route("/api/index/status", methods=["GET"])
 def api_index_status():
-    return jsonify(library.index_status())
+    since = request.args.get("since", "")
+    return jsonify(library.index_status(int(since) if since.isdigit() else None, request.args.get("run")))

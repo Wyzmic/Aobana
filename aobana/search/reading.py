@@ -2,6 +2,7 @@
 import bisect
 import functools
 import re
+import sqlite3
 import unicodedata
 from dataclasses import dataclass
 
@@ -422,6 +423,71 @@ def own_work_readings(work, word: str) -> set:
     return {fold(r) for r in own}
 
 
+_RUBY_WORKS_MEMO = {}
+
+
+def works_with_ruby_on(media: str, kanji: str):
+    from aobana.search import furigana
+    conns = furigana._lexicon_tables()
+    if conns is None:
+        return None
+    key = (furigana._LEXICON_LOCAL.gen, media, kanji)
+    got = _RUBY_WORKS_MEMO.get(key)
+    if got is None:
+        if len(_RUBY_WORKS_MEMO) > 4096:
+            _RUBY_WORKS_MEMO.clear()
+        conn = conns.get(media)
+        got = _RUBY_WORKS_MEMO[key] = frozenset() if conn is None else frozenset(f for (f,) in conn.execute(
+            "SELECT DISTINCT folder FROM ruby_lexicon WHERE instr(base, ?) > 0", (kanji,)))
+    return got
+
+
+def work_has_ruby_on(work, kanji: str):
+    media, folder = work
+    if media != 'epub':
+        works = works_with_ruby_on(media, kanji)
+        return None if works is None else folder in works
+    from aobana.search import furigana
+    conns = furigana._lexicon_tables()
+    if conns is None:
+        return None
+    key = (furigana._LEXICON_LOCAL.gen, media, folder, kanji)
+    got = _RUBY_WORKS_MEMO.get(key)
+    if got is None:
+        if len(_RUBY_WORKS_MEMO) > 65536:
+            _RUBY_WORKS_MEMO.clear()
+        conn = conns.get(media)
+        try:
+            sources = [] if conn is None else [s for (s,) in conn.execute(
+                "SELECT DISTINCT source_id FROM chapters WHERE file = ? OR (file >= ? AND file < ?)"
+                " OR (file >= ? AND file < ?)",
+                (folder, folder + chr(92), folder + chr(93), folder + '/', folder + '0'))]
+            if len(sources) > 500:
+                got = True
+            else:
+                got = bool(sources) and conn.execute(
+                    "SELECT 1 FROM ruby_lexicon WHERE source_id IN (%s) AND folder = ? AND instr(base, ?) > 0"
+                    " LIMIT 1" % ",".join("?" * len(sources)), (*sources, folder, kanji)).fetchone() is not None
+        except sqlite3.Error:
+            return None
+        _RUBY_WORKS_MEMO[key] = got
+    return got
+
+
+def ruby_only_cannot_match(terms, line: str, media: str, work) -> bool:
+    from aobana.indexing.subtitle_ruby import has_native_ruby
+    from aobana.search.furigana import drawn_ruby_re
+    if has_native_ruby(line) or next(drawn_ruby_re(media).finditer(line), None) is not None:
+        return False
+    for term in terms:
+        if not term.kanji:
+            return False
+        if work and work_has_ruby_on(work, term.kanji[0]) is not False:
+            continue
+        return True
+    return False
+
+
 def own_work_alone(work, word: str) -> set:
     if not work:
         return set()
@@ -552,6 +618,7 @@ def _ends_e_row(text: str) -> bool:
 
 
 _GUESSED = frozenset(('sudachi', 'split'))
+_AUTHORED = frozenset(('ruby', 'ruby split', 'work'))
 
 _STEM_ENDS = ('すぎ', 'スギ', '過ぎ')
 _STEM_END_WORDS = frozenset(('そう', 'そー', 'ソウ', 'さう', 'み', 'ミ', 'げ', 'ゲ', 'う', 'ウ'))
@@ -581,15 +648,17 @@ def _stem_counts(seq, j: int, stem: str) -> bool:
     return False
 
 
-def occurrences(analysis, term: ReadingTerm, work=None, exact=False):
+def occurrences(analysis, term: ReadingTerm, work=None, exact=False, ruby_only=False):
     from aobana.search.furigana import token_base
     text = analysis['clean_text']
+
+    def doubted(why):
+        return bool(_GUESSED.intersection(why)) or (ruby_only and not _AUTHORED.intersection(why))
     i = text.find(term.word)
     while i != -1:
         why = []
         r = span_reading(analysis, i, i + len(term.word), work, why)
-        yield (i, i + len(term.word), r is not None and same_reading(r, term.reading),
-               bool(_GUESSED.intersection(why)))
+        yield (i, i + len(term.word), r is not None and same_reading(r, term.reading), doubted(why))
         i = text.find(term.word, i + 1)
     n = 0 if exact else len(term.lemmas)
     if n:
@@ -621,7 +690,7 @@ def occurrences(analysis, term: ReadingTerm, work=None, exact=False):
                     ok = same_reading(r[:len(term.stem)], term.stem, slang)
                 else:
                     ok = same_reading(r, term.reading)
-            yield (a, b, ok, bool(_GUESSED.intersection(why)))
+            yield (a, b, ok, doubted(why))
 
 
 def matched_spans(analysis, terms, work=None):
@@ -637,7 +706,7 @@ def matched_spans(analysis, terms, work=None):
 def row_matches(analysis, terms, neg_terms, work=None, exact=False, ruby_only=False) -> bool:
     for term in terms:
         if not any(ok and not (ruby_only and guess)
-                   for _, _, ok, guess in occurrences(analysis, term, work, exact)):
+                   for _, _, ok, guess in occurrences(analysis, term, work, exact, ruby_only)):
             return False
     for term in neg_terms:
         if any(ok for _, _, ok, _ in occurrences(analysis, term, work, exact)):

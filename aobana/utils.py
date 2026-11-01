@@ -117,6 +117,7 @@ def media_wanted(media):
 BOOK_DISPLAY_RUBY_RE = re.compile(
     rf'(?:｜([^()｜\n\r\t]+?)\(|([{KANJI_CHARS}]+)[（(])({KANA_RE})[）)]')
 GLOSS_KANA_RE = re.compile(r'[ぁ-ゖァ-ヺー・]+(?:[ 　]+[ぁ-ゖァ-ヺー・]+)*')
+GLOSS_KANA_ONE_SCRIPT_RE = re.compile(r'[ァ-ヺー・]+(?:[ 　]+[ァ-ヺー・]+)*|[ぁ-ゖー・]+(?:[ 　]+[ぁ-ゖー・]+)*')
 
 
 class GlossRuby:
@@ -266,6 +267,8 @@ SPACES_BEFORE_DASH_RE = re.compile('[ 　]{2,}(?=[―—])')
 
 def replace_until_fixed(text, rules):
     text = SPACES_BEFORE_DASH_RE.sub(' ', text)
+    if not _sources_re(rules).search(text):
+        return text
     for _ in range(len(text) + 1):
         before = text
         for src, dst in rules:
@@ -273,6 +276,18 @@ def replace_until_fixed(text, rules):
         if text == before:
             break
     return text
+
+
+_SOURCES_RE = {}
+
+
+def _sources_re(rules):
+    key = tuple(rules)
+    found = _SOURCES_RE.get(key)
+    if found is None:
+        found = re.compile('|'.join(re.escape(src) for src, _ in key)) if key else re.compile('(?!)')
+        _SOURCES_RE[key] = found
+    return found
 
 
 SUBS_STR_REPLACEMENTS = [
@@ -1251,12 +1266,18 @@ def system_dic_path() -> str:
         return ""
 
 
-def _sha256_file(path: str) -> str:
+def file_sha256(path, stop=None) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 22), b""):
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            if stop:
+                stop()
             h.update(chunk)
     return h.hexdigest()
+
+
+def _sha256_file(path: str) -> str:
+    return file_sha256(path)
 
 
 def tokenizer_identity(with_hash: bool = True) -> dict:
@@ -1320,6 +1341,13 @@ def ensure_format_column(conn):
     cols = {r[1] for r in conn.execute("PRAGMA table_info(sources)")}
     if "index_format" not in cols:
         conn.execute("ALTER TABLE sources ADD COLUMN index_format INTEGER NOT NULL DEFAULT 1")
+
+
+def ensure_stat_columns(conn):
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sources)")}
+    for col in ("file_size", "file_mtime_ns"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE sources ADD COLUMN {col} INTEGER")
 
 
 def outdated_sources(conn, media) -> int:
@@ -1428,6 +1456,18 @@ def ensure_chapters(conn) -> bool:
 
 
 SUDACHI_MAX_BYTES = 49149
+
+_SUDACHI_DICTIONARY = []
+_SUDACHI_DICTIONARY_LOCK = threading.Lock()
+
+
+def sudachi_dictionary():
+    if not _SUDACHI_DICTIONARY:
+        with _SUDACHI_DICTIONARY_LOCK:
+            if not _SUDACHI_DICTIONARY:
+                from sudachipy import dictionary
+                _SUDACHI_DICTIONARY.append(dictionary.Dictionary(dict="core"))
+    return _SUDACHI_DICTIONARY[0]
 
 
 def sudachi_pieces(text: str):

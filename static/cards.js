@@ -145,7 +145,7 @@
         html += `
         <div class="card" id="card-${rId}">
           <div class="card-meta">
-            <div class="src">${srcWithReveal(r)}</div>
+            <div class="src">${withCopy(srcWithReveal(r))}</div>
             <div class="chars">${knowledgeHtml(r)}${r.char_count !== undefined ? esc(t('chars', { n: r.char_count })) : ''}</div>
           </div>
           <div class="file-title">
@@ -377,6 +377,71 @@
       const chars = [...title];
       const last = chars.pop() || '';
       return `${esc(chars.join(''))}<span class="reveal-glue">${esc(last)}${icon}</span>`;
+    }
+
+    const COPY_ICONS = {
+      copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
+      done: '<path d="M20 6 9 17l-5-5"/>'
+    };
+    const copyIcon = name => svgIcon(COPY_ICONS[name]);
+    // Inside the source line's last glued span, so the buttons never wrap to a line of their own.
+    function withCopy(src, more = '') {
+      const label = esc(t('copy_sentence'));
+      const buttons = `${more}<button type="button" class="reveal-btn text-copy" onclick="copySentence(this, event)" aria-label="${label}" title="${label}">${copyIcon('copy')}</button>`;
+      return src.endsWith('</span>') ? src.slice(0, -7) + buttons + '</span>' : src + buttons;
+    }
+    // What the card shows: an element the page hides (furigana off, a speaker tag hidden) is left
+    // out. The HTML keeps the ruby and the match: <b> where a Reibun card bolds it (the match, and
+    // hl-tail; hl-tail-p is plain there). The text puts a reading in （）after its word.
+    const copyBold = (tag, el) => tag === 'mark' || tag === 'b' || el.classList.contains('hl-tail');
+    function copiedLine(node, html) {
+      let out = '';
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) { out += html ? esc(child.data) : child.data; continue; }
+        if (child.nodeType !== Node.ELEMENT_NODE || getComputedStyle(child).display === 'none') continue;
+        const tag = child.tagName.toLowerCase();
+        const inner = copiedLine(child, html);
+        if (tag === 'br') out += html ? '<br>' : '\n';
+        else if (html && inner && copyBold(tag, child)) out += `<b>${inner}</b>`;
+        else if (html) out += tag === 'ruby' && !inner.includes('<rt>') || !['ruby', 'rt', 'rp', 'rb'].includes(tag) ? inner : `<${tag}>${inner}</${tag}>`;
+        else if (tag === 'rt') out += inner ? `（${inner}）` : '';
+        else if (tag !== 'rp') out += inner;
+      }
+      return out;
+    }
+    // One <b> for a match the page drew in pieces (食べ + させられた), as Reibun joins them
+    const copiedHtml = line => copiedLine(line, true).trim().replace(/<\/b><b>/g, '');
+    async function copySentence(button, event) {
+      event?.preventDefault(); event?.stopPropagation();
+      const line = button.closest('.card')?.querySelector('.file-title .main-sentence');
+      if (!line) return;
+      const html = copiedHtml(line), text = copiedLine(line, false).trim();
+      if (!(await copyToClipboard(text, html))) return;
+      copyDone(button, 'copy', 'copy_sentence');
+    }
+    async function copyToClipboard(text, html = '') {
+      const types = {'text/plain': new Blob([text], {type: 'text/plain'})};
+      if (html) types['text/html'] = new Blob([html], {type: 'text/html'});
+      try { await navigator.clipboard.write([new ClipboardItem(types)]); return true; }
+      catch (_) {
+        // Not a secure page (the phone on the LAN): the old way, the copy event's own clipboard.
+        const put = e => { e.clipboardData.setData('text/plain', text); if (html) e.clipboardData.setData('text/html', html); e.preventDefault(); };
+        document.addEventListener('copy', put);
+        try { return document.execCommand('copy'); } catch (_) { return false; }
+        finally { document.removeEventListener('copy', put); }
+      }
+    }
+    // Copied, or else `el` is selected, so a long press copies it (the update command, Reibun's code)
+    async function copyOrSelect(text, el) {
+      if (await copyToClipboard(text)) return true;
+      const range = document.createRange(); range.selectNodeContents(el);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      return false;
+    }
+    function copyDone(button, icon, label) {
+      clearTimeout(button._copied);
+      button.innerHTML = copyIcon('done'); button.title = t('copied');
+      button._copied = setTimeout(() => { button.innerHTML = copyIcon(icon); button.title = t(label); }, 1500);
     }
 
     async function revealInFolder(event, button) {

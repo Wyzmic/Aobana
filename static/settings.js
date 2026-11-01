@@ -79,7 +79,7 @@
               <button type="button" class="seg-btn ${lib.custom_trim === false ? 'active' : ''}" onclick="setCustomTrim(false)">${esc(t('lib_cache_off'))}</button>
               <button type="button" class="seg-btn ${lib.custom_trim === false ? '' : 'active'}" onclick="setCustomTrim(true)">${esc(t('lib_cache_on'))}</button>
             </div>
-            ${lib.custom_trim_pending ? `<div class="notice" style="margin-top:0.6em;">${t('set_custom_trim_pending', { n: lib.custom_trim_pending.toLocaleString() })}</div>` : ''}
+            ${lib.custom_trim_pending ? `<div class="notice" style="margin-top:0.6em;">${t('set_custom_trim_pending', { n: fmt(lib.custom_trim_pending) })}</div>` : ''}
           </div>
           <div class="set-sub-tags">
             <div class="facts">${esc(t('set_custom_ruby'))}</div>
@@ -87,7 +87,7 @@
               <button type="button" class="seg-btn ${lib.custom_ruby === false ? 'active' : ''}" onclick="setCustomRuby(false)">${esc(t('lib_cache_off'))}</button>
               <button type="button" class="seg-btn ${lib.custom_ruby === false ? '' : 'active'}" onclick="setCustomRuby(true)">${esc(t('lib_cache_on'))}</button>
             </div>
-            ${lib.custom_ruby_pending ? `<div class="notice" style="margin-top:0.6em;">${t('set_custom_trim_pending', { n: lib.custom_ruby_pending.toLocaleString() })}</div>` : ''}
+            ${lib.custom_ruby_pending ? `<div class="notice" style="margin-top:0.6em;">${t('set_custom_trim_pending', { n: fmt(lib.custom_ruby_pending) })}</div>` : ''}
           </div>` : ''}`;
         return `<div class="set-media-row" id="set-media-${which}">
           <div class="btns set-media-head">
@@ -471,34 +471,6 @@
         </div>
         <div class="lib-open-msg facts" role="status"></div>
         <div class="lib-msg facts" style="margin:0.5em 0 0;"></div>`;
-      renderCacheCard(lib.search_cache);
-    }
-
-    function renderCacheCard(c, msg) {
-      c = c || { entries: 0, bytes: 0, on: false };
-      document.getElementById('lib-cache').innerHTML = `
-        <h3>${esc(t('lib_cache_title'))}</h3>
-        <div class="facts"><div>${esc(t('lib_cache_lead'))}</div>
-          <div>${esc(t('lib_cache', { n: fmt(c.entries), size: fmtBytes(c.bytes) }))}</div></div>
-        <div class="btns" style="align-items:center;">
-          <div class="seg seg-fit">
-            <button type="button" class="seg-btn ${c.on ? '' : 'active'}" onclick="setSearchCache(false)">${esc(t('lib_cache_off'))}</button>
-            <button type="button" class="seg-btn ${c.on ? 'active' : ''}" onclick="setSearchCache(true)">${esc(t('lib_cache_on'))}</button>
-          </div>
-          <button class="btn" onclick="clearSearchCache()" ${c.entries || c.bytes ? '' : 'disabled'}>${esc(t('lib_cache_clear'))}</button>
-        </div>
-        <div class="lib-msg facts" style="margin:0.5em 0 0;">${msg ? esc(msg) : ''}</div>`;
-    }
-
-    async function setSearchCache(on) {
-      const res = await apiPost('/api/search-cache', { on }).catch(() => ({}));
-      if (res.search_cache) renderCacheCard(res.search_cache);
-    }
-
-    async function clearSearchCache() {
-      document.querySelectorAll('#lib-cache button').forEach(b => b.disabled = true);
-      const res = await apiPost('/api/search-cache/clear', {}).catch(() => ({}));
-      renderCacheCard(res.search_cache, res.ok ? t('lib_cache_cleared') : '');
     }
 
     function toggleDbEdit(on) {
@@ -602,7 +574,7 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'hidden' || !handoffPending) return;
       const body = JSON.stringify({ items: profileSnapshot() });
-      fetch('/api/profile-handoff', { method: 'POST', keepalive: body.length < 60000, headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' }, body }).catch(() => {});
+      fetch('/api/profile-handoff', { method: 'POST', keepalive: body.length < 60000, headers: { 'Content-Type': 'application/json', ...API_HEADERS }, body }).catch(() => {});
     });
     function renderPortCard(lib) {
       const running = Number(location.port || 80);

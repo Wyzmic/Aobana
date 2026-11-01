@@ -9,7 +9,7 @@ import sqlite3
 import threading
 
 from aobana.utils import (
-    ALPHA_CHARS, BOOK_RUBY_RE, DISPLAY_NONWORD_RE, DISPLAY_PUNCT_RE, GlossRuby, KANJI_CHARS,
+    ALPHA_CHARS, BOOK_RUBY_RE, DISPLAY_NONWORD_RE, DISPLAY_PUNCT_RE, GLOSS_KANA_ONE_SCRIPT_RE, GlossRuby, KANJI_CHARS,
     RUBY_RE, SPACED_RUBY_PREV_RE, SubsGlossRuby, build_ruby_lexicon, fold_compat, has_ruby_lexicon, katakana_to_hiragana,
     load_ruby_decisions, load_ruby_merges, load_ruby_trims, ruby_merge_key, ruby_reading,
     split_spaced_ruby, sudachi_pieces, work_folder,
@@ -34,9 +34,10 @@ def _take_tagger():
         pass
     with _TAGGER_LOCK:
         if _TAGGER_MADE[0] < _TAGGER_MAX:
-            from sudachipy import tokenizer, dictionary
+            from sudachipy import tokenizer
             if _TAGGER_DICT[0] is None:
-                _TAGGER_DICT[0] = dictionary.Dictionary(dict="core")
+                from aobana.utils import sudachi_dictionary
+                _TAGGER_DICT[0] = sudachi_dictionary()
             _TAGGER_MADE[0] += 1
             return _TAGGER_DICT[0].create(), tokenizer.Tokenizer.SplitMode.A
     return _TAGGER_POOL.get()
@@ -63,6 +64,7 @@ _LEXICON_LOCAL = threading.local()
 _LEXICON_OPEN = {}
 _LEXICON_OPEN_LOCK = threading.Lock()
 _LEXICON_MEMO_MAX = 50_000
+_LEXICON_MEMO = {}
 _DB_PATHS = (('subs', paths.subs_db, 'subtitles'), ('epub', paths.epub_db, 'epubs'),
              ('manga', paths.manga_db, 'manga'), ('custom', paths.custom_db, 'custom'))
 _BUILD_ABORT = None
@@ -136,7 +138,7 @@ def _lexicon_tables():
             conns[media] = conn
             usable, alone[media] = _lexicon_usable(conn)
             complete = complete and usable
-        local.conns, local.complete, local.memo, local.gen = conns, complete, {}, _LEXICON_GEN[0]
+        local.conns, local.complete, local.gen = conns, complete, _LEXICON_GEN[0]
         local.alone = alone
         thread = threading.current_thread()
         with _LEXICON_OPEN_LOCK:
@@ -156,7 +158,7 @@ def _close_ended_lexicon_tables():
 def release_thread_resources():
     local = _LEXICON_LOCAL
     conns = getattr(local, 'conns', None)
-    local.conns, local.complete, local.memo, local.gen = None, False, {}, None
+    local.conns, local.complete, local.gen = None, False, None
     with _LEXICON_OPEN_LOCK:
         _LEXICON_OPEN.pop(threading.current_thread(), None)
     for conn in (conns or {}).values():
@@ -168,14 +170,14 @@ def release_thread_resources():
 
 
 def forget_lexicon_memo():
-    if getattr(_LEXICON_LOCAL, 'memo', None):
-        _LEXICON_LOCAL.memo = {}
+    _LEXICON_MEMO.clear()
 
 
 def drop_lexicon(close_live=False):
     global _RUBY_LEXICON
     _LEXICON_GEN[0] += 1
     _RUBY_LEXICON = None
+    _LEXICON_MEMO.clear()
     if not close_live:
         _close_ended_lexicon_tables()
         return
@@ -192,6 +194,8 @@ def drop_lexicon(close_live=False):
 
 def warm_ruby_lexicon():
     try:
+        with tagger():
+            pass
         if _lexicon_tables() is None:
             get_ruby_lexicon()
     finally:
@@ -199,9 +203,10 @@ def warm_ruby_lexicon():
 
 
 def _lexicon_lookup(conns, media, folder, word):
-    memo = _LEXICON_LOCAL.memo
-    key = (media, folder, word)
-    if key not in memo:
+    memo = _LEXICON_MEMO
+    key = (_LEXICON_LOCAL.gen, media, folder, word)
+    got = memo.get(key)
+    if got is None:
         if len(memo) > _LEXICON_MEMO_MAX:
             memo.clear()
         own = set()
@@ -212,25 +217,27 @@ def _lexicon_lookup(conns, media, folder, word):
         for conn in conns.values():
             corpus.update(r for (r,) in conn.execute(
                 "SELECT DISTINCT reading FROM ruby_lexicon WHERE base = ?", (word,)))
-        memo[key] = (own, corpus)
-    return memo[key]
+        got = memo[key] = (own, corpus)
+    return got
 
 
 def _lexicon_alone(conns, media, folder, word):
-    memo = _LEXICON_LOCAL.memo
-    key = ('alone', media, folder, word)
-    if key not in memo:
+    memo = _LEXICON_MEMO
+    key = (_LEXICON_LOCAL.gen, 'alone', media, folder, word)
+    got = memo.get(key)
+    if got is None:
         if len(memo) > _LEXICON_MEMO_MAX:
             memo.clear()
         if media not in conns:
-            memo[key] = set()
+            got = set()
         elif not getattr(_LEXICON_LOCAL, 'alone', {}).get(media, True):
-            memo[key] = set(_lexicon_lookup(conns, media, folder, word)[0])
+            got = set(_lexicon_lookup(conns, media, folder, word)[0])
         else:
-            memo[key] = {r for (r,) in conns[media].execute(
+            got = {r for (r,) in conns[media].execute(
                 "SELECT DISTINCT reading FROM ruby_lexicon WHERE base = ? AND folder = ? AND alone = 1",
                 (word, folder))}
-    return memo[key]
+        memo[key] = got
+    return got
 
 
 _SUDACHI_READINGS = {}
@@ -556,7 +563,7 @@ def gloss_kanji_list_cut(base: str, gloss: str):
 
 _GLOSS_RUBY = None
 _GLOSS_DECIDED = None
-_GLOSS_KANA_RE = re.compile(r'[ァ-ヺー・]+(?:[ 　]+[ァ-ヺー・]+)*|[ぁ-ゖー・]+(?:[ 　]+[ぁ-ゖー・]+)*')
+_GLOSS_KANA_RE = GLOSS_KANA_ONE_SCRIPT_RE
 _OKURI_RE = re.compile(r'[ぁ-ゖ]{1,4}')
 
 

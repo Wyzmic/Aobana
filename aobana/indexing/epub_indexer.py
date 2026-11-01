@@ -57,20 +57,20 @@ DB_PATH = paths.epub_db()
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
-from aobana.utils import SUDACHI_MAX_BYTES, sudachi_pieces as _sudachi_pieces
+from aobana.utils import SUDACHI_MAX_BYTES, sudachi_dictionary, sudachi_pieces as _sudachi_pieces
 
 
 def get_tokenizer():
     global _TOKENIZER
     if _TOKENIZER is None:
-        _TOKENIZER = dictionary.Dictionary(dict="core").create()
+        _TOKENIZER = sudachi_dictionary().create()
     return _TOKENIZER
 
 from aobana.utils import (
     KANA_RE, KANJI_CHARS, KANJI_PATTERN,
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, BOOK_RUBY_RE, BOOK_BAR_RUBY_RE,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map, append_filtered_rows, refresh_auto_filtered,
-    held_removals, ALLOW_REMOVAL_FLAG, name_key, start_output, emit, say,
+    held_removals, ALLOW_REMOVAL_FLAG, name_key, start_output, emit, say, file_sha256, ensure_stat_columns,
 )
 
 TIMESTAMP_SCENE_RE = re.compile(
@@ -99,6 +99,7 @@ _RE_REPLACEMENTS = [
     (re.compile(r'~~'),  '～～'),
     (re.compile(r'~'),   '～'),
 ]
+_RE_REPLACEMENTS_ANY = re.compile('[＠―—・…‥~]')
 
 GENERIC_TOC_NAMES = {
     '表紙', '扉', '本文', '目次', 'GUIDE', 'NAVIGATION', 'START', 
@@ -295,8 +296,9 @@ def _postprocess_sentence(text: str) -> str:
     for _ in range(10):
         before = text
         text = replace_until_fixed(text, EPUB_STR_REPLACEMENTS)
-        for pattern, dst in _RE_REPLACEMENTS:
-            text = pattern.sub(dst, text)
+        if _RE_REPLACEMENTS_ANY.search(text):
+            for pattern, dst in _RE_REPLACEMENTS:
+                text = pattern.sub(dst, text)
         if text == before:
             break
     return text
@@ -684,11 +686,7 @@ def analyze_tokens(clean_text: str):
     return " ".join(base_forms), " ".join(readings), token_lengths_blob(w.surface() for w in words)
 
 def compute_file_hash(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
+    return file_sha256(path, control.check_stop)
 
 
 VOLUME_LABEL_RE = re.compile(r'^(?:(?:第\s*)?[0-9０-９一二三四五六七八九十百千]+\s*[部巻篇]|上巻|中巻|下巻|前篇|後篇)(?:\s|$)')
@@ -1756,8 +1754,8 @@ def _prepare(job):
     epub_path, relpath, known_hash = job
     _EXCLUDED_LOG.clear()
     try:
-        file_hash = compute_file_hash(epub_path)
-        if file_hash == known_hash:
+        file_hash, same = job_hash(known_hash, epub_path, compute_file_hash)
+        if same:
             return ('same', relpath, file_hash, None)
         author, title, chapters_data = extract_epub_content(epub_path)
         rows = [r + (stored_display_length(r[1], "epub"), kanji_table.tokens(r[2]))
@@ -1773,7 +1771,7 @@ COMMIT_EVERY_SECONDS = 20
 
 
 from aobana.indexing import run_control as control, kanji_table, line_repeats, rebuild as rebuilding
-from aobana.indexing.preparation import prepare_changed
+from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
 from aobana.utils import media_walk
 
 def build_tables(conn, top, db=None):
@@ -1922,6 +1920,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
         conn.commit()
 
         ensure_format_column(conn)
+        ensure_stat_columns(conn)
         from aobana.utils import report_outdated
         report_outdated(conn, 'epub')
         conn.commit()
@@ -1933,9 +1932,11 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
         lexicon = has_ruby_lexicon(conn)
         control.check_stop()
         kanji = kanji_table.ready(conn, "epubs")
-        cur = conn.execute("SELECT id, relpath, file_hash, index_format FROM sources")
-        existing_files = {name_key(row['relpath']): {'id': row['id'], 'hash': None if outdated and is_outdated('epub', row['relpath'], row['index_format']) else row['file_hash']}
+        cur = conn.execute("SELECT id, relpath, file_hash, index_format, file_size, file_mtime_ns FROM sources")
+        existing_files = {name_key(row['relpath']): {'id': row['id'], 'hash': None if outdated and is_outdated('epub', row['relpath'], row['index_format']) else row['file_hash'],
+                                                     'stat': (row['file_size'], row['file_mtime_ns'])}
                           for row in cur}
+        stat_of = {}
         title_ids = collections.defaultdict(set)
         id_title = {}
         for sid, t in conn.execute("SELECT id, title FROM sources"):
@@ -2028,7 +2029,8 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                 n_filtered += 1
                 continue
             current_disk_files.add(key)
-            jobs.append((epub_path, relpath, existing_files.get(key, {}).get('hash')))
+            stat_of[relpath] = file_stat(epub_path)
+            jobs.append((epub_path, relpath, known_hash(existing_files.get(key, {}).get('hash'), existing_files.get(key, {}).get('stat'), epub_path)))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -2045,10 +2047,13 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                 stopped = True
                 break
             emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
+            old = existing_files.get(name_key(relpath))
             if kind == 'same':
                 skipped += 1
+                if old and old['stat'] != stat_of[relpath]:
+                    conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                                 (*stat_of[relpath], old['id']))
                 continue
-            old = existing_files.get(name_key(relpath))
             if kind == 'error':
                 if old:
                     conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
@@ -2067,10 +2072,10 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                     conn.execute("DELETE FROM sources WHERE id = ?", (old['id'],))
                     auto_removed += 1
                 try:
-                    file_stat = os.stat(epub_by_name[relpath])
+                    st = os.stat(epub_by_name[relpath])
                 except OSError:
-                    file_stat = None
-                if file_stat is not None:
+                    st = None
+                if st is not None:
                     auto_filtered.append({
                     "media": "epub",
                     "name": relpath,
@@ -2078,8 +2083,8 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                     "keep": "",
                     "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "origin": "auto",
-                    "size": str(file_stat.st_size),
-                    "mtime": str(file_stat.st_mtime_ns),
+                    "size": str(st.st_size),
+                    "mtime": str(st.st_mtime_ns),
                     })
                 filtered.add(name_key(relpath))
                 n_filtered += 1
@@ -2102,6 +2107,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                 cur = conn.execute("INSERT INTO sources (relpath, file_hash, title, author, index_format) VALUES (?, ?, '', '', ?)",
                                    (relpath, file_hash, INDEX_FORMAT['epub']))
                 source_id = cur.lastrowid
+            conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?", (*stat_of[relpath], source_id))
 
             new_or_updated += 1
             held = _HeldTitles(title_ids, source_id)

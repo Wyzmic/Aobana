@@ -1,16 +1,11 @@
-import hashlib
 import json
 import os
 from aobana import paths
-from aobana.utils import sub_relpath
+from aobana.utils import file_sha256, sub_relpath
 
 
 def digest(path):
-    sha = hashlib.sha256()
-    with open(path, 'rb') as handle:
-        for block in iter(lambda: handle.read(1 << 20), b''):
-            sha.update(block)
-    return sha.hexdigest()
+    return file_sha256(path)
 
 
 def validate(doc, conn):

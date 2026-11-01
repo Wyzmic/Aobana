@@ -800,7 +800,8 @@
       const poll = async () => {
         if (generation !== libPollGeneration || TAB !== 'library') return;
         let s;
-        try { s = await fetch('/api/index/status').then(r => r.json()); } catch (e) {}
+        const after = libLogRun ? `?since=${libLogSeq}&run=${encodeURIComponent(libLogRun)}` : '';
+        try { s = await fetch('/api/index/status' + after).then(r => r.json()); } catch (e) {}
         if (generation !== libPollGeneration || TAB !== 'library') return;
         if (s) {
           if (libPollRun && s.run_id && libPollRun !== s.run_id) {
@@ -853,7 +854,7 @@
       patch(target, template.content);
     }
 
-    let libLogRows = [];
+    let libLogSeq = 0;
     let libLogRun = null;
     let libLogFollow = true;
     function updateIndexLog(box, s) {
@@ -865,7 +866,7 @@
         const copy = document.createElement('button'); copy.className = 'btn'; copy.textContent = t('lib_log_copy');
         const follow = document.createElement('button'); follow.className = 'btn'; follow.textContent = t('lib_log_pause');
         const pre = document.createElement('pre');
-        copy.onclick = () => navigator.clipboard.writeText(pre.textContent);
+        copy.onclick = () => copyToClipboard(pre.textContent);
         follow.onclick = () => {
           libLogFollow = !libLogFollow;
           follow.textContent = t(libLogFollow ? 'lib_log_pause' : 'lib_log_follow');
@@ -876,14 +877,13 @@
       const atEnd = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
       const rows = s.log || [];
       if (s.run_id && s.run_id !== libLogRun) {
-        pre.replaceChildren(); libLogRows = []; libLogRun = s.run_id;
+        pre.replaceChildren(); libLogSeq = 0; libLogRun = s.run_id;
       }
-      let overlap = Math.min(rows.length, libLogRows.length);
-      while (overlap && !rows.slice(0, overlap).every((v,i) => v === libLogRows[libLogRows.length-overlap+i])) --overlap;
-      for (let i = overlap; i < rows.length; ++i) pre.appendChild(document.createTextNode(rows[i] + '\n'));
-      libLogRows = [...rows];
+      const first = (s.log_seq ?? rows.length) - rows.length + 1;
+      for (let i = Math.max(0, libLogSeq - first + 1); i < rows.length; ++i) pre.appendChild(document.createTextNode(rows[i] + '\n'));
+      libLogSeq = Math.max(libLogSeq, first + rows.length - 1);
       while (pre.childNodes.length > 2000 && !window.getSelection()?.toString()) pre.firstChild.remove();
-      log.hidden = !rows.length;
+      log.hidden = !pre.childNodes.length;
       if (libLogFollow && atEnd && !window.getSelection()?.toString()) pre.scrollTop = pre.scrollHeight;
     }
 
@@ -922,7 +922,7 @@
       btn.querySelector('span').textContent = s.running ? t('lib_running') : t('lib_run');
       if (!s.started_at) {
         const u = s.unfinished;
-        updateIndexBody(body, u ? `<div class="notice warn">${esc(t(u.outdated ? 'lib_unfinished_outdated' : 'lib_unfinished'))}</div>` : '');
+        updateIndexBody(body, u ? `<div class="notice warn">${esc(t(u.error ? 'lib_unfinished_failed' : u.outdated ? 'lib_unfinished_outdated' : 'lib_unfinished'))}</div>` : '');
         return;
       }
       let html = '';
@@ -967,10 +967,10 @@
         html += `<div class="btns"><button class="btn" onclick="startIndex(${only}, false, false, true)">${esc(t('lib_remove_anyway'))}</button></div>`;
       }
       if ((s.skipped_clash || []).length) {
-        html += `<div class="notice warn">${esc(t('lib_skipped_clash'))}<ul>${capList(s.skipped_clash)}</ul></div>`;
+        html += `<div class="notice warn">${esc(t('lib_skipped_clash'))}<ul>${capList(s.skipped_clash, s.skipped_clash_total)}</ul></div>`;
       }
       if ((s.failed || []).length) {
-        html += `<div class="notice err">${esc(t('lib_failed'))}<ul>${capList(s.failed)}</ul></div>`;
+        html += `<div class="notice err">${esc(t('lib_failed'))}<ul>${capList(s.failed, s.failed_total)}</ul></div>`;
       }
       updateIndexBody(body, html);
       updateIndexLog(box, s);

@@ -48,7 +48,7 @@ def ready(conn, table):
 
 
 def write(conn, table, rows, computed=False):
-    conn.executemany(f"INSERT OR REPLACE INTO {name(table)}(rowid, k) VALUES (?, ?)",
+    conn.executemany(f"INSERT INTO {name(table)}(rowid, k) VALUES (?, ?)",
                      ((rowid, text if computed else tokens(text)) for rowid, text in rows))
 
 

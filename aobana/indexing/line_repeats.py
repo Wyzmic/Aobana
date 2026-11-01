@@ -61,12 +61,13 @@ def _titles(conn, media):
         names = {i: (h, kind) for i, h, kind in conn.execute("SELECT id, file_hash, kind FROM sources")}
         voiced = 'audio' in {r[1] for r in conn.execute("PRAGMA table_info(custom_lines)")}
         rows = []
-        for sid, lo, hi in conn.execute("SELECT c0, MIN(id), MAX(id) FROM custom_content GROUP BY c0").fetchall():
-            file = conn.execute("SELECT c1 FROM custom_content WHERE id = ?", (lo,)).fetchone()[0]
+        clip = ("EXISTS (SELECT 1 FROM custom_lines WHERE rowid BETWEEN g.lo AND g.hi AND audio IS NOT NULL)"
+                if voiced else "0")
+        for sid, lo, hi, file, has_clip in conn.execute(
+                f"SELECT g.c0, g.lo, g.hi, c.c1, {clip} FROM (SELECT c0, MIN(id) AS lo, MAX(id) AS hi"
+                " FROM custom_content GROUP BY c0) g JOIN custom_content c ON c.id = g.lo ORDER BY g.c0").fetchall():
             file_hash, kind = names.get(sid, ('', ''))
-            if kind not in ('txt', 'md') or voiced and conn.execute(
-                    "SELECT 1 FROM custom_lines WHERE rowid BETWEEN ? AND ? AND audio IS NOT NULL LIMIT 1",
-                    (lo, hi)).fetchone():
+            if kind not in ('txt', 'md') or has_clip:
                 by_line.add(_result_folder(media, file))
             rows.append((sid, file_hash, file, lo, hi))
     else:

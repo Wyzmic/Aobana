@@ -35,10 +35,12 @@
     const ON_PHONE = (document.querySelector('meta[name="aobana-termux"]') || {}).content === '1';
 
     const LIST_CAP = 100;
-    function capList(list) {
+    function capList(list, total = list.length) {
       return list.slice(0, LIST_CAP).map(f => `<li>${esc(f)}</li>`).join('')
-        + (list.length > LIST_CAP ? `<li>${esc(t('list_more', { n: fmt(list.length - LIST_CAP) }))}</li>` : '');
+        + (total > LIST_CAP ? `<li>${esc(t('list_more', { n: fmt(total - LIST_CAP) }))}</li>` : '');
     }
+    const svgIcon = (paths, attrs = 'aria-hidden="true"') =>
+      `<svg ${attrs} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 
     let LANG = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'ja';
     function t(key, vars) {
@@ -340,8 +342,9 @@
     function apiSearchUrl(qs) {
       return `/api/search?${qs}&seed=${searchSeed}&client=${encodeURIComponent(clientToken)}`;
     }
+    const API_HEADERS = { 'X-Aobana': '1' };
     function apiPost(url, body) {
-      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' }, body: JSON.stringify(body || {}) })
+      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...API_HEADERS }, body: JSON.stringify(body || {}) })
         .then(r => r.json());
     }
     let serverSearchInFlight = 0;
@@ -351,7 +354,7 @@
       try {
         fetch(`/api/search/cancel?client=${encodeURIComponent(clientToken)}`, {
           method: 'POST', keepalive: true,
-          headers: { 'Content-Type': 'application/json', 'X-Aobana': '1' },
+          headers: { 'Content-Type': 'application/json', ...API_HEADERS },
           body: JSON.stringify({ grace: grace || 0 }),
         }).catch(() => {});
       } catch (e) {}

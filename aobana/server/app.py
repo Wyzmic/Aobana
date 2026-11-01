@@ -17,6 +17,7 @@ if __name__ == '__main__':
     paths.start_companions()
 if __name__ in ('__main__', '__mp_main__') and getattr(sys.modules.get(__name__), '__dict__', None) is globals():
     sys.modules.setdefault('aobana.server.app', sys.modules[__name__])
+from flask.json.provider import DefaultJSONProvider
 from flask import Flask, render_template, make_response, request, jsonify, g, abort, send_file
 from aobana.search.engine import get_search_results, folder_prefix_where, is_reading_search, fts_phrase
 from aobana.search.furigana import warm_ruby_lexicon
@@ -33,18 +34,40 @@ app = Flask(__name__, template_folder='.', static_folder=os.path.join(paths.BASE
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
 
 
+class _Utf8Json(DefaultJSONProvider):
+    ensure_ascii = False
+
+    def dumps(self, obj, **kwargs):
+        text = super().dumps(obj, **kwargs)
+        try:
+            text.encode("utf-8")
+        except UnicodeEncodeError:
+            return super().dumps(obj, **dict(kwargs, ensure_ascii=True))
+        return text
+
+
+app.json = _Utf8Json(app)
+
+
 def _asset_version():
     import hashlib
     h = hashlib.sha1()
     root = os.path.join(paths.BASE_DIR, "static")
-    for d, _, names in sorted(os.walk(root)):
+    for d, dirs, names in os.walk(root):
+        dirs[:] = sorted(x for x in dirs if d != root or x not in ("fonts", "icons"))
         for n in sorted(names):
             st = os.stat(os.path.join(d, n))
             h.update(f"{n}:{st.st_size}:{st.st_mtime_ns};".encode())
     return h.hexdigest()[:10]
 
 
+def _font_version():
+    st = os.stat(os.path.join(paths.BASE_DIR, "static", "fonts", "NotoSansJP.ttf"))
+    return f"{st.st_size}-{st.st_mtime_ns // 10**9}"
+
+
 ASSET_V = _asset_version()
+FONT_V = _font_version()
 
 
 def _asset_v():
@@ -57,7 +80,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.1"
+VERSION = "2.2"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -94,7 +117,8 @@ from aobana.search.media_tab import warm_media_library
 
 
 def start_background():
-    targets = [check_for_update, warm_ruby_lexicon, warm_media_library, library.move_encoding_backups]
+    targets = [check_for_update, warm_ruby_lexicon, warm_media_library, library.move_encoding_backups,
+               result_cache.remove_disk_cache]
     if os.environ.get("AOBANA_CLIENT") == "reibun":
         update_info["checked"] = True
         targets = [warm_ruby_lexicon]
@@ -228,7 +252,7 @@ def index():
     exact = request.args.get("exact", "")
     media = request.args.get("media", "all")
     resp = make_response(render_template("index.html", q=q, sort=sort, exact=exact, media=media,
-                                         boot=BOOT_ID, asset_v=_asset_v(), version=VERSION,
+                                         boot=BOOT_ID, asset_v=_asset_v(), font_v=FONT_V, version=VERSION,
                                          handoff=library.load_profile_handoff(PORT),
                                          handoff_pending=library.handoff_pending_from(PORT),
                                          media_boot=_media_boot(), termux=ON_PHONE,

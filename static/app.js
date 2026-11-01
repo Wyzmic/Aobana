@@ -16,6 +16,10 @@
         const open = !el.classList.contains('open');
         document.querySelectorAll('.dd.open').forEach(d => d.classList.remove('open'));
         el.classList.toggle('open', open);
+        if (open) {
+          el.classList.remove('flip');
+          if (el.querySelector('.dd-menu').getBoundingClientRect().left < 0) el.classList.add('flip');
+        }
       });
       el.querySelectorAll('.dd-item').forEach(item => item.addEventListener('click', e => {
         e.stopPropagation();
@@ -176,7 +180,7 @@
       asc: '<path d="M4 6h6M4 12h11M4 18h16"/>',
       random: '<path d="M3 7h3c4 0 6 10 10 10h5"/><path d="M3 17h3c1.6 0 2.9-1.6 4-3.5M13.9 9.5C15 8 16.2 7 18 7h3"/><path d="M18.5 4.5L21 7l-2.5 2.5M18.5 14.5L21 17l-2.5 2.5"/>',
     };
-    const sortIcon = v => `<svg class="dd-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SORT_ICONS[v]}</svg>`;
+    const sortIcon = v => svgIcon(SORT_ICONS[v], 'class="dd-ico" width="16" height="16"');
     function renderTopbarControls() {
       makeDropdown(document.getElementById('lang-dd'), {
         options: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English' }],

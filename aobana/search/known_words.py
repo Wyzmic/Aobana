@@ -10,6 +10,7 @@ import time
 
 from aobana import paths
 from aobana.search import iplusone
+from aobana.utils import NATIVE_RUBY_RE
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_ROWS = 200_000
@@ -32,9 +33,9 @@ class KnownWordsError(ValueError):
         self.detail = detail
 
 
-_RUBY = re.compile(r'<ruby>(.*?)</ruby>', re.I | re.S)
-_RT = re.compile(r'<rt>(.*?)</rt>', re.I | re.S)
-_RP = re.compile(r'<rp>.*?</rp>', re.I | re.S)
+_RUBY = NATIVE_RUBY_RE
+_RT = re.compile(r'<rt\b[^>]*>(.*?)</rt\s*>', re.I | re.S)
+_RP = re.compile(r'<rp\b[^>]*>.*?</rp\s*>', re.I | re.S)
 _TAG = re.compile(r'<[^>]+>')
 _SOUND = re.compile(r'\[sound:[^\]]*\]', re.I)
 _ANKI_FURIGANA = re.compile(r' ?([^\s\[\]]+)\[([^\]]*)\]')

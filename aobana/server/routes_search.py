@@ -78,7 +78,10 @@ def api_search():
                 server.active_queries[client_key] = left
             else:
                 server.active_queries.pop(client_key, None)
-    
+    for r in results:
+        r.pop("readings", None)
+        r.pop("base_forms", None)
+
     return jsonify({
         "results": results,
         "folder_counts": folder_counts,

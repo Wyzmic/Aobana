@@ -276,10 +276,10 @@
         buttons.forEach(b => b.onclick = () => { mode = b.dataset.customMode; active(); show(); (mode === 'title' ? titleInput : contentInput).focus(); run(); });
         [titleInput, contentInput].forEach(el => {
           el.addEventListener('compositionstart', () => { isComposing = true; });
-          el.addEventListener('compositionend', () => { isComposing = false; });
-          el.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || isComposing || e.keyCode === 229)) e.preventDefault(); });
+          el.addEventListener('compositionend', () => { isComposing = false; justConfirmed = true; setTimeout(() => { justConfirmed = false; }, 60); });
+          el.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || isComposing || justConfirmed || e.keyCode === 229)) e.preventDefault(); });
         });
-        form.onsubmit = e => { e.preventDefault(); if (!isComposing) run(); };
+        form.onsubmit = e => { e.preventDefault(); if (!isComposing && !justConfirmed) run(); };
         form.querySelectorAll('input[type=checkbox]').forEach(el => {
           el.closest('.exact-chip').classList.toggle('on', el.checked);
           el.onchange = () => { el.closest('.exact-chip').classList.toggle('on', el.checked); if (contentInput.value.trim()) run(); else save(); };

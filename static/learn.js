@@ -4,7 +4,7 @@
       first: '<path d="M6 20V5M3 8l3-3 3 3"/><path d="M12 6h8M12 12h6M12 18h4"/>',
       only: '<path d="M4 5h16l-6.2 7.4V19l-3.6-1.8v-4.8z"/>',
     };
-    const learnIcon = v => `<svg class="dd-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LEARN_ICONS[v]}</svg>`;
+    const learnIcon = v => svgIcon(LEARN_ICONS[v], 'class="dd-ico" width="16" height="16"');
     function renderLearnControl() {
       const el = document.getElementById('learn-select');
       const input = document.getElementById('learn-input');
@@ -131,7 +131,7 @@
     }
     async function postKnown(url, options) {
       try {
-        const r = await fetch(url, { method: 'POST', headers: { 'X-Aobana': '1' }, body: knownForm(options) });
+        const r = await fetch(url, { method: 'POST', headers: API_HEADERS, body: knownForm(options) });
         return await r.json();
       } catch (e) { return { error: 'network' }; }
     }
@@ -218,7 +218,7 @@
       button.disabled = true;
       let res;
       try {
-        res = await fetch('/api/known-words/' + encodeURIComponent(id), { method: 'DELETE', headers: { 'X-Aobana': '1' } }).then(r => r.json());
+        res = await fetch('/api/known-words/' + encodeURIComponent(id), { method: 'DELETE', headers: API_HEADERS }).then(r => r.json());
       } catch (e) { res = { error: 'network' }; }
       if (res.error) { button.disabled = false; knownMessage(knownError(res)); return; }
       KNOWN = res;
@@ -230,8 +230,8 @@
                    noteTypes: [], fields: {}, replace: null, filter: '', timer: 0, seq: 0 };
     async function ankiFetch(url, body) {
       try {
-        const init = body === undefined ? { headers: { 'X-Aobana': '1' } }
-          : { method: 'POST', headers: { 'X-Aobana': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+        const init = body === undefined ? { headers: API_HEADERS }
+          : { method: 'POST', headers: { ...API_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
         return await (await fetch(url, init)).json();
       } catch (e) { return { error: 'network' }; }
     }

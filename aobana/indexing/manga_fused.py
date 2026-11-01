@@ -23,6 +23,11 @@ def g(s):
 LIST_FOLDS = (("exact", lambda s: s), ("small", fold_small), ("dakuten", lambda s: _unvoice(fold_small(s))))
 
 
+@functools.lru_cache(maxsize=65536)
+def _folded_readings(base, f):
+    return frozenset(f(r) for r in kanji_readings(base))
+
+
 def list_splits(K, S, f):
     n = 0
 
@@ -34,7 +39,7 @@ def list_splits(K, S, f):
             n += p == len(S)
             return
         base = K[k - 1] if K[k] == '々' and k else K[k]
-        for r in {f(r) for r in kanji_readings(base)}:
+        for r in _folded_readings(base, f):
             if r and S.startswith(r, p):
                 walk(k + 1, p + len(r))
     walk(0, 0)

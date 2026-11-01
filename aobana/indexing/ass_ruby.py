@@ -35,8 +35,9 @@ _LEX = {}
 
 def sudachi():
     if not _SUDACHI:
-        from sudachipy import dictionary, tokenizer
-        d = dictionary.Dictionary(dict="core")
+        from sudachipy import tokenizer
+        from aobana.utils import sudachi_dictionary
+        d = sudachi_dictionary()
         _SUDACHI.update(dict=d, tok=d.create(), mode=tokenizer.Tokenizer.SplitMode.A)
     return _SUDACHI
 

@@ -1,5 +1,4 @@
 import os
-from aobana.search import result_cache
 from aobana.server import folder_picker
 from aobana.server import library
 from flask import jsonify, request
@@ -12,14 +11,13 @@ app = server.app
 def api_library():
     db_subs, db_epub = server.get_db()
     data = {**library.describe(server._media_connections(db_subs, db_epub)),
-            "folder_picker": folder_picker.available(), "search_cache": _search_cache_facts()}
+            "folder_picker": folder_picker.available()}
     library.save_settings_snapshot(data)
     return jsonify(data)
 
 
 def _settings_payload():
-    return {**library.settings_view_data(), "folder_picker": folder_picker.available(),
-            "search_cache": _search_cache_facts()}
+    return {**library.settings_view_data(), "folder_picker": folder_picker.available()}
 
 
 @app.route("/api/library/settings", methods=["GET"])
@@ -32,26 +30,6 @@ def api_library_settings():
 @app.route("/api/library/settings-snapshot", methods=["GET"])
 def api_library_settings_snapshot():
     return jsonify({"settings": library.load_settings_snapshot()})
-
-
-def _search_cache_facts():
-    return {**result_cache.disk_cache_stats(), "on": result_cache.disk_cache_enabled()}
-
-
-@app.route("/api/search-cache", methods=["POST"])
-def api_search_cache_set():
-    server._require_page()
-    library.set_search_cache((request.get_json(silent=True) or {}).get("on") is True)
-    library.save_settings_snapshot(_settings_payload())
-    return jsonify({"ok": True, "search_cache": _search_cache_facts()})
-
-
-@app.route("/api/search-cache/clear", methods=["POST"])
-def api_search_cache_clear():
-    server._require_page()
-    ok = result_cache.clear_disk_cache()
-    library.save_settings_snapshot(_settings_payload())
-    return jsonify({"ok": ok, "search_cache": _search_cache_facts()})
 
 
 @app.route("/api/library", methods=["POST"])

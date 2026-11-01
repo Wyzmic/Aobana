@@ -6,7 +6,7 @@ import os
 
 from aobana import paths
 from aobana.search.furigana import highlight_and_furigana, work_key
-from aobana.search.reading import parse_reading_terms, row_matches
+from aobana.search.reading import parse_reading_terms, row_matches, ruby_only_cannot_match
 from aobana.search.titles import format_custom_title, get_sort_key
 from aobana.utils import fold_title_filter, load_ruby_trims, name_key, ruby_merge_key
 
@@ -89,15 +89,28 @@ def draw_line(text, marks, file='', highlight=None):
     return f'<span class="custom-text">{"".join(parser.parts)}</span>'
 
 
-def decorate_result(row, conn, highlight):
-    data = conn.execute('SELECT * FROM custom_lines WHERE rowid = ?', (row['rowid'],)).fetchone()
+def custom_lines_of(conn, rowids):
+    out = {}
+    for k in range(0, len(rowids), 500):
+        part = rowids[k:k + 500]
+        out.update((r['rowid'], r) for r in conn.execute(
+            f"SELECT * FROM custom_lines WHERE rowid IN ({','.join('?' * len(part))})", part))
+    return out
+
+
+def decorate_result(row, conn, highlight, lines=None):
+    if lines is not None:
+        data = lines.get(row['rowid'])
+    else:
+        data = conn.execute('SELECT * FROM custom_lines WHERE rowid = ?', (row['rowid'],)).fetchone()
     if data is None:
-        return
+        return False
     data = dict(data)
     row.update(data)
     row['marks'] = json.loads(data['marks'] or '[]')
     row['title'] = format_custom_title(row['file'])
     draw_row(row, highlight)
+    return True
 
 
 def _source_fields(row, metadata=None):
@@ -143,12 +156,21 @@ class Stopped(Exception):
     pass
 
 
+def _excluded_where(phrase):
+    from aobana.search.engine import QuotedTerm, excluded_sequence
+    sql, args = 'instr(clean_text, ?) = 0 AND instr(line, ?) = 0', [str(phrase), str(phrase)]
+    sequence = None if isinstance(phrase, QuotedTerm) else excluded_sequence(str(phrase), 'custom')
+    if sequence:
+        sql, args = f"{sql} AND instr(' ' || base_forms || ' ', ?) = 0", [*args, f' {sequence} ']
+    return sql, args
+
+
 def _reading_where(needle, exact, ruby_only, conn, stop=None):
     from aobana.search.engine import analyze_query, _match_where, fts_phrase, like_escape, split_negated_terms
     from aobana.search.furigana import detect_script, line_analysis
     q_plain, terms, neg_terms, q_rest = parse_reading_terms(needle)
     rest = split_negated_terms(q_rest)[0].strip('""“”')
-    excluded = [n.strip('""“”') for n in split_negated_terms(q_plain)[1] if n.strip('""“”')]
+    excluded = split_negated_terms(q_plain)[1]
     if not terms and not rest:
         return '0', []
 
@@ -178,8 +200,9 @@ def _reading_where(needle, exact, ruby_only, conn, stop=None):
                 wheres.append('instr(clean_text, ?) > 0')
             params.append(term.word)
         for phrase in excluded:
-            wheres.append('instr(clean_text, ?) = 0')
-            params.append(phrase)
+            sql, args = _excluded_where(phrase)
+            wheres.append(sql)
+            params.extend(args)
         return ' AND '.join(wheres), params
 
     from aobana.search import engine
@@ -204,6 +227,8 @@ def _reading_where(needle, exact, ruby_only, conn, stop=None):
         if terms and engine.READING_PREFILTER and not reading_prefilter(
                 terms, line, clean_text, row_readings, 'custom', work, row_bases, row_lens):
             continue
+        if ruby_only and terms and engine.READING_PREFILTER and ruby_only_cannot_match(terms, line, 'custom', work):
+            continue
         if row_matches(line_analysis(line, work), terms, neg_terms, work, exact, ruby_only):
             kept.append(rowid)
     return 'rowid IN (SELECT value FROM json_each(?))', [json.dumps(kept)]
@@ -215,7 +240,6 @@ def _content_where(needle, exact, ruby_only, conn=None, stop=None):
     # `猫 -犬`: the words matched, and a line holding an excluded one left out, as the search page does
     wanted, excluded = split_negated_terms(needle)
     wanted = wanted.strip('""“”')
-    excluded = [n.strip('""“”') for n in excluded if n.strip('""“”')]
 
     if parse_reading_terms(needle)[1:3] != ((), ()):
         sql, args = _reading_where(needle, exact, ruby_only, conn, stop)
@@ -226,7 +250,8 @@ def _content_where(needle, exact, ruby_only, conn=None, stop=None):
         where = None if exact else _match_where('custom', bases, readings, detect_script(wanted))
         sql, args = where or ('clean_text LIKE ? ESCAPE char(92)', ['%' + like_escape(wanted) + '%'])
         for phrase in excluded:
-            sql, args = f'({sql}) AND instr(clean_text, ?) = 0', [*args, phrase]
+            out_sql, out_args = _excluded_where(phrase)
+            sql, args = f'({sql}) AND {out_sql}', [*args, *out_args]
     if ruby_only:
         sql = f'({sql}) AND EXISTS (SELECT 1 FROM custom_lines r WHERE r.rowid = custom.rowid AND r.marks LIKE ?)'
         args = [*args, '%"ruby"%']
@@ -280,10 +305,11 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
     if mode != 'content' and sort in FOLDER_SORTS:
         rows.sort(key=FOLDER_SORTS[sort])
     page = rows[offset:offset + limit]
+    lines = custom_lines_of(conn, [item['rowid'] for item in page]) if hl is not None else None
     for item in page:
         # Only the page's hits are drawn: 21,394 hits took 5.8 s, all but 500 thrown away
         if hl is not None:
-            decorate_result(item, conn, hl)
+            decorate_result(item, conn, hl, lines)
         if needle:
             relative = item['path'][len(path) + 1:] if path and item['path'].startswith(path + '/') else item['path']
             item['relative_title'] = format_custom_title(relative)

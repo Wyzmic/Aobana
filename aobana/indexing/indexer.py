@@ -15,13 +15,13 @@ DB_PATH = paths.subs_db()
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
-from aobana.utils import SUDACHI_MAX_BYTES
+from aobana.utils import SUDACHI_MAX_BYTES, sudachi_dictionary
 
 
 def get_tokenizer():
     global _TOKENIZER
     if _TOKENIZER is None:
-        _TOKENIZER = dictionary.Dictionary(dict="core").create()
+        _TOKENIZER = sudachi_dictionary().create()
     return _TOKENIZER
 
 from aobana.utils import (
@@ -29,7 +29,7 @@ from aobana.utils import (
     ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, RUBY_RE,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, is_appledouble_name, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map,
     strip_chinese_chunks, is_chinese_text, filtered_names, held_removals, ALLOW_REMOVAL_FLAG, name_key,
-    MEDIA_EXTS, media_walk,
+    MEDIA_EXTS, media_walk, file_sha256, ensure_stat_columns,
     start_output, emit, say,
     ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths, token_lengths_blob,
     write_token_lengths, stored_display_length,
@@ -153,6 +153,7 @@ _RE_REPLACEMENTS = [
     (re.compile(r'~'),   '～'),
     (re.compile(r'⇒[\s　]*$'), ''),
 ]
+_RE_REPLACEMENTS_ANY = re.compile('[＠ル―—・~⇒]')
 
 HW_DOT_RUN_RE = re.compile('･{3,}')
 
@@ -169,8 +170,9 @@ def _postprocess_sentence(text: str) -> str:
     for _ in range(10):
         before = text
         text = replace_until_fixed(text, SUBS_STR_REPLACEMENTS)
-        for pattern, dst in _RE_REPLACEMENTS:
-            text = pattern.sub(dst, text)
+        if _RE_REPLACEMENTS_ANY.search(text):
+            for pattern, dst in _RE_REPLACEMENTS:
+                text = pattern.sub(dst, text)
         if text == before:
             break
     return close_unclosed_ruby(text)
@@ -661,12 +663,7 @@ def analyze_tokens(clean_text: str):
     return " ".join(base_forms), " ".join(readings), token_lengths_blob(surfaces)
 
 def compute_file_hash(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            control.check_stop()
-            h.update(chunk)
-    return h.hexdigest()
+    return file_sha256(path, control.check_stop)
 
 def kept_lines(path, relpath):
     return parse_subtitle(path, relpath)[0]
@@ -719,8 +716,8 @@ def _prepare(job):
     _WAKATI_LOG.clear()
     _NOTES.clear()
     try:
-        file_hash = compute_file_hash(path)
-        if file_hash == known_hash:
+        file_hash, same = job_hash(known_hash, path, compute_file_hash)
+        if same:
             return ('same', relpath, file_hash, None)
         rows = [r + (stored_display_length(r[0], "subs"), kanji_table.tokens(r[1]))
                 for r in index_rows(kept_lines(path, relpath), relpath)]
@@ -734,7 +731,7 @@ COMMIT_EVERY_SECONDS = 20
 
 
 from aobana.indexing import run_control as control, source_ranges, kanji_table, line_repeats, rebuild as rebuilding
-from aobana.indexing.preparation import prepare_changed
+from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
 
 def build_lexicon(conn, top):
     if top and not has_ruby_lexicon(conn):
@@ -845,12 +842,15 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
         conn.commit()
 
         ensure_format_column(conn)
+        ensure_stat_columns(conn)
         from aobana.utils import report_outdated
         report_outdated(conn, 'subs')
         conn.commit()
-        cur = conn.execute("SELECT id, relpath, file_hash, index_format FROM sources")
-        existing_files = {name_key(row['relpath']): {'id': row['id'], 'name': row['relpath'], 'hash': None if outdated and is_outdated('subs', row['relpath'], row['index_format']) else row['file_hash']}
+        cur = conn.execute("SELECT id, relpath, file_hash, index_format, file_size, file_mtime_ns FROM sources")
+        existing_files = {name_key(row['relpath']): {'id': row['id'], 'name': row['relpath'], 'hash': None if outdated and is_outdated('subs', row['relpath'], row['index_format']) else row['file_hash'],
+                                                     'stat': (row['file_size'], row['file_mtime_ns'])}
                           for row in cur}
+        stat_of = {}
         pending_doc, pending_jobs = None, []
         if not force and not rebuild:
             from aobana.indexing import pending_reindex
@@ -917,7 +917,9 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
                 emit("skipped_clash", f"SKIPPED_CLASH {fname}", file=fname)
                 continue
             current_disk_files.add(key)
-            jobs.append((path, relpath, None if key in pending_names else existing_files.get(key, {}).get('hash')))
+            stat_of[relpath] = file_stat(path)
+            known = None if key in pending_names else existing_files.get(key, {}).get('hash')
+            jobs.append((path, relpath, known_hash(known, existing_files.get(key, {}).get('stat'), path)))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -934,10 +936,13 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
                 stopped = True
                 break
             emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
+            old = existing_files.get(name_key(relpath))
             if kind == 'same':
                 skipped += 1
+                if old and old['stat'] != stat_of[relpath]:
+                    conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                                 (*stat_of[relpath], old['id']))
                 continue
-            old = existing_files.get(name_key(relpath))
             if kind == 'error':
                 if old and name_key(relpath) not in pending_names:
                     conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
@@ -967,6 +972,7 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
                 cur = conn.execute("INSERT INTO sources (relpath, file_hash, index_format) VALUES (?, ?, ?)",
                                    (relpath, file_hash, INDEX_FORMAT['subs']))
                 source_id = cur.lastrowid
+            conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?", (*stat_of[relpath], source_id))
             new_or_updated += 1
             inserted_rows += conn.executemany(
                 "INSERT INTO subtitles(rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?);",

@@ -11,7 +11,7 @@ from sudachipy import dictionary, tokenizer
 from aobana import paths, utils
 from aobana.indexing import kanji_table, line_repeats, run_control as control, subtitle_input
 from aobana.custom_source import Catalog, natural_key
-from aobana.indexing.preparation import prepare_changed
+from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
 from aobana.search.titles import get_sort_key
 from aobana.utils import CUSTOM_STR_REPLACEMENTS
 
@@ -35,16 +35,12 @@ COMMIT_EVERY_SECONDS = 20
 def get_tokenizer():
     global _TOKENIZER
     if _TOKENIZER is None:
-        _TOKENIZER = dictionary.Dictionary(dict='core').create()
+        _TOKENIZER = utils.sudachi_dictionary().create()
     return _TOKENIZER
 
 
 def compute_file_hash(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
+    return utils.file_sha256(path, control.check_stop)
 
 
 def analyze_tokens(clean_text):
@@ -116,8 +112,8 @@ def _prepare(job):
     path, relpath, known_hash, trim = job[:4]
     ruby = job[5] if len(job) > 5 else paths.custom_ruby()
     try:
-        file_hash = compute_file_hash(path)
-        if file_hash == known_hash:
+        file_hash, same = job_hash(known_hash, path, compute_file_hash)
+        if same:
             return 'same', relpath, file_hash, None
         with open(path, 'rb') as handle:
             raw = handle.read()
@@ -234,9 +230,12 @@ def build_folders(conn):
             item[2] = min(item[2], key) if item[3] else key
             item[3] += 1
             item[4] += lines
+    rows = [(path, *item) for path, item in folders.items()]
+    # Rewritten only when it differs: an unchanged library leaves custom.db as it was
+    if {tuple(r) for r in conn.execute('SELECT * FROM custom_folders')} == set(rows):
+        return
     conn.execute('DELETE FROM custom_folders')
-    conn.executemany('INSERT INTO custom_folders VALUES (?, ?, ?, ?, ?, ?)',
-                     [(path, *item) for path, item in folders.items()])
+    conn.executemany('INSERT INTO custom_folders VALUES (?, ?, ?, ?, ?, ?)', rows)
 
 
 def build_tables(conn):
@@ -286,10 +285,12 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
             line_repeats.drop(conn, 'custom')
             conn.commit()
         create_schema(conn)
+        utils.ensure_stat_columns(conn)
         utils.report_outdated(conn, 'custom')
         conn.commit()
         build_tables(conn)
         existing = {utils.name_key(row['relpath']): dict(row) for row in conn.execute('SELECT * FROM sources')}
+        stat_of = {}
         skipped_before = {utils.name_key(r['relpath']): dict(r) for r in conn.execute('SELECT * FROM custom_skipped')}
         filtered = utils.filtered_names(paths.filtered_list(), 'custom')
         jobs, current, other_count, n_filtered = [], set(), 0, 0
@@ -313,19 +314,25 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                     known = None
                 if old and old['kind'] not in ('txt', 'md'):
                     known = None
+                # The stat before any hash: a file written after it reads as changed next run
+                stat_of[relpath] = file_stat(path)
+                if old:
+                    known = known_hash(known, (old['file_size'], old['file_mtime_ns']), path)
                 jobs.append((path, relpath, known, trim))
         jobs.sort(key=lambda job: order_key(job[1]))
         catalog = Catalog((job[0], job[1]) for job in jobs)
         jobs = [(*job, catalog.get(job[1]), ruby) for job in jobs]
-        conn.execute('DELETE FROM custom_source_meta')
-        conn.executemany('INSERT INTO custom_source_meta VALUES (?, ?, ?, ?)',
-                         [(job[1], meta['path'], meta['folder_page'], meta['paired_folder']) for job in jobs
-                          if (meta := catalog.get(job[1])) is not None])
+        source_meta = [(job[1], meta['path'], meta['folder_page'], meta['paired_folder']) for job in jobs
+                       if (meta := catalog.get(job[1])) is not None]
+        if {tuple(r) for r in conn.execute('SELECT * FROM custom_source_meta')} != set(source_meta):
+            conn.execute('DELETE FROM custom_source_meta')
+            conn.executemany('INSERT INTO custom_source_meta VALUES (?, ?, ?, ?)', source_meta)
         # By id: a WHERE on replace(relpath, ...) read every source once a page (16,000 files: 19 s)
         ids = {}
         for source_id, relpath in conn.execute('SELECT id, relpath FROM sources'):
             ids.setdefault(utils.name_key(relpath), []).append(source_id)
-        conn.executemany('UPDATE sources SET category = ?, title = ?, order_key = ? WHERE id = ?',
+        conn.executemany('UPDATE sources SET category = ?1, title = ?2, order_key = ?3 WHERE id = ?4 '
+                         'AND (category IS NOT ?1 OR title IS NOT ?2 OR order_key IS NOT ?3)',
                          [(meta['category'], meta['title'], meta['order_key'], source_id)
                           for relpath, meta in catalog.meta.items() for source_id in ids.get(relpath, ())])
         n_txt = sum(job[1].lower().endswith('.txt') for job in jobs)
@@ -346,12 +353,21 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
         last_commit = time.monotonic()
         meta_written = False
 
+        drops, swept = [0], [0]
+
+        def drop(source_id):
+            drops[0] += 1
+            return drop_rows(conn, source_id, ranges)
+
         def flush():
             control.check_stop()
-            conn.execute('DELETE FROM custom_lines WHERE rowid NOT IN (SELECT id FROM custom_docsize) '
-                         'AND rowid NOT IN (SELECT rowid FROM custom_quiet)')
-            utils.drop_orphan_lengths(conn, TABLE)
-            kanji_table.drop_orphans(conn, TABLE)
+            # Each sweep reads its whole table (dev: 4 M VM steps and more each): only after a delete
+            if drops[0] != swept[0]:
+                conn.execute('DELETE FROM custom_lines WHERE rowid NOT IN (SELECT id FROM custom_docsize) '
+                             'AND rowid NOT IN (SELECT rowid FROM custom_quiet)')
+                utils.drop_orphan_lengths(conn, TABLE)
+                kanji_table.drop_orphans(conn, TABLE)
+                swept[0] = drops[0]
             build_folders(conn)
             conn.commit()
             control.committed(indexed, skipped, removed)
@@ -369,13 +385,17 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                     reasons[skipped_before[nkey]['reason']] = reasons.get(skipped_before[nkey]['reason'], 0) + 1
                 else:
                     skipped += 1
+                    if old and (old['file_size'], old['file_mtime_ns']) != stat_of[relpath]:
+                        # Touched, not changed: hashed once, then not again
+                        conn.execute('UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?',
+                                     (*stat_of[relpath], old['id']))
                 continue
             if kind == 'skip':
                 reasons[payload] = reasons.get(payload, 0) + 1
                 conn.execute('INSERT OR REPLACE INTO custom_skipped (relpath, file_hash, reason) VALUES (?, ?, ?)',
                              (relpath, file_hash, payload))
                 if old:
-                    deleted_rows += drop_rows(conn, old['id'], ranges)
+                    deleted_rows += drop(old['id'])
                     utils.drop_ruby_lexicon(conn, [old['id']])
                     conn.execute('DELETE FROM sources WHERE id = ?', (old['id'],))
                     removed += 1
@@ -401,13 +421,14 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
             read_ruby = int(ruby) if source_kind in ('txt', 'md') else None
             if old:
                 source_id = old['id']
-                deleted_rows += drop_rows(conn, source_id, ranges)
+                deleted_rows += drop(source_id)
                 utils.drop_ruby_lexicon(conn, [source_id])
                 conn.execute('UPDATE sources SET relpath = ?, category = ?, kind = ?, file_hash = ?, title = ?, order_key = ?, lines = ?, indexed_at = ?, index_format = ?, trimmed = ?, ruby = ? WHERE id = ?',
                              (relpath, category, source_kind, file_hash, title, key, readable, datetime.now().isoformat(' '), utils.INDEX_FORMAT['custom'], trimmed, read_ruby, source_id))
             else:
                 source_id = conn.execute('INSERT INTO sources (relpath, category, kind, file_hash, title, order_key, lines, index_format, trimmed, ruby) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                                          (relpath, category, source_kind, file_hash, title, key, readable, utils.INDEX_FORMAT['custom'], trimmed, read_ruby)).lastrowid
+            conn.execute('UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?', (*stat_of[relpath], source_id))
             inserted_rows += conn.executemany('INSERT INTO custom (rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                               [(next_rowid + i, source_id, *r[:5]) for i, r in enumerate(rows) if r[10]]).rowcount
             conn.executemany('INSERT INTO custom_quiet (rowid, source_id, file, line) VALUES (?, ?, ?, ?)',
@@ -432,7 +453,7 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
         for key in sorted(gone):
             control.check_stop()
             source_id = existing[key]['id']
-            deleted_rows += drop_rows(conn, source_id, ranges)
+            deleted_rows += drop(source_id)
             utils.drop_ruby_lexicon(conn, [source_id])
             conn.execute('DELETE FROM sources WHERE id = ?', (source_id,))
             removed += 1
@@ -443,8 +464,7 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                 pending, last_commit = 0, time.monotonic()
         flush()
         conn.execute('DELETE FROM custom_sections WHERE source_id NOT IN (SELECT id FROM sources)')
-        conn.execute('DELETE FROM custom_lines WHERE rowid NOT IN (SELECT rowid FROM custom) '
-                     'AND rowid NOT IN (SELECT rowid FROM custom_quiet)')
+        # The orphaned custom_lines went at the flush above, the same sweep (a rowid in custom is one in custom_docsize)
         conn.commit()
         line_repeats.ensure(conn, 'custom', DB_PATH, paths.index_workers())
         utils.compact_if_worth(conn, TABLE, deleted_rows, inserted_rows)

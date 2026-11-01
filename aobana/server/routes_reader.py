@@ -295,23 +295,20 @@ def api_locate():
     forms = sorted(forms, key=len, reverse=True)[:3]
     match = " AND ".join('base_forms:' + server.fts_phrase(f) for f in forms) if forms else ""
 
-    def query_corpus(db, table, media_type):
-        if db is None:
-            return []
-        res = []
+    def query_corpus(db, table, media_type, scan=False):
         text = "line" if media_type == "custom" else "clean_text"
-        if match:
+        if scan:
+            res = db.execute(
+                f"SELECT rowid, file, line, {text} AS clean_text FROM {table} WHERE " + contains(text)
+                + f" ORDER BY length({text}) LIMIT 500",
+                tuple(texts)).fetchall()
+        else:
             try:
                 res = db.execute(
                     f"SELECT rowid, file, line, {text} AS clean_text FROM {table} WHERE {table} MATCH ? AND "
                     + contains(text) + f" ORDER BY length({text}) LIMIT 500", (match, *texts)).fetchall()
             except sqlite3.OperationalError:
-                res = []
-        if not res:
-            res = db.execute(
-                f"SELECT rowid, file, line, {text} AS clean_text FROM {table} WHERE " + contains(text)
-                + f" ORDER BY length({text}) LIMIT 500",
-                tuple(texts)).fetchall()
+                return None
         out = []
         for r in res:
             title = title_of(media_type, r["file"], db, db)
@@ -325,15 +322,26 @@ def api_locate():
             })
         return out
 
-    rows = []
+    corpora = []
     if media_req in ("", "all", "subs") and db_subs is not None:
-        rows.extend(query_corpus(db_subs, "subtitles", "subs"))
+        corpora.append((db_subs, "subtitles", "subs"))
     if media_req in ("", "all", "epub") and db_epub is not None:
-        rows.extend(query_corpus(db_epub, "epubs", "epub"))
+        corpora.append((db_epub, "epubs", "epub"))
     if media_req in ("", "all", "manga") and db_manga is not None:
-        rows.extend(query_corpus(db_manga, "manga", "manga"))
+        corpora.append((db_manga, "manga", "manga"))
     if db_custom is not None:
-        rows.extend(query_corpus(db_custom, "custom", "custom"))
+        corpora.append((db_custom, "custom", "custom"))
+    rows, scan = [], []
+    for corpus in corpora:
+        got = query_corpus(*corpus) if match else None
+        if got is None:
+            scan.append(corpus)
+        else:
+            rows.extend(got)
+    if not rows:
+        scan = corpora
+    for corpus in scan:
+        rows.extend(query_corpus(*corpus, scan=True))
 
     rows.sort(key=lambda r: len(r.get("clean_text") or ""))
     return jsonify({"rows": rows[:500]})

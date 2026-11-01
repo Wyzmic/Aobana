@@ -1,5 +1,4 @@
 
-import ast
 import functools
 import hashlib
 import os
@@ -80,10 +79,6 @@ def _rules_version():
     return ('order-2-8', VERSION, _table_hash(tuple(files)))
 
 
-# The key's fixed slots that the disk cache reads back: the options after the fingerprint vary
-_KEY_SORT, _KEY_FINGERPRINT = 2, 8
-
-
 def _result_cache_key(q, sort, seed, media, exact, folder, file, targets, ruby_only=False, learn=''):
     if not RESULT_CACHE_ENABLED or (sort == "random" and seed is None):
         return None
@@ -105,163 +100,29 @@ def _result_cache_get(key):
         if entry is not None:
             _RESULT_CACHE.move_to_end(key)
             return entry
-    entry = _disk_cache_get(key)
-    if entry is not None:
-        _result_cache_put(key, entry)
-    return entry
-
-
-DISK_CACHE_ENABLED = None
-
-
-def disk_cache_enabled():
-    if DISK_CACHE_ENABLED is not None:
-        return DISK_CACHE_ENABLED
-    return paths.load_config().get("search_cache") is True
-
-
-DISK_CACHE_MIN_SECONDS = 1.0
-DISK_CACHE_MAX_BYTES = 1024 ** 3
-_DISK_LOCK = threading.Lock()
-_DISK_ARRAYS = (("media", "b"), ("fidx", "i"), ("rowid", "q"), ("score", "d"), ("char_count", "q"))
-
-
-def disk_cache_path():
-    return paths.companion('search_cache.db')
-
-
-def _disk_open():
-    conn = sqlite3.connect(disk_cache_path(), timeout=5)
-    try:
-        conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
-        conn.execute("CREATE TABLE IF NOT EXISTS entries (key TEXT PRIMARY KEY, fp TEXT, rows INTEGER, "
-                     "bytes INTEGER, used REAL, media BLOB, fidx BLOB, rowid BLOB, score BLOB, "
-                     "char_count BLOB, folders TEXT, folder_counts TEXT)")
-    except BaseException:
-        conn.close()
-        raise
-    return conn
-
-
-def _disk_drop_file():
-    for suffix in ("", "-wal", "-shm", "-journal"):
-        try:
-            os.remove(disk_cache_path() + suffix)
-        except OSError:
-            pass
-
-
-def _disk_cache_get(key):
-    if key is None or not disk_cache_enabled():
-        return None
-    import json
-    import time
-    with _DISK_LOCK:
-        if not os.path.exists(disk_cache_path()):
-            return None
-        try:
-            conn = _disk_open()
-            try:
-                row = conn.execute("SELECT media, fidx, rowid, score, char_count, folders, folder_counts "
-                                   "FROM entries WHERE key = ?", (repr(key),)).fetchone()
-                if row is None:
-                    return None
-                entry = {}
-                for (name, code), blob in zip(_DISK_ARRAYS, row):
-                    a = array(code)
-                    a.frombytes(blob)
-                    entry[name] = a
-                entry["folders"] = json.loads(row[5])
-                entry["folder_counts"] = json.loads(row[6])
-                if len({len(entry[name]) for name, _ in _DISK_ARRAYS}) != 1:
-                    return None
-                conn.execute("UPDATE entries SET used = ? WHERE key = ?", (time.time(), repr(key)))
-                conn.commit()
-                return entry
-            finally:
-                conn.close()
-        except sqlite3.OperationalError:
-            pass
-        except sqlite3.DatabaseError:
-            _disk_drop_file()
-        except (sqlite3.Error, OSError, ValueError, TypeError):
-            pass
     return None
 
 
-def _disk_cache_put(key, entry):
-    import json
-    import time
-    blobs = [entry[name].tobytes() for name, _ in _DISK_ARRAYS]
-    folders, counts = json.dumps(entry["folders"]), json.dumps(entry["folder_counts"])
-    size = sum(len(b) for b in blobs) + len(folders.encode()) + len(counts.encode())
-    if size > DISK_CACHE_MAX_BYTES:
-        return
-    with _DISK_LOCK:
-        try:
-            conn = _disk_open()
-            try:
-                dead = []
-                for old_key, old_fp in conn.execute("SELECT key, fp FROM entries").fetchall():
-                    try:
-                        files = ast.literal_eval(old_fp)
-                        if any(f is not None and _file_fingerprint(f[0]) != f for f in files):
-                            dead.append((old_key,))
-                    except (ValueError, SyntaxError, TypeError, IndexError):
-                        dead.append((old_key,))
-                conn.executemany("DELETE FROM entries WHERE key = ?", dead)
-                conn.execute("INSERT OR REPLACE INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                             (repr(key), repr(key[_KEY_FINGERPRINT]), len(entry["rowid"]), size, time.time(),
-                              *blobs, folders, counts))
-                total = conn.execute("SELECT COALESCE(SUM(bytes), 0) FROM entries").fetchone()[0]
-                for old_key, old_bytes in conn.execute(
-                        "SELECT key, bytes FROM entries ORDER BY used").fetchall():
-                    if total <= DISK_CACHE_MAX_BYTES:
-                        break
-                    conn.execute("DELETE FROM entries WHERE key = ?", (old_key,))
-                    total -= old_bytes
-                conn.commit()
-                conn.execute("PRAGMA incremental_vacuum").fetchall()
-            finally:
-                conn.close()
-        except sqlite3.OperationalError:
-            pass
-        except sqlite3.DatabaseError:
-            _disk_drop_file()
-        except (sqlite3.Error, OSError):
-            pass
-
-
-def _disk_cache_put_later(key, entry, seconds):
-    if (key is None or seconds < DISK_CACHE_MIN_SECONDS or key[_KEY_SORT] == "random"
-            or not disk_cache_enabled()):
-        return
-    threading.Thread(target=_disk_cache_put, args=(key, entry), daemon=True).start()
-
-
-def disk_cache_stats():
-    with _DISK_LOCK:
-        path = disk_cache_path()
-        if not os.path.exists(path):
-            return {"entries": 0, "bytes": 0}
-        try:
-            conn = _disk_open()
-            try:
-                n = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
-            finally:
-                conn.close()
-            return {"entries": n, "bytes": os.path.getsize(path)}
-        except (sqlite3.Error, OSError):
-            return {"entries": 0, "bytes": 0}
-
-
-def clear_disk_cache():
-    with _DISK_LOCK:
-        _disk_drop_file()
-        gone = not os.path.exists(disk_cache_path())
+def clear_result_cache():
     with _RESULT_CACHE_LOCK:
         _RESULT_CACHE.clear()
-    return gone
+
+
+def remove_disk_cache():
+    folder = os.path.dirname(os.path.abspath(paths.subs_db()))
+    for where in (os.path.join(folder, "cache"), folder):
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            try:
+                os.remove(os.path.join(where, "search_cache.db" + suffix))
+            except OSError:
+                pass
+    def drop(cfg):
+        cfg.pop("search_cache", None)
+    try:
+        if "search_cache" in paths.load_config():
+            paths.update_config(drop)
+    except Exception:
+        pass
 
 
 _LEAN_LINE, _LEAN_ROWID, _LEAN_MEDIA, _LEAN_FOLDER, _LEAN_SCORE, _LEAN_CHARS = range(6)
@@ -284,11 +145,9 @@ def _result_entry(valid_results):
     }
 
 
-def _result_cache_put(key, entry, seconds=None):
+def _result_cache_put(key, entry):
     if key is None:
         return
-    if seconds is not None:
-        _disk_cache_put_later(key, entry, seconds)
     with _RESULT_CACHE_LOCK:
         _RESULT_CACHE[key] = entry
         _RESULT_CACHE.move_to_end(key)

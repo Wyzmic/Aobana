@@ -13,7 +13,7 @@ from pathlib import Path
 from aobana.indexing.process_tree import OwnedProcess
 
 from aobana import paths
-from aobana.utils import media_walk, FILTER_COLUMNS, count_rows, filtered_rows, outdated_sources, missing_tables, ALLOW_REMOVAL_FLAG, JSONL_FLAG, name_key, trim_outdated, ruby_outdated
+from aobana.utils import media_walk, FILTER_COLUMNS, count_rows, filtered_rows, outdated_sources, missing_tables, ALLOW_REMOVAL_FLAG, JSONL_FLAG, name_key, trim_outdated, ruby_outdated, MEDIA_TABLES
 
 _LOCK = threading.Lock()
 _STATE = {"running": False}
@@ -89,16 +89,6 @@ def _has_files(root, media):
 def _stage_inputs(stage):
     getter = {'subs': paths.subs_db, 'epub': paths.epub_db, 'manga': paths.manga_db, 'custom': paths.custom_db}[stage]
     return paths.roots_value(stage), stage, getter()
-
-
-def _indexed(conn, table):
-    if conn is None:
-        return {"files": 0, "rows": 0}
-    try:
-        return {"files": conn.execute("SELECT COUNT(*) FROM sources").fetchone()[0],
-                "rows": count_rows(conn, table)}
-    except Exception:
-        return {"files": 0, "rows": 0}
 
 
 def _read_table_needs():
@@ -255,7 +245,6 @@ def _add_notice(kind, seconds, **extra):
 def activity():
     with _LOCK:
         return {"index": bool(_STATE.get("running")), "check": bool(_ASTATE.get("running")),
-                "move": bool(_MOVE.get("running")),
                 "figures": bool(_FSTATE.get("running")), "notices": [dict(n) for n in _NOTICES]}
 
 
@@ -313,7 +302,7 @@ def describe(dbs, db_epub=None, db_manga=None):
 _SETTINGS_SNAPSHOT_VERSION = 2
 _SETTINGS_FIELDS = ("media", "subs_dir", "books_dir", "manga_dir", "custom_dir", "data_dir",
                     "db_is_default", "db_sizes", "port", "port_env", "search_workers",
-                    "search_cache", "folder_picker", "subs_dirs", "books_dirs", "manga_dirs", "custom_dirs")
+                    "folder_picker", "subs_dirs", "books_dirs", "manga_dirs", "custom_dirs")
 
 
 def settings_view_data():
@@ -328,6 +317,9 @@ def settings_view_data():
             "custom_trim": paths.custom_trim(), "custom_trim_pending": _custom_trim_pending(),
             "custom_ruby": paths.custom_ruby(), "custom_ruby_pending": _custom_ruby_pending(),
             **{key: paths.media_roots(kind) for kind, key in paths.MEDIA_DIR_LIST_KEYS.items()}}
+
+
+_SNAPSHOT_SAVED = {}
 
 
 def _settings_snapshot_path():
@@ -351,12 +343,18 @@ def save_settings_snapshot(data):
     if not isinstance(data, dict) or not all(k in data for k in _SETTINGS_FIELDS):
         return
     path = _settings_snapshot_path()
+    doc = {"version": _SETTINGS_SNAPSHOT_VERSION, "data_dir": paths.db_dir(),
+           "settings": {k: data[k] for k in _SETTINGS_FIELDS}}
+    # The Library tab asks every second while its figures update: an unchanged view is not written again
+    if _SNAPSHOT_SAVED.get(path) == doc and os.path.isfile(path):
+        return
     tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"version": _SETTINGS_SNAPSHOT_VERSION, "data_dir": paths.db_dir(),
-                       "settings": {k: data[k] for k in _SETTINGS_FIELDS}}, fh, ensure_ascii=False)
+            json.dump(doc, fh, ensure_ascii=False)
         os.replace(tmp, path)
+        _SNAPSHOT_SAVED.clear()
+        _SNAPSHOT_SAVED[path] = doc
     except OSError:
         try:
             os.remove(tmp)
@@ -691,8 +689,8 @@ def _copy_counting(s, d):
 def _move_files(plan):
     src, dest = plan["src"], plan["dest"]
     _release_handles()
-    from aobana.search.result_cache import clear_disk_cache
-    clear_disk_cache()
+    from aobana.search.result_cache import clear_result_cache
+    clear_result_cache()
     files = _db_files(src)
     with _LOCK:
         _MOVE["total"] = sum(_entry_size(os.path.join(src, n)) for n in files)
@@ -780,9 +778,9 @@ def drop_index(kind):
         files = [os.path.join(folder, name + s) for s in _DB_SIDECARS if os.path.isfile(os.path.join(folder, name + s))]
         if not files:
             return "none", []
-        from aobana.search.result_cache import clear_disk_cache
+        from aobana.search.result_cache import clear_result_cache
         _release_handles()
-        clear_disk_cache()
+        clear_result_cache()
         _after_db_change(warm=False)
         kept = [f for f in files if not _remove_retrying(f)]
         _after_db_change()
@@ -803,15 +801,6 @@ def _after_db_change(warm=True):
             threading.Thread(target=warm_media_library, daemon=True).start()
     except Exception:
         pass
-
-
-def set_search_cache(on):
-    def change(cfg):
-        if on:
-            cfg["search_cache"] = True
-        else:
-            cfg.pop("search_cache", None)
-    paths.update_config(change)
 
 
 usable_cpus = paths.usable_cpus
@@ -1335,11 +1324,6 @@ def manga_volume_image_path(db_manga, source_id, page):
     return None
 
 
-def manga_page_image_path(db_manga, rowid):
-    where = manga_page_location(db_manga, rowid)
-    return manga_volume_image_path(db_manga, *where) if where else None
-
-
 def manga_page_neighbours(db_manga, source_id, page):
     got = db_manga.execute("SELECT title, volume FROM sources WHERE id = ?", (source_id,)).fetchone() \
         if db_manga is not None else None
@@ -1374,9 +1358,19 @@ def _index_remaining(s):
     return round((time.time() - since) * (total - done) / (done - first), 1)
 
 
-def index_status():
+STATUS_LIST_CAP = 100
+
+
+def index_status(since=None, run=None):
     with _LOCK:
         out = {k: (list(v) if isinstance(v, list) else v) for k, v in _STATE.items()}
+    if since is not None and run and run == out.get('run_id'):
+        log, last = out.get('log', []), out.get('log_seq', 0)
+        out['log'] = log[max(0, len(log) - max(0, last - since)):] if since < last else []
+        if out.get('running'):
+            for key in ('failed', 'skipped_clash'):
+                out[key + '_total'] = len(out.get(key) or [])
+                out[key] = (out.get(key) or [])[:STATUS_LIST_CAP]
     if out.get('running'):
         out['elapsed'] = time.time() - out.get('started_at', time.time())
         out['remaining'] = _index_remaining(out)
@@ -1456,7 +1450,7 @@ def start_indexing(only=None, outdated=False, tables=False, allow_removal=False)
             "done": 0, "total": 0, "current": "",
             "started_at": time.time(), "finished_at": None, "error": None,
             "results": {}, "skipped_clash": [], "failed": [], "ignored_other": {}, "filtered": {},
-            "root_missing": [], "root_not_set": [], "log": [], "stopping": False, "stopped": False,
+            "root_missing": [], "root_not_set": [], "log": [], "log_seq": 0, "stopping": False, "stopped": False,
             "outdated": bool(outdated), "tables": bool(tables), "phase": "", "removal_held": {},
             "allow_removal": bool(allow_removal), "json_unsupported": 0,
         })
@@ -1512,11 +1506,12 @@ def _log(state, text):
         return
     state["log"].append(text)
     del state["log"][:-200]
+    state["log_seq"] = state.get("log_seq", 0) + 1
 
 
 def _clear_stale_for_rebuild():
     from aobana.search import result_cache
-    result_cache.clear_disk_cache()
+    result_cache.clear_result_cache()
     for name in ("media_cache.json", "library_summary.json", "library_figures.json", "estimate.json"):
         try:
             os.remove(_beside_db(name))
@@ -1587,7 +1582,7 @@ def _run(stages, outdated=False, tables=False, allow_removal=False):
             try:
                 with open(_run_marker(), 'w', encoding='utf-8') as marker:
                     json.dump(dict(run_id=_STATE['run_id'], pid=os.getpid(), identity=process_identity(os.getpid()),
-                        writer_pid=owned.proc.pid, writer_identity=owned.identity,
+                        writer_pid=owned.proc.pid, writer_identity=owned.identity, stages=_STATE.get('stages'),
                         started_at=_STATE.get('started_at'), outdated=outdated, tables=tables), marker)
             except OSError:
                 pass
@@ -1621,18 +1616,27 @@ def _run(stages, outdated=False, tables=False, allow_removal=False):
         if seconds > LONG_TASK_SECONDS:
             _add_notice("index", seconds, stopped=bool(_STATE.get("stopped")), error=_STATE.get("error"))
         try:
-            if not _STATE.get('forced') and not _STATE.get('error'):
-                from pathlib import Path
+            from pathlib import Path
+            if _STATE.get('error') and not _STATE.get('forced'):
+                marker = Path(_run_marker())
+                doc = json.loads(marker.read_text(encoding='utf-8'))
+                doc['error'] = _STATE['error']
+                marker.write_text(json.dumps(doc), encoding='utf-8')
+            elif not _STATE.get('forced'):
+                from aobana.indexing.run_control import process_identity
+                ran = set(_STATE.get('stages') or ())
                 for marker in Path(paths.companion('.index-runs')).parent.glob('.index_run-*.json'):
                     try:
                         doc = json.loads(marker.read_text(encoding='utf-8'))
-                        from aobana.indexing.run_control import process_identity
-                        if (doc.get('run_id') == _STATE.get('run_id') or
-                                not doc.get('pid') or process_identity(doc['pid']) != doc.get('identity')):
+                        other_live = (doc.get('pid') and doc['pid'] != os.getpid()
+                                      and process_identity(doc['pid']) == doc.get('identity'))
+                        covered = (not _STATE.get('stopped') and not other_live
+                                   and set(doc.get('stages') or (s for s, _ in _STAGES)) <= ran)
+                        if doc.get('run_id') == _STATE.get('run_id') or covered:
                             marker.unlink()
                     except (OSError, ValueError):
                         pass
-        except OSError:
+        except (OSError, ValueError):
             pass
         try:
             from aobana.search.media_tab import warm_media_library
@@ -1871,9 +1875,16 @@ _AN_MEDIA = ('subs', 'epub', 'manga', 'custom')
 
 def _view_key():
     from aobana.indexing import pending_reindex
+    from aobana.indexing import run_control
     db = paths.subs_db()
-    return json.loads(json.dumps([_identity(p) for p in (_report_path(), paths.filtered_list(),
-                                                         str(pending_reindex.state_path()), db, db + '-wal')]))
+    key = json.loads(json.dumps([_identity(p) for p in (_report_path(), paths.filtered_list(),
+                                                        str(pending_reindex.state_path()), db, db + '-wal')]))
+    # While a run writes subs.db the view keeps the subs.db it was built from, or every batch would
+    # rebuild it; the run's end reloads the Check (library.js), and the writer gone, the key moves on
+    held = _VIEW['key']
+    if held and run_control.writer_active(db):
+        key[3:] = held[3:]
+    return key
 
 
 def _view_token(key):
@@ -2393,27 +2404,6 @@ def save_progress():
     return out
 
 
-def apply_recommendations(generation, choices):
-    from aobana.indexing.apply_choices import apply
-    from aobana.indexing.run_control import WriterLease
-    with _LOCK:
-        if _STATE.get('running') or _STATE.get('moving') or _ASTATE.get('running'):
-            return 'busy', None
-        _STATE['moving'] = True
-    try:
-        with WriterLease(paths.filtered_list()):
-            report = analysis_report()
-            roots = {media: paths.roots_value(media) for media in ('subs', 'epub', 'custom')}
-            rows = apply(report, roots, filtered_rows(paths.filtered_list()), generation, choices)
-            _write_filtered(rows)
-            return None, {'applied': [c['group'] for c in choices]}
-    except (ValueError, OSError, KeyError) as error:
-        return str(error), None
-    finally:
-        with _LOCK:
-            _STATE.pop('moving', None)
-
-
 def unfilter(entries):
     with _LOCK:
         if _STATE.get("running") or _STATE.get("moving") or _ASTATE.get("running"):
@@ -2536,6 +2526,8 @@ def summaries():
 
 def _refresh_summary(key, generation):
     data = {'needs': {st: [] for st,_ in _STAGES}}
+    with _LOCK:
+        previous = dict(_SUMMARY['data'])
     try:
         for st,_ in _STAGES:
             name = 'books' if st == 'epub' else st
@@ -2544,24 +2536,15 @@ def _refresh_summary(key, generation):
                 data[name+'_indexed'] = {'files': 0, 'rows': 0}
                 data[name+'_outdated'] = 0
                 continue
-            conn = sqlite3.connect(f'file:{db}?mode=ro', uri=True, timeout=.05)
             try:
-                conn.execute('BEGIN')
-                table = {'subs':'subtitles','epub':'epubs','manga':'manga','custom':'custom'}[st]
-                if not conn.execute('SELECT 1 FROM sqlite_master WHERE name=?',(table,)).fetchone():
-                    data[name+'_indexed'] = {'files': 0, 'rows': 0}
-                    data[name+'_outdated'] = 0
-                else:
-                    data[name+'_indexed'] = {'files':conn.execute('SELECT COUNT(*) FROM sources').fetchone()[0],
-                                            'rows':count_rows(conn,table)}
-                    if st == 'custom' and conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'custom_skipped'").fetchone():
-                        # The files the index left unread, by reason, for the card's lasting line (audit 10, F43)
-                        data[name+'_indexed']['skipped'] = dict(conn.execute(
-                            'SELECT reason, count(*) FROM custom_skipped GROUP BY reason'))
-                    data[name+'_outdated'] = outdated_sources(conn,st)
-                    data['needs'][st] = missing_tables(conn,st)
-            finally:
-                conn.close()
+                _summarize_db(st, name, db, data)
+            except sqlite3.OperationalError:
+                raise
+            except sqlite3.DatabaseError:
+                # Not a database or damaged: its last figures kept and marked, the other media still refreshed
+                data[name+'_indexed'] = previous.get(name+'_indexed') or {'files': 0, 'rows': 0}
+                data[name+'_outdated'] = previous.get(name+'_outdated', 0)
+                data[name+'_unreadable'] = True
         with _LOCK:
             if key != _summary_key() or generation != _SUMMARY['generation']:
                 return
@@ -2576,6 +2559,26 @@ def _refresh_summary(key, generation):
     finally:
         with _LOCK:
             _SUMMARY['running'] = False
+
+def _summarize_db(st, name, db, data):
+    conn = sqlite3.connect(f'file:{db}?mode=ro', uri=True, timeout=.05)
+    try:
+        conn.execute('BEGIN')
+        table = MEDIA_TABLES[st]
+        if not conn.execute('SELECT 1 FROM sqlite_master WHERE name=?',(table,)).fetchone():
+            data[name+'_indexed'] = {'files': 0, 'rows': 0}
+            data[name+'_outdated'] = 0
+            return
+        data[name+'_indexed'] = {'files':conn.execute('SELECT COUNT(*) FROM sources').fetchone()[0],
+                                'rows':count_rows(conn,table)}
+        if st == 'custom' and conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'custom_skipped'").fetchone():
+            # The files the index left unread, by reason, for the card's lasting line (audit 10, F43)
+            data[name+'_indexed']['skipped'] = dict(conn.execute(
+                'SELECT reason, count(*) FROM custom_skipped GROUP BY reason'))
+        data[name+'_outdated'] = outdated_sources(conn,st)
+        data['needs'][st] = missing_tables(conn,st)
+    finally:
+        conn.close()
 
 def table_needs():
     return summaries().get('needs', {st: [] for st,_ in _STAGES})

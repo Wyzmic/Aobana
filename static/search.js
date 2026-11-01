@@ -41,7 +41,8 @@
       startSearchEta(searchParams().toString(), gen);
       serverSearchInFlight++;
       try {
-        const response = await fetch(apiSearchUrl(`${searchParams().toString()}&limit=500&offset=0`), {
+        const firstPage = SORT === 'desc' ? 100 : 500;
+        const response = await fetch(apiSearchUrl(`${searchParams().toString()}&limit=${firstPage}&offset=0`), {
             signal: currentSearchController.signal
         });
         const data = await response.json();
@@ -72,7 +73,7 @@
         updateReadingNote();
         updateLearnNote(data);
         hasMoreResults = data.has_more;
-        currentOffset = 500;
+        currentOffset = firstPage;
 
         if (data.scoped) {
           renderSidebar(scopedSidebar(data), inPage);
@@ -87,9 +88,7 @@
         if (!inPage) restoreSearchReturn();
 
       } catch (err) {
-        if (err.name === 'AbortError') {
-            console.log("Previous search aborted.");
-        } else {
+        if (err.name !== 'AbortError') {
             console.error("Fetch error:", err);
         }
       } finally {
@@ -587,12 +586,17 @@
 
     if (window.visualViewport && matchMedia('(pointer: coarse)').matches) {
       const TYPED = 'input[type=text], input[type=search], input:not([type]), textarea';
+      const keyboardOpen = () => {
+        const open = !!document.activeElement?.matches?.(TYPED) && visualViewport.height < window.innerHeight * 0.8;
+        document.documentElement.classList.toggle('kb-open', open);
+        return open;
+      };
+      visualViewport.addEventListener('resize', keyboardOpen);
       document.addEventListener('focusin', e => {
         const box = e.target;
         if (!box.matches?.(TYPED)) return;
-        document.documentElement.classList.add('kb-open');
         const fit = () => {
-          if (document.activeElement !== box) return;
+          if (document.activeElement !== box || !keyboardOpen()) return;
           const above = visualViewport.offsetTop + visualViewport.height - 8;
           const over = box.getBoundingClientRect().bottom - above;
           if (over > 0) window.scrollTo({ top: window.scrollY + over, behavior: 'smooth' });

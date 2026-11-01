@@ -25,6 +25,7 @@ from aobana.search.furigana import (
 )
 from aobana.search.reading import (
     literal_equal_terms, own_work_readings, parse_reading_terms, prefilter_keys, row_matches,
+    ruby_only_cannot_match,
 )
 from aobana.search.titles import (
     GLOBAL_BOOK_AUTHORS, GLOBAL_BOOK_TITLES, GLOBAL_MANGA_TITLES, GLOBAL_TITLES, get_sort_key,
@@ -116,6 +117,14 @@ def release_db_handles():
             pass
     _close_search_pool()
 
+def quoted_phrase(pos_q: str) -> bool:
+    return (pos_q.startswith('"') and pos_q.endswith('"')) or (pos_q.startswith(('“', '”')) and pos_q.endswith('”'))
+
+
+class QuotedTerm(str):
+    pass
+
+
 def split_negated_terms(query: str):
     tokens = []
     current = ""
@@ -139,7 +148,7 @@ def split_negated_terms(query: str):
         if len(token) > 1 and (token.startswith('-') or token.startswith('－')):
             term = token[1:].strip('""“”')
             if term:
-                negatives.append(term)
+                negatives.append(QuotedTerm(term) if quoted_phrase(token[1:]) else term)
         else:
             positives.append(token)
             
@@ -1125,8 +1134,7 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
     pos_q, neg_terms = split_negated_terms(q)
     clean_q = pos_q.strip('""“”')
     if (not clean_q or exact or any(n.strip('""“”') for n in neg_terms)
-            or (pos_q.startswith('"') and pos_q.endswith('"'))
-            or (pos_q.startswith('”') and pos_q.endswith('”')) or bound_auxiliary(clean_q)
+            or quoted_phrase(pos_q) or bound_auxiliary(clean_q)
             or re.search(r'(?:屯|たむろ)', clean_q)):
         return None
     _, sql_bases, readings, _ = analyze_query(clean_q)
@@ -2003,6 +2011,10 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             query = f"SELECT rowid, line, file, clean_text, readings, base_forms FROM {target_table} {where_clause} ORDER BY file ASC, rowid ASC LIMIT ? OFFSET ?"
             cur = target_db.execute(query, query_params + [limit, offset])
             rows = cur.fetchall()
+            lines = None
+            if target_media == 'custom':
+                from aobana.search.custom import custom_lines_of, decorate_result
+                lines = custom_lines_of(target_db, [r["rowid"] for r in rows])
             
             results = []
             for r in rows:
@@ -2013,10 +2025,8 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 row_dict["char_count"] = calculate_display_length(row_dict["line"], target_media)
                 row_dict["title"] = title_of(target_media, row_dict["file"], target_db, db_epub)
                 line = row_dict["line"]
-                row_dict["display_line"] = highlight_and_furigana(line, [], "", mark=False, bold=False, work=work_key(target_media, row_dict["file"]))
-                if target_media == 'custom':
-                    from aobana.search.custom import decorate_result
-                    decorate_result(row_dict, target_db, {})
+                if target_media != 'custom' or not decorate_result(row_dict, target_db, {}, lines):
+                    row_dict["display_line"] = highlight_and_furigana(line, [], "", mark=False, bold=False, work=work_key(target_media, row_dict["file"]))
                 results.append(row_dict)
             add_manga_pages(results, db_manga)
 
@@ -2032,7 +2042,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         q_plain, r_terms, r_neg, q_rest = parse_reading_terms(q)
         pos_q, neg_terms = split_negated_terms(q_plain)
         literal_terms = literal_equal_terms(q_rest)
-        is_exact_phrase =exact or (pos_q.startswith('"') and pos_q.endswith('"')) or (pos_q.startswith('”') and pos_q.endswith('”'))
+        is_exact_phrase = exact or quoted_phrase(pos_q)
         clean_q = pos_q.strip('""“”')
         
         if not clean_q:
@@ -2065,7 +2075,8 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 neg_info.append({
                     'term': neg_clean,
                     'subs_term': media_query(neg_clean, 'subs'),
-                    'sequences': {kind: excluded_sequence(neg_clean, kind) for _, _, kind in targets},
+                    'sequences': {} if isinstance(neg, QuotedTerm) else
+                                 {kind: excluded_sequence(neg_clean, kind) for _, _, kind in targets},
                 })
         
         global_counts = {}
@@ -2104,6 +2115,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 if (r_terms and READING_PREFILTER
                         and not reading_prefilter(r_terms, line, clean_text, row_readings, m_type or "subs", work,
                                                   row_bases, r[7])):
+                    return None
+                if (ruby_only and r_terms and READING_PREFILTER
+                        and ruby_only_cannot_match(r_terms, line, m_type or "subs", work)):
                     return None
                 if not row_matches(line_analysis(line, work), r_terms, r_neg, work, is_exact_phrase, ruby_only):
                     return None
@@ -2337,7 +2351,6 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         else:
             entry = None
 
-        compute_start = time.monotonic()
         if cached is None and computing is not None:
             computing.append(_computing_enter())
         scan_raw_lines = set() if scan_only else None
@@ -2507,7 +2520,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
     if cached is None:
         cached = _result_entry(valid_results)
         valid_results = None
-        _result_cache_put(cache_key, cached, time.monotonic() - compute_start)
+        _result_cache_put(cache_key, cached)
         _result_flight_release(held)
         if folder_set:
             names = cached["folders"]
@@ -2523,6 +2536,10 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
     n_valid = len(cached_sel)
 
     hl_by_media = {}
+    custom_ids = [r["rowid"] for r in paginated_chunk if r.get("media_type") == 'custom']
+    if custom_ids:
+        from aobana.search.custom import custom_lines_of, decorate_result
+        custom_lines = custom_lines_of(dbs['custom'], custom_ids) if dbs.get('custom') is not None else {}
     for row_dict in paginated_chunk:
         if abort_flag and abort_flag[0]:
             return [], {}, 0, [], False
@@ -2539,10 +2556,8 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         hl = hl_by_media.get(m_type)
         if hl is None:
             hl = hl_by_media[m_type] = query_highlight_args(q, m_type)
-        row_dict["display_line"] = highlight_and_furigana(line, hl["content_bases"], hl["q"], mark=False, bold=True, base_groups=hl["base_groups"], readings=hl["readings"], reading_terms=hl["reading_terms"], mark_guessed=True, work=work_key(row_dict.get("media_type") or "subs", row_dict["file"]))
-        if m_type == 'custom':
-            from aobana.search.custom import decorate_result
-            decorate_result(row_dict, dbs['custom'], hl)
+        if m_type != 'custom' or not decorate_result(row_dict, dbs['custom'], hl, custom_lines):
+            row_dict["display_line"] = highlight_and_furigana(line, hl["content_bases"], hl["q"], mark=False, bold=True, base_groups=hl["base_groups"], readings=hl["readings"], reading_terms=hl["reading_terms"], mark_guessed=True, work=work_key(row_dict.get("media_type") or "subs", row_dict["file"]))
         results.append(row_dict)
     add_manga_pages(results, db_manga)
 

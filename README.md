@@ -29,6 +29,7 @@ and offer the release page, or download an update when you choose to update.
 - **Known words and i+1:** load the words you already know under **Known words** in the Settings tab: a list with one word per line, an Anki export, a Jiten or Migaku export, or your Anki decks through Aobana Reibun 1.2 or later. Then **i+1 first** or **i+1 only** puts forward the sentences where the word you searched is the only one you do not know, and each result shows how many of its words you know.
 - **Furigana:** readings above Japanese text, from the author's own ruby where the book has it. One click turns it off.
 - **Context:** open the lines around any sentence, or open it in the Media tab and read the whole episode or chapter in order. **Open folder** shows where a file is on your computer.
+- **Copy for Anki:** copy any sentence with its furigana and the searched word in bold, ready to paste into a card.
 - **Favorites, sorting and filters:** save sentences; sort them by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
 - **Japanese and English UI**, four themes, keyboard shortcuts.
 

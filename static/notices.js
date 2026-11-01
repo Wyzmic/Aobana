@@ -225,22 +225,14 @@
       closeUpdate();
     }
     async function copyUpdateCmd(btn) {
-      const text = document.getElementById('update-cmd-text').textContent;
-      try { await navigator.clipboard.writeText(text); }
-      catch (e) {
-        const r = document.createRange(); r.selectNodeContents(document.getElementById('update-cmd-text'));
-        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
-        let ok = false;
-        try { ok = document.execCommand('copy'); } catch (e2) {}
-        if (!ok) return;
-      }
-      btn.textContent = t('update_copied');
+      const el = document.getElementById('update-cmd-text');
+      if (await copyOrSelect(el.textContent, el)) btn.textContent = t('update_copied');
     }
     async function applyUpdate() {
       const m = document.getElementById('update-modal');
       const from = updateInfo && updateInfo.current;
       try {
-        const r = await fetch('/api/update/apply', { method: 'POST', headers: { 'X-Aobana': '1' } });
+        const r = await fetch('/api/update/apply', { method: 'POST', headers: API_HEADERS });
         if (!r.ok) return;
       } catch (e) { return; }
       m.querySelector('#update-more').textContent = t('update_running');

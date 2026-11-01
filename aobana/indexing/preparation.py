@@ -122,6 +122,8 @@ def prepare_changed(prepare, jobs, workers, file_hash, stop=None):
     def hashed(job):
         if stop and stop():
             return job, None, 'stopped'
+        if isinstance(job[2], Unchanged):
+            return job, str(job[2]), None
         try:
             return job, file_hash(job[0]), None
         except run_control.Stopped:
@@ -141,13 +143,46 @@ def prepare_changed(prepare, jobs, workers, file_hash, stop=None):
                 _prepared()
                 yield ('error', job[1], None, error) if error else ('same', job[1], digest, None)
             else:
-                changed.append(job)
+                changed.append(job[:2] + (Digest(digest),) + job[3:])
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
     if changed:
-        order = {id(job): i for i, job in enumerate(jobs)}
-        changed.sort(key=lambda job: order[id(job)])
+        order = {job[1]: i for i, job in enumerate(jobs)}
+        changed.sort(key=lambda job: order[job[1]])
         yield from parallel_map(prepare, changed, workers if len(changed) > 1 else 1, stop=stop)
+
+
+class Unchanged(str):
+    pass
+
+
+def known_hash(known, recorded, path):
+    if not known or not recorded or None in recorded:
+        return known
+    try:
+        st = os.stat(path)
+    except OSError:
+        return known
+    return Unchanged(known) if (st.st_size, st.st_mtime_ns) == tuple(recorded) else known
+
+
+def file_stat(path):
+    try:
+        st = os.stat(path)
+        return st.st_size, st.st_mtime_ns
+    except OSError:
+        return None, None
+
+
+class Digest(str):
+    pass
+
+
+def job_hash(known, path, file_hash):
+    if isinstance(known, Digest):
+        return str(known), False
+    digest = file_hash(path)
+    return digest, digest == known
 
 
 def _prepared():

@@ -51,7 +51,9 @@ def _call(method, path, body=None, timeout=TIMEOUT_DECKS_S):
         if error.code in (403, 404):
             raise AnkiError("anki_old")
         raise AnkiError("anki_error")
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        if isinstance(error, TimeoutError) or isinstance(getattr(error, "reason", None), TimeoutError):
+            raise AnkiError("anki_busy")
         raise AnkiError("anki_closed")
 
 

@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import re
@@ -261,7 +262,31 @@ def make_source_folders():
         pass
 
 
+_CONFIG_MEMO = None
+
+
+def _config_identity():
+    out = []
+    for path in ((CONFIG_PATH, MARKER_PATH) if INSTALLED else (CONFIG_PATH,)):
+        try:
+            st = os.stat(path)
+            out.append((path, st.st_ino, st.st_size, st.st_mtime_ns))
+        except OSError:
+            out.append((path, None, None, None))
+    return tuple(out)
+
+
 def load_config():
+    global _CONFIG_MEMO
+    memo, key = _CONFIG_MEMO, _config_identity()
+    if memo is not None and memo[0] == key:
+        return copy.deepcopy(memo[1])
+    cfg = _load_config()
+    _CONFIG_MEMO = (key, copy.deepcopy(cfg))
+    return cfg
+
+
+def _load_config():
     cfg = _read_json(CONFIG_PATH)
     if not INSTALLED:
         return _migrate_media_config(cfg)
@@ -377,6 +402,8 @@ def save_config(cfg):
 
 
 def _save_config(cfg):
+    global _CONFIG_MEMO
+    _CONFIG_MEMO = None
     os.makedirs(STORE_DIR, exist_ok=True)
     tmp = f"{CONFIG_PATH}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w", encoding="utf-8") as fh:

@@ -48,7 +48,7 @@
         <ul>
           <li><b>語形はまとめて検索されます。</b><code>食べる</code> で「食べた」「食べて」なども見つかります。ひらがなの <code>たべる</code> でも検索できます。</li>
           <li><b>完全一致</b> — 入力した形そのままで探します。<code>"食べて"</code> のように <code>"</code> で囲んでも同じです。</li>
-          <li><b>除外</b> — 検索語の前に <code>ー</code>（伸ばし棒）を付けると、その語を含む行を除きます。日本語入力のまま <code>-</code> キーで入力でき、半角の <code>-</code> でも同じです。<code>ー</code> の前にはスペースを入れます。例えば <code>チェーン ーチェーンロック</code> は「チェーンロック」を含む行を除いて検索します。いくつでも重ねられ、<code>食べる ー食べない ー食べたい</code> は「食べない」「食べなかった」「食べたい」などの形を除きます。</li>
+          <li><b>除外</b> — 検索語の前に <code>ー</code>（伸ばし棒）を付けると、その語を含む行を除きます。日本語入力のまま <code>-</code> キーで入力でき、半角の <code>-</code> でも同じです。<code>ー</code> の前にはスペースを入れます。例えば <code>チェーン ーチェーンロック</code> は「チェーンロック」を含む行を除いて検索します。いくつでも重ねられ、<code>食べる ー食べない ー食べたい</code> は「食べない」「食べなかった」「食べたい」などの形を除きます。語を引用符で囲むと（<code>ー"なる"</code>）、書いたとおりの形だけを除き、「なった」などのほかの形は残します。</li>
           <li><b>読みで検索</b> — 語と読みを <code>＝</code> でつなぐと（半角の <code>=</code> でも可）、その読みの箇所だけを探します（例: <code>好く＝すく</code>。<code>丸＝がん</code> は弾丸の丸も見つかります）。除外にも使えます（<code>ー行く＝ゆく</code>）。ルビのない箇所の読みは Sudachi の推定で、点線の下線が付きます。同じ作品のほかの箇所にルビがあれば、その読みを使います。</li>
           <li><b>ルビのみ</b> — 読みで検索するとき、ルビで読みが分かる箇所だけを残します。</li>
           <li><b>並べ替え</b> — おすすめ（読みやすい長さ順）、時系列順、長い順、短い順、ランダム。選んだ並べ替えは次回も使われます。</li>
@@ -68,6 +68,7 @@
           <li><b>★</b> お気に入りに保存します。<a href="/?tab=saved">お気に入り</a>タブで見られます（このブラウザに保存されます）。</li>
           <li><b>⋯</b> 前後の文脈を表示します。</li>
           <li><b>ふ</b> ふりがなの表示・非表示を切り替えます。</li>
+          <li><b>文をコピー</b>（「メディアで開く」の右）文をコピーします。ふりがなを表示しているときはふりがなも付き、検索した語は太字になります。Anki などにそのまま貼り付けられ、テキストだけの場所では読みが語のあとの（）に入ります。</li>
         </ul>
 
         <h2>メディア</h2>
@@ -143,7 +144,7 @@ Custom folder/
         <ul>
           <li><b>Search conjugated forms.</b> <code>食べる</code> also finds 食べた, 食べて and so on, and the reading <code>たべる</code> works too.</li>
           <li><b>Exact</b> matches exactly what you typed. Wrapping the query in quotes (<code>"食べて"</code>) does the same.</li>
-          <li><b>Exclude</b>: put <code>-</code> before a word, after a space, to exclude lines containing it. With Japanese input on, the same key types <code>ー</code>, the long-vowel mark, and that works too. For example, <code>チェーン -チェーンロック</code> searches for チェーン without チェーンロック. Exclusions stack: <code>食べる -食べない -食べたい</code> leaves out forms such as 食べない, 食べなかった and 食べたい.</li>
+          <li><b>Exclude</b>: put <code>-</code> before a word, after a space, to exclude lines containing it. With Japanese input on, the same key types <code>ー</code>, the long-vowel mark, and that works too. For example, <code>チェーン -チェーンロック</code> searches for チェーン without チェーンロック. Exclusions stack: <code>食べる -食べない -食べたい</code> leaves out forms such as 食べない, 食べなかった and 食べたい. Put the word in quotes (<code>-"なる"</code>) to leave out only that exact text: なった and other forms stay.</li>
           <li><b>Search by reading</b>: join a word and its reading with <code>＝</code> or <code>=</code> to find only that reading (<code>好く＝すく</code>; <code>丸＝がん</code> also finds 弾丸). Exclusions take a reading too (<code>-行く＝ゆく</code>). Without ruby, the reading is Sudachi's guess, shown with a dotted underline; if the same work gives the word ruby elsewhere, that reading is used.</li>
           <li><b>Ruby only</b>: in a search by reading, keeps only matches whose reading is in the ruby.</li>
           <li><b>Sort</b>: recommended (easy-to-read lengths first), chronological, longest, shortest, random. Your choice is remembered.</li>
@@ -163,6 +164,7 @@ Custom folder/
           <li><b>★</b> saves it to the <a href="/?tab=saved">Favorites</a> tab (stored in this browser).</li>
           <li><b>⋯</b> shows the surrounding context.</li>
           <li><b>ふ</b> shows or hides furigana.</li>
+          <li><b>Copy sentence</b> (right of Open in Media) copies the sentence: with its furigana while furigana is shown, and the searched word in bold. It pastes as it is into Anki and other rich editors; where only text goes, the reading follows its word in （）.</li>
         </ul>
 
         <h2>Media</h2>
@@ -200,15 +202,7 @@ Custom folder/
         `<a class="btn" href="https://ankiweb.net/shared/info/${code}" target="_blank" rel="noopener">AnkiWeb</a></div>`;
     }
     async function copyReibunCode(btn) {
-      try { await navigator.clipboard.writeText(REIBUN_CODE); }
-      catch (e) {
-        const r = document.createRange(); r.selectNodeContents(document.getElementById('reibun-code'));
-        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
-        let ok = false;
-        try { ok = document.execCommand('copy'); } catch (e2) {}
-        if (!ok) return;
-      }
-      btn.textContent = t('update_copied');
+      if (await copyOrSelect(REIBUN_CODE, document.getElementById('reibun-code'))) btn.textContent = t('update_copied');
     }
     function initGuideTab() {
       setTitle(t('tab_guide'));

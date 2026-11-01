@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.2: Copy a sentence, and smaller search pages
+
+### Enhancements
+
+- **Copy a sentence.** A copy button on every Search card copies the sentence with its furigana, while furigana is shown, and the search match in bold, as Aobana Reibun puts it on a card. Pasted into Anki or another rich editor, the ruby and bold stay; pasted as plain text, the reading follows its word in （）.
+- **Smaller, faster search pages.** A page of results is less than half the size it was, and **Longest** shows its first 100 cards sooner; more load 500 at a time as before.
+- **Exclude one written form.** An exclusion in quotes, `-"なる"`, leaves out only the lines with なる written as it is; `-なる` still leaves out every form (なった, なって). On the Search tab and in a Custom title's box.
+
+**Search**
+
+- **Ruby only** searches by reading keep only the places whose reading the author's ruby gives. A place with no ruby, such as なま written in kana for `生＝なま`, is not kept.
+- **Add context** on a subtitle card no longer reads every book and manga line when the first search finds it.
+- Searches are still kept in memory while Aobana runs. The **Search cache** setting is gone, and the update deletes the cache file an older version made.
+
+**Library and indexing**
+
+- **Index library** with nothing changed no longer reads every file again: a file whose size and modified time are as recorded is skipped unread. After updating, the first run reads every file once more, to record them.
+- Indexing loads the Sudachi dictionary once per process instead of twice, reads a changed file twice instead of three times, and writes less per line. A manga index run takes about a sixth less time, and the clean-up rules skip lines that need none of them.
+- While a run goes on, the **Library** tab asks only for the log lines it has not shown yet.
+- Updating from inside Aobana works from 1.9, 2.0 and 2.1.
+
+**The page**
+
+- The page font is downloaded again only when it changes, not at every update.
+
+### Bug Fixes
+
+- A known word imported from an Anki field whose `<ruby>` has a class was imported with no reading, so it never counted as known. Import such a list again.
+- In the **Media** tab's search, a phrase in full-width quotes, as a Japanese keyboard types them, found its words apart, not the phrase.
+- In a Custom title's own search box, `約束 -守る` left out only 守る as written. It now leaves out the same lines as the Search tab.
+- With Anki open but busy, Aobana said Anki was not open. It now says Anki is not answering.
+- One unreadable database, for example after a power cut, kept the **Library** tab at "Loading library information..." forever. The other media's figures now show.
+- After an index run that stopped with an error, the **Library** tab blamed a closed window, even after a later run finished. It now says the run stopped with an error.
+- During a subtitle index run, each "show more" in **Check library**'s results rebuilt the whole view.
+- The **Copy** buttons of the Library log, the Guide and the update notice copied nothing on a page opened from another device, such as a phone on the same network.
+- In a Custom title's boxes, the Enter that confirms a Japanese conversion could also start the search.
+- Two numbers in **Settings** were written in the browser's number format, not the page's.
+- On a phone, a menu wider than its button opened off the left edge of the screen, such as a file page's sort menu.
+- On a phone, the search results could end in a screen of blank space after the keyboard was closed with the search box still selected.
+- On a phone, Custom's sort stays at the right end. On the next line it sits under **Titles** / **Content**, one gap below it; docked at the top, it takes the switch's place.
+
 ## 2.1: Title counts that match the results
 
 ### Enhancements

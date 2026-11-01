@@ -17,6 +17,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 from sudachipy import tokenizer, dictionary
 
 from aobana import paths
+from aobana.utils import sudachi_dictionary
 BASE_DIR = paths.BASE_DIR
 MANGA_ROOT_DIR = paths.manga_dir()
 DB_PATH = paths.manga_db()
@@ -28,7 +29,7 @@ mode = tokenizer.Tokenizer.SplitMode.A
 def get_tokenizer():
     global _TOKENIZER
     if _TOKENIZER is None:
-        _TOKENIZER = dictionary.Dictionary(dict="core").create()
+        _TOKENIZER = sudachi_dictionary().create()
     return _TOKENIZER
 
 
@@ -36,7 +37,7 @@ from aobana.utils import (
     BOOK_RUBY_RE, normalize_manga_text, katakana_to_hiragana, sudachi_pieces,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested,
     write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
-    name_key, start_output, emit, say,
+    name_key, start_output, emit, say, file_sha256, ensure_stat_columns,
     ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths, token_lengths_blob, stored_display_length,
     write_token_lengths,
     ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon, ruby_table,
@@ -52,11 +53,7 @@ _EXCLUDED_LOG = []
 
 
 def compute_file_hash(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
+    return file_sha256(path, control.check_stop)
 
 
 def volume_key(relpath, doc_title):
@@ -299,8 +296,8 @@ def _prepare(job):
     path, relpath, known_hash = job
     _EXCLUDED_LOG.clear()
     try:
-        file_hash = compute_file_hash(path)
-        if file_hash == known_hash:
+        file_hash, same = job_hash(known_hash, path, compute_file_hash)
+        if same:
             return ('same', relpath, file_hash, None)
         with open(path, encoding='utf-8-sig') as f:
             doc = json.load(f)
@@ -320,7 +317,7 @@ COMMIT_EVERY_SECONDS = 20
 
 
 from aobana.indexing import run_control as control, kanji_table, line_repeats, manga_fused, rebuild as rebuilding
-from aobana.indexing.preparation import prepare_changed
+from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
 from aobana.utils import media_walk
 
 def build_tables(conn, top, db=None):
@@ -415,6 +412,7 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
         conn.commit()
 
         ensure_format_column(conn)
+        ensure_stat_columns(conn)
         from aobana.utils import report_outdated
         report_outdated(conn, 'manga')
         conn.commit()
@@ -424,8 +422,10 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
         lexicon = has_ruby_lexicon(conn)
         control.check_stop()
         kanji = kanji_table.ready(conn, TABLE)
-        existing_files = {name_key(row['relpath']): {'id': row['id'], 'hash': None if outdated and is_outdated('manga', row['relpath'], row['index_format']) else row['file_hash']}
-                          for row in conn.execute("SELECT id, relpath, file_hash, index_format FROM sources")}
+        existing_files = {name_key(row['relpath']): {'id': row['id'], 'hash': None if outdated and is_outdated('manga', row['relpath'], row['index_format']) else row['file_hash'],
+                                                     'stat': (row['file_size'], row['file_mtime_ns'])}
+                          for row in conn.execute("SELECT id, relpath, file_hash, index_format, file_size, file_mtime_ns FROM sources")}
+        stat_of = {}
         deleted_rows = inserted_rows = 0
         floor = top[0] if top else 0
         next_rowid = floor + 1
@@ -467,7 +467,8 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
                 n_filtered += 1
                 continue
             current_disk_files.add(key)
-            jobs.append((path, relpath, existing_files.get(key, {}).get('hash')))
+            stat_of[relpath] = file_stat(path)
+            jobs.append((path, relpath, known_hash(existing_files.get(key, {}).get('hash'), existing_files.get(key, {}).get('stat'), path)))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -485,10 +486,13 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
                 stopped = True
                 break
             emit("progress", f"PROGRESS {n}/{len(jobs)} {relpath}", quiet=True, done=n, total=len(jobs), file=relpath)
+            old = existing_files.get(name_key(relpath))
             if kind == 'same':
                 skipped += 1
+                if old and old['stat'] != stat_of[relpath]:
+                    conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                                 (*stat_of[relpath], old['id']))
                 continue
-            old = existing_files.get(name_key(relpath))
             if kind == 'error':
                 if old:
                     conn.execute("UPDATE sources SET file_hash = '' WHERE id = ?", (old['id'],))
@@ -515,8 +519,8 @@ def run_manga_indexer(force=False, outdated=False, allow_removal=False, rebuild=
                 source_id = conn.execute(
                     "INSERT INTO sources (relpath, file_hash, title, volume, index_format) VALUES (?, ?, '', '', ?)",
                     (relpath, file_hash, INDEX_FORMAT['manga'])).lastrowid
-            conn.execute("UPDATE sources SET title = ?, volume = ?, pages = ? WHERE id = ?",
-                         (series, volume, n_pages, source_id))
+            conn.execute("UPDATE sources SET title = ?, volume = ?, pages = ?, file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                         (series, volume, n_pages, *stat_of[relpath], source_id))
             new_or_updated += 1
             inserted_rows += conn.executemany(
                 f"INSERT INTO {TABLE}(rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?)",
