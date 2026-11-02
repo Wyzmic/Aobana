@@ -447,7 +447,6 @@
       background: var(--bg-card); padding: 1.2em; border-radius: 10px;
       border: 1px solid var(--border-color); box-shadow: 0 4px 6px var(--shadow);
     }
-    .card:hover { border-color: var(--border-strong); }
     .card.keyboard-active, .episode-card.keyboard-active {
       border-color: var(--accent) !important;
       box-shadow: 0 0 0 2px var(--accent-line);
@@ -504,7 +503,6 @@
       display: flex; align-items: center; padding: 4px 10px;
       border-top: 1px solid var(--border-color); transition: background 0.2s;
     }
-    .episode-line:hover { background: var(--bg-hover); }
     .episode-line .main-sentence { line-height: 1.4em; font-size: 0.98em; }
     .episode-line .actions-box { opacity: 0.5; transition: opacity 0.2s; }
     .episode-line:hover .actions-box, .episode-line .actions-box:focus-within { opacity: 1; }

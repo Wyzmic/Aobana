@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.3: Sort a file's sections
+
+### Enhancements
+
+- **Sort a file's sections.** The sort menu on a Custom file page now orders the file's sections, by title or by number of lines. A file opens in its own order until you sort it.
+
+**Search**
+
+- The kanji reading list that search by reading uses is updated: it gives readings for 46,170 kanji, where 2.2's gave 44,450.
+
+**Media and Custom**
+
+- **Most entries** and **Fewest entries** are offered only where they change the order: in **Media** when the titles listed hold different numbers of episodes, chapters or volumes, and in a Custom folder when its items hold different numbers of files.
+- A card's context opens only the database of its own media: one for a manga or Custom line, where 2.2 opened all four.
+
+**Library and indexing**
+
+- An index run no longer reads the whole Sudachi dictionary (217 MB) to check it while the dictionary's size and modified time are as recorded.
+- Updating from inside Aobana works from 1.9, 2.0, 2.1 and 2.2.
+
+**The page**
+
+- Search results and the reader's lines no longer light up when the mouse passes over them or when they are tapped. Folders, section headers, menus and buttons still do.
+
+### Bug Fixes
+
+- With **Exact** on, a search by reading such as `行く＝ゆく` missed a word in a book when the book's furigana sat inside the word: 飛行(とびゆ)く, shown as 飛行く with its furigana.
+- In a Custom folder, a new sort left the page where it was scrolled. It now goes to the top, as in **Media**.
+
 ## 2.2: Copy a sentence, and smaller search pages
 
 ### Enhancements

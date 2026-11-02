@@ -80,7 +80,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.2"
+VERSION = "2.3"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"

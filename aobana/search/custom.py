@@ -304,6 +304,8 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             rows.sort(key=lambda r: get_sort_key(r['title']))
     if mode != 'content' and sort in FOLDER_SORTS:
         rows.sort(key=FOLDER_SORTS[sort])
+    # The 収録数 sorts are offered only where they reorder something: two counts or more in the list
+    parts_vary = mode != 'content' and len({FOLDER_SORTS['parts_asc'](r) for r in rows}) > 1
     page = rows[offset:offset + limit]
     lines = custom_lines_of(conn, [item['rowid'] for item in page]) if hl is not None else None
     for item in page:
@@ -314,7 +316,7 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             relative = item['path'][len(path) + 1:] if path and item['path'].startswith(path + '/') else item['path']
             item['relative_title'] = format_custom_title(relative)
     return {'path': path, 'parent': path.rpartition('/')[0], 'folder': dict(folder),
-            'items': page, 'total': len(rows), 'has_more': offset + limit < len(rows),
+            'items': page, 'total': len(rows), 'has_more': offset + limit < len(rows), 'parts_vary': parts_vary,
             'page': file_page(conn, introduction['file']) if introduction and not needle else None}
 
 
@@ -366,6 +368,10 @@ def file_page(conn, file, needle='', exact=False, ruby_only=False, stop=None, of
         sql, args, hl = _content_where(needle, exact, ruby_only, conn, stop)
         hits = {r[0] for r in conn.execute(f'SELECT rowid FROM custom WHERE ({sql}) AND source_id = ?', (*args, source['id']))}
     sections = [dict(s) for s in conn.execute('SELECT section_no, heading FROM custom_sections WHERE source_id = ? ORDER BY section_no', (source['id'],))]
+    # タイトル順 on a file page sorts its folds by the folders' key
+    for s in sections:
+        if s['heading']:
+            s['sort_key'] = get_sort_key(s['heading']).hex()
     # Every line's place first, the lines of the page alone drawn
     order = [(r[0], r[1]) for r in conn.execute(f'SELECT c.id, l.section_no FROM {_content(conn)} c JOIN custom_lines l ON l.rowid = c.id '
                                                 f'WHERE c.c0 = ? ORDER BY c.id', (source['id'],))

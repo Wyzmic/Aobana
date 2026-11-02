@@ -253,6 +253,7 @@ def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, so
         rows = sorted(rows, key=lambda it: it[key[0]] or 0, reverse=key[1])
     page = rows[offset:offset + limit] if limit else rows[offset:]
     return {"items": page, "total": len(rows), "has_more": offset + len(page) < len(rows),
+            "parts_vary": len({it.get("episodes") or 0 for it in rows}) > 1,
             "shows": sum(1 for it in items if it["media"] == "subs"),
             "books": sum(1 for it in items if it["media"] == "epub"),
             "manga": sum(1 for it in items if it["media"] == "manga"),

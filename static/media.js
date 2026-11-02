@@ -191,6 +191,7 @@
       return CUSTOM_SORTS.includes(v) ? v : 'default';
     }
     function mediaSortLabel(v) { return t('media_sort_' + v); }
+    let mediaPartsVary = true;
     let mediaGen = 0, mediaCtrl = null, mediaOffset = 0, mediaHasMore = false, mediaBusy = false;
     let mediaMoreObserver = null, mediaFilterTimer = null;
 
@@ -275,6 +276,7 @@
         : [t('media_summary_total', { n: fmt(MEDIAS_ON.reduce((sum, m) => sum + (counts[m] || 0), 0)) }),
            ...MEDIAS_ON.map(m => t('media_summary_' + m, { n: fmt(counts[m] || 0) }))].join(' · ');
       document.getElementById('media-summary').textContent = summary;
+      if (!mediaOffset && !!data.parts_vary !== mediaPartsVary) { mediaPartsVary = !!data.parts_vary; initMediaSort(); }
       const html = data.items.map(mediaRowHtml).join('');
       if (!mediaOffset) {
         listEl.innerHTML = html || `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
@@ -352,9 +354,10 @@
       if (mediaHasMore) watchMediaEnd();
     }
     function initMediaSort() {
+      const sorts = MEDIA_SORTS.filter(v => mediaPartsVary || !v.startsWith('parts'));
       makeDropdown(document.getElementById('media-sort'), {
-        options: MEDIA_SORTS.map(v => ({ value: v, label: mediaSortLabel(v) })),
-        value: mediaSort(), title: t('media_sort_title'), icon: ICON_ROWS,
+        options: sorts.map(v => ({ value: v, label: mediaSortLabel(v) })),
+        value: sorts.includes(mediaSort()) ? mediaSort() : 'name', title: t('media_sort_title'), icon: ICON_ROWS,
         onChange: v => { store.set('mediaSort', v); initMediaSort(); mediaListTop(); loadMediaPage(true).then(saveMediaState); },
       });
     }

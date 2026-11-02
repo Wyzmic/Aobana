@@ -97,15 +97,22 @@ def api_context():
     file = request.args.get("file", "")
     q = server.fold_compat(server.normalize_query(request.args.get("q", "")))
     media = request.args.get("media", "").strip().lower()
-    
-    db_subs, db_epub = server.get_db()
-    db_manga = server.get_manga_db()
     if rowid is None:
         return jsonify({"error": "Missing rowid"}), 400
+    if media == 'custom':
+        return _custom_context(server.get_custom_db(), rowid, file, q)
+    if media == "manga":
+        return _manga_context(server.get_manga_db(), rowid, file, q)
 
+    db_subs, db_epub = server.get_db()
     from aobana.search.engine import _search_targets, reader_target
-    targets = _search_targets(server._media_connections(db_subs, db_epub), db_epub, media or 'all', db_manga)
-    if media not in ("subs", "epub", "manga", "custom") and file:
+    if media in ("subs", "epub"):
+        db_manga = None
+        targets = _search_targets({"subs": db_subs, "epub": db_epub}, db_epub, media)
+    else:
+        db_manga = server.get_manga_db()
+        targets = _search_targets(server._media_connections(db_subs, db_epub), db_epub, media or 'all', db_manga)
+    if media not in ("subs", "epub") and file:
         target = reader_target(targets, file, rowid)
         if target:
             media = target[2]

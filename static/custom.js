@@ -43,6 +43,9 @@
       const contentInput = document.getElementById('custom-cq');
       const input = { get value() { return (mode === 'content' ? contentInput : titleInput)?.value || ''; } };
       let offset = 0, controller = null, generation = 0, timer, scrollTimer, openKept = false;
+      let partsVary = !file, redrawSort = () => {};
+      const sorts = () => CUSTOM_SORTS.filter(v => partsVary || !v.startsWith('parts'));
+      let fileSort = (file && sorts().includes(saved.sort) && saved.sort) || 'default';
       let pages = null;
       const topLine = () => {
         const probe = Math.max(0, head.querySelector('.path-bar')?.getBoundingClientRect().bottom || 0) + 8;
@@ -61,7 +64,7 @@
         const open = saved.open || [], shut = saved.shut || [];
         const top = pages && (pages.start > 0 || pages.end < pages.total) ? topLine() : null;
         const exact = !!document.getElementById('custom-exact')?.checked, rubyOnly = !!document.getElementById('custom-ruby-only')?.checked;
-        try { sessionStorage.setItem(key, JSON.stringify({ q: input.value, mode, exact, rubyOnly, y: window.scrollY, top, open, shut, loaded: offset })); } catch (e) {}
+        try { sessionStorage.setItem(key, JSON.stringify({ q: input.value, mode, exact, rubyOnly, y: window.scrollY, top, open, shut, loaded: offset, sort: fileSort })); } catch (e) {}
         store.set(MEDIA_STATE, JSON.stringify({ url: mediaUrl(), open: [], y: window.scrollY }));
       };
       window.addEventListener('pagehide', save);
@@ -99,6 +102,13 @@
         if (found) shown = units.map(u => ({ ...u, parts: u.parts.filter(p => p.rows.length) })).filter(u => u.parts.length);
         if (titled) shown = units.filter(u => u.heading && foldTitleFilter(u.heading).includes(titled));
         if (!shown.length) return '';
+        const sort = file ? fileSort : 'default', partial = data.total !== undefined && (data.start > 0 || data.end < data.total);
+        if (sort !== 'default' && !partial && !found) {
+          const key = u => u.parts[0].s.sort_key || '';
+          const by = { name: (a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0,
+            lines_desc: (a, b) => b.count - a.count, lines_asc: (a, b) => a.count - b.count }[sort];
+          shown = [...shown.filter(u => !u.heading), ...shown.filter(u => u.heading).sort(by)];
+        }
         return `<div class="episode-card">${shown.map(u => {
           const flat = u.parts.map(({ s, i, rows }) => sectionHtml(s, i, rows)).join('');
           if (!fold || !u.heading || (u.count === 1 && allOne)) return flat;
@@ -131,6 +141,7 @@
           if (!r.ok) throw new Error(await busyAnswer(r) ? 'busy' : 'folder');
           const data = await r.json();
           if (gen !== generation) return;
+          if (reset && mode !== 'content' && !!data.parts_vary !== partsVary) { partsVary = !!data.parts_vary; redrawSort(); }
           const html = data.items.map(item => {
             const fileParent = item.shown_in ?? (item.path.split('/').slice(0, -1).join('/') || category);
             const href = customUrl(category, item.type === 'folder' ? item.path : fileParent, item.type === 'folder' ? '' : item.file, path);
@@ -266,11 +277,13 @@
         const form = document.getElementById('custom-search');
         const sortBox = document.getElementById('custom-sort');
         const drawSort = () => makeDropdown(sortBox, {
-          options: CUSTOM_SORTS.map(v => ({ value: v, label: mediaSortLabel(v) })),
-          value: customSort(), title: t('media_sort_title'), icon: ICON_ROWS,
-          onChange: v => { store.set('customSort', v); drawSort(); if (!file) run(); },
+          options: sorts().map(v => ({ value: v, label: mediaSortLabel(v) })),
+          value: sorts().includes(file ? fileSort : customSort()) ? (file ? fileSort : customSort()) : 'default',
+          title: t('media_sort_title'), icon: ICON_ROWS,
+          onChange: v => { if (file) fileSort = v; else store.set('customSort', v); drawSort(); mediaListTop(); run(); },
         });
         drawSort();
+        redrawSort = drawSort;
         const show = () => { titleInput.hidden = mode !== 'title'; form.hidden = mode !== 'content'; sortBox.hidden = mode !== 'title'; fitDockedRow(); };
         show();
         buttons.forEach(b => b.onclick = () => { mode = b.dataset.customMode; active(); show(); (mode === 'title' ? titleInput : contentInput).focus(); run(); });

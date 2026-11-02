@@ -1280,7 +1280,7 @@ def _sha256_file(path: str) -> str:
     return file_sha256(path)
 
 
-def tokenizer_identity(with_hash: bool = True) -> dict:
+def tokenizer_identity(with_hash: bool = True, recorded=None) -> dict:
     import importlib.metadata as md
 
     ident = {}
@@ -1305,8 +1305,14 @@ def tokenizer_identity(with_hash: bool = True) -> dict:
     if with_hash:
         path = system_dic_path()
         try:
-            ident["system_dic_sha256"] = _sha256_file(path)
-            ident["system_dic_bytes"] = str(os.path.getsize(path))
+            st = os.stat(path)
+            size, mtime = str(st.st_size), str(st.st_mtime_ns)
+            recorded = recorded or {}
+            same = (recorded.get("system_dic_bytes") == size and recorded.get("system_dic_mtime_ns") == mtime
+                    and recorded.get("system_dic_sha256", "unknown") != "unknown")
+            ident["system_dic_sha256"] = recorded["system_dic_sha256"] if same else _sha256_file(path)
+            ident["system_dic_bytes"] = size
+            ident["system_dic_mtime_ns"] = mtime
         except Exception:
             ident["system_dic_sha256"] = "unknown"
             ident["system_dic_bytes"] = "unknown"
@@ -1668,7 +1674,7 @@ def write_tokenizer_meta(conn, tokenized_rows: int) -> dict:
     prior = {k: v for k, v in conn.execute("select k, v from meta")
              if k not in ("line_lengths_version", "ruby_lexicon_version", "source_ranges_version")
              and not k.endswith("_kanji_version")}
-    ident = tokenizer_identity()
+    ident = tokenizer_identity(recorded=prior)
     was = prior.get("system_dic_sha256")
     if prior and was != ident["system_dic_sha256"]:
         ident["mixed_with"] = (

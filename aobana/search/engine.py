@@ -2253,8 +2253,10 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 if rest_clean:
                     exact_where(rest_clean, rest_query[1], rest_query[2])
                 for word, *_ in term_queries:
-                    wheres.append("instr(clean_text, ?) > 0")
-                    where_params.append(word)
+                    splits = ['*' + re.sub(r'([*?\[])', r'[\1]', word[:i]) + '[(（]*' for i in range(1, len(word))
+                              if re.match(f'[{KANJI_CHARS}]', word[i - 1])] if table_name == 'epubs' else []
+                    wheres.append("(" + " OR ".join(["instr(clean_text, ?) > 0"] + ["clean_text GLOB ?"] * len(splits)) + ")")
+                    where_params.extend([word, *splits])
                 kanji_lead(table_name, wheres, where_params, [(word, None) for word, *_ in term_queries], scan_bounds)
             elif is_exact_phrase:
                 exact_where(clean_q, sql_bases, readings)
