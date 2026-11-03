@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.4: Search the lines in the Media list
+
+### Enhancements
+
+- **Search the lines in the Media list.** The Media list now has **Titles** and **Content**, as a work's page does. **Content** searches the lines of every work on the tab, with **Exact** and **Ruby only**, and a hit opens its work at that line.
+- **Find names inside the works.** The Media list's **Titles** filter also finds the episodes, chapters, volumes, and Custom folders and files whose names match, listed under **Inside the works** after the works. An episode, chapter or volume opens its work with that file open.
+
+**Media and Custom**
+
+- A show's page has a **Specials** group, after **OVA** and before **Movies**, for files marked as specials (`SP`, `S00E01`, スペシャル, 特別編 and the like).
+- A page's search in **Media** comes back only with the browser's Back, Forward or reload. A page opened by a click (the path, a row, a tab) opens at the top with an empty search box.
+- A **Content** hit on a Custom folder page opens its file at that line.
+- A Custom folder page loads its next 500 rows as you scroll, as the rest of **Media** does.
+
+**The page**
+
+- **Read more** in the window shown after an update opens the changelog in Aobana. The changelog's **View on GitHub** opens the release page.
+
+### Bug Fixes
+
+- On a show's page, an episode with a season mark (`S01E01`) went to **Movies** when its title or the show's name held a word for a film. It now stays in its season. 映画 before another kanji (映画館, 映画祭) is no longer read as a film, and `OAD`, `OAV` and `OVA01` count as OVA.
+- Some Notion exports write a folder twice on disk. In such a Custom folder, a **Content** hit opened a page that showed the folder twice in its path and failed to load. The hit's title, the Search card's title and Aobana Reibun's lookup showed the folder twice too.
+- A word typed with a Japanese input method in a Custom page's **Titles** box did not filter until the page was reloaded. It now filters when the word is confirmed.
+- At phone width, scrolling a work's or folder's page swapped the search row's chips and the **Titles** | **Content** switch between lines, and switching between **Titles** and **Content** moved the list by a pixel or two.
+
 ## 2.3: Sort a file's sections
 
 ### Enhancements
@@ -18,7 +43,6 @@
 **Library and indexing**
 
 - An index run no longer reads the whole Sudachi dictionary (217 MB) to check it while the dictionary's size and modified time are as recorded.
-- Updating from inside Aobana works from 1.9, 2.0, 2.1 and 2.2.
 
 **The page**
 
@@ -48,7 +72,6 @@
 - **Index library** with nothing changed no longer reads every file again: a file whose size and modified time are as recorded is skipped unread. After updating, the first run reads every file once more, to record them.
 - Indexing loads the Sudachi dictionary once per process instead of twice, reads a changed file twice instead of three times, and writes less per line. A manga index run takes about a sixth less time, and the clean-up rules skip lines that need none of them.
 - While a run goes on, the **Library** tab asks only for the log lines it has not shown yet.
-- Updating from inside Aobana works from 1.9, 2.0 and 2.1.
 
 **The page**
 
@@ -94,7 +117,6 @@
 - The notice asking for **Optimize tables** says what the index gains, appears again for a later version that needs it, and its **Open Library** button goes straight to **Optimize tables**.
 - Updating from 1.9, the notice asking for **Index library** also says that the **Media** tab's subtitle list appears once it has run.
 - Backups made by 2.0's **Convert to UTF-8** move to the new folders at start, file by file, while the page is already open.
-- Updating from inside Aobana works from 1.9 and 2.0.
 
 **Media and the page**
 
@@ -187,7 +209,6 @@
 - On a phone, the Search page's titles open in a sheet from the bottom, and the search row hides while scrolling down.
 - Esc closes every window the way its **Cancel**, **Later** or **Close** button does, so nothing starts or changes by accident.
 - The **Guide** has a **Contents** button and sections for i+1 and Custom.
-- Updating from inside Aobana works from 1.9. On an older version, install 2.0 from the release page.
 
 ### Bug Fixes
 

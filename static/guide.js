@@ -72,7 +72,7 @@
         </ul>
 
         <h2>メディア</h2>
-        <p><a href="/?tab=media">メディア</a>タブには、インデックス済みのすべての作品・書籍・漫画・カスタムのカテゴリが一覧で表示されます。作品を開くと、各話・各章・各巻を最初から順に読めます。漫画の文にはページ番号が付きます。ページ番号を押すとそのページが開き、← で次のページ、→ で前のページへ進みます。巻の終わりでは次の巻へ続きます。「← メディア一覧」とブラウザの戻る操作では、絞り込み、並び順、読み込んだ一覧とスクロール位置を復元します。他のタブから戻ると現在のメディア画面を保ちます。字幕の期はフォルダ名・ファイル名の明確な手掛かりでまとめ、判別できる OVA・劇場版もグループにします。判別できない話は通常の行で表示します。グループが1つなら開き、複数なら閉じた状態で始まります。戻ったときは開閉状態を復元します。上部の選択中のメディア・検索アイコンを押すと、そのページの先頭へ移動できます。</p>
+        <p><a href="/?tab=media">メディア</a>タブには、インデックス済みのすべての作品・書籍・漫画・カスタムのカテゴリが一覧で表示されます。一覧の「本文」は、表示中のタブの全作品の台詞・文を検索し、ヒットを押すとその行から開きます。「タイトル」で絞り込むと、名前が合う話・章・巻、カスタムのフォルダ・ファイルも「作品の中」に表示します。作品を開くと、各話・各章・各巻を最初から順に読めます。漫画の文にはページ番号が付きます。ページ番号を押すとそのページが開き、← で次のページ、→ で前のページへ進みます。巻の終わりでは次の巻へ続きます。「← メディア一覧」とブラウザの戻る操作では、並び順、読み込んだ一覧とスクロール位置を復元します。検索語を復元するのはブラウザの戻る・進むと再読み込みだけで、パスや一覧、タブを押して開いたページは検索語なしで表示されます。他のタブから戻ると現在のメディア画面を保ちます。字幕の期はフォルダ名・ファイル名の明確な手掛かりでまとめ、判別できる OVA・スペシャル・劇場版もグループにします。判別できない話は通常の行で表示します。グループが1つなら開き、複数なら閉じた状態で始まります。戻ったときは開閉状態を復元します。上部の選択中のメディア・検索アイコンを押すと、そのページの先頭へ移動できます。</p>
 
         <p><b>Q</b> で、検索・メディア・お気に入り・ライブラリの表示中の検索欄や絞り込み欄に移り、入力内容を選択できます。</p>
         <h2>ショートカット</h2>
@@ -168,7 +168,7 @@ Custom folder/
         </ul>
 
         <h2>Media</h2>
-        <p>The <a href="/?tab=media">Media</a> tab lists every indexed show, book, manga series and Custom category. Open one to read its episodes, chapters or volumes in order; manga lines carry their page number. Click it to open that page: ← turns to the next page and → to the previous one, on into the next or previous volume. "← All media" and browser Back restore your list filter, sort, loaded titles and scrolling position. Returning from another app tab keeps the current Media view. Subtitle seasons use explicit folder or filename clues, with OVA and film groups when recognized. Unclassified episodes stay as ordinary rows. One group opens by default; multiple groups start collapsed, and your open groups restore on return. Click the active Media or Search icon at the top to scroll that page to the top.</p>
+        <p>The <a href="/?tab=media">Media</a> tab lists every indexed show, book, manga series and Custom category. In the list, "Content" searches the lines of every work on the tab, and a hit opens its work at that line. "Titles" also lists the episodes, chapters, volumes and Custom folders and files whose names match, under "Inside the works". Open one to read its episodes, chapters or volumes in order; manga lines carry their page number. Click it to open that page: ← turns to the next page and → to the previous one, on into the next or previous volume. "← All media" and browser Back restore your sort, loaded titles and scrolling position. Only the browser's Back, Forward and reload bring back a search: a page opened by a click (the path, a row, a tab) opens without it. Returning from another app tab keeps the current Media view. Subtitle seasons use explicit folder or filename clues, with OVA, special and film groups when recognized. Unclassified episodes stay as ordinary rows. One group opens by default; multiple groups start collapsed, and your open groups restore on return. Click the active Media or Search icon at the top to scroll that page to the top.</p>
 
         <p><b>Q</b> focuses and selects the visible search or filter field on Search, Media, Favorites and Library. It is a quick way to start again.</p>
         <h2>Keyboard shortcuts</h2>

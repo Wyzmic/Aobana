@@ -108,9 +108,17 @@ def decorate_result(row, conn, highlight, lines=None):
     data = dict(data)
     row.update(data)
     row['marks'] = json.loads(data['marks'] or '[]')
-    row['title'] = format_custom_title(row['file'])
+    row['title'] = shown_title(conn, row['file'])
     draw_row(row, highlight)
     return True
+
+
+def shown_title(conn, file):
+    if file.lower().endswith('.md') and conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone():
+        meta = conn.execute('SELECT path FROM custom_source_meta WHERE replace(relpath, char(92), ?) = ?', ('/', name_key(file))).fetchone()
+        if meta:
+            return format_custom_title(meta[0])
+    return format_custom_title(file)
 
 
 def _source_fields(row, metadata=None):
@@ -280,7 +288,8 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             if r['source_id'] not in ids:
                 continue
             item = dict(r)
-            item.update(type='hit', path=name_key(r['file']))
+            # Its file's place as the list shows it, not its path on disk
+            item.update(type='hit', path=ids[r['source_id']]['path'])
             rows.append(item)
     elif needle:
         folded = fold_title_filter(needle)

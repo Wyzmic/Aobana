@@ -309,7 +309,12 @@
       m.querySelector('#whatsnew-list').innerHTML = items.map(s => `<li>${mdInline(s)}</li>`).join('');
       m.querySelector('#whatsnew-sub').hidden = !items.length;
       m.querySelector('#whatsnew-none').hidden = !!items.length;
-      if (notes && notes.url) m.querySelector('#whatsnew-more').href = notes.url;
+    }
+    let afterChangelog = null;
+    function whatsNewToChangelog() {
+      document.getElementById('whatsnew-modal').classList.remove('open');
+      afterChangelog = afterWhatsNew;
+      openChangelog();
     }
     function mdChangelog(text) {
       const out = []; let item = null, para = null;
@@ -346,6 +351,9 @@
     function closeChangelog() {
       document.getElementById('changelog-modal').classList.remove('open');
       document.documentElement.style.overflow = '';
+      const next = afterChangelog;
+      afterChangelog = null;
+      if (next) next();
     }
     function closeWhatsNew() {
       document.getElementById('whatsnew-modal').classList.remove('open');

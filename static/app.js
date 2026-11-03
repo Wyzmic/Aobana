@@ -562,7 +562,7 @@
       }
 
       if ((e.key === 'q' || e.key === 'Q' || e.code === 'KeyQ') && !isInputActive && !e.shiftKey) {
-        const qInput = [document.querySelector('input[name="q"]'), document.getElementById('media-detail-q'), document.getElementById('media-detail-filter'), document.getElementById('media-filter')].find(el => el && el.offsetParent !== null);
+        const qInput = [document.querySelector('input[name="q"]'), document.getElementById('media-detail-q'), document.getElementById('media-detail-filter'), document.getElementById('media-filter'), document.getElementById('media-q')].find(el => el && el.offsetParent !== null);
         if (qInput) {
           e.preventDefault();
           qInput.focus();

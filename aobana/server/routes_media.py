@@ -62,7 +62,7 @@ def api_custom_file():
 
 @app.route("/api/media", methods=["GET"])
 def api_media():
-    from aobana.search.media_tab import get_media_library, media_library_status, media_page
+    from aobana.search.media_tab import get_media_library, inner_names, media_library_status, media_page
     db_subs, db_epub = server.get_db()
     db_manga = server.get_manga_db()
     dbs = server._media_connections(db_subs, db_epub)
@@ -70,12 +70,15 @@ def api_media():
     if not status["ready"]:
         return jsonify(status), 202
     folder = request.args.get("folder")
+    needle = server.normalize_query(request.args.get("q", ""))
+    # A filter finds the names inside the works too, after them
+    inner = inner_names(dbs) if needle.strip() and folder is None else None
     page = media_page(get_media_library(dbs),
                       media=request.args.get("media", "all"),
-                      needle=server.normalize_query(request.args.get("q", "")),
+                      needle=needle,
                       offset=max(0, request.args.get("offset", 0, type=int)),
                       limit=max(0, request.args.get("limit", 0, type=int)),
-                      folder=folder, sort=request.args.get("sort", "name"))
+                      folder=folder, sort=request.args.get("sort", "name"), inner=inner)
     page["ready"] = True
     return jsonify(page)
 

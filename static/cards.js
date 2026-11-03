@@ -233,37 +233,21 @@
       const ctxBtn = card && card.querySelector('button[onclick*="toggleContext"]');
       const row = ctxBtn && starRow(ctxBtn.previousElementSibling);
       if (!row) return;
-      const media = row.media_type || 'subs';
       el.disabled = true;
-      let d = null, busy = false;
-      try {
-        const res = await fetch('/api/reader/at?' + new URLSearchParams({ media, file: row.file, rowid: String(row.rowid), text: row.line || '' }));
-        busy = await busyAnswer(res);
-        d = await res.json();
-      } catch (e) {}
+      let got = {};
+      try { got = await readerAtUrl(row); } catch (e) {}
       el.disabled = false;
       // The card's context box says so; it reads the context again when opened next
-      const ctx = busy && card && card.querySelector('.context');
+      const ctx = got.busy && card && card.querySelector('.context');
       if (ctx) {
         ctx.innerHTML = busyLine('0.5em 0');
         ctx.style.display = 'block';
         delete ctx.dataset.loaded;
         return;
       }
-      if (!d || !d.status) return;
+      if (!got.url) return;
       saveSearchReturn(card);
-      let url;
-      if (media === 'custom') {
-        url = d.status === 'file_gone' ? customUrl(row.folder, row.folder) : customUrl(d.folder, d.path, d.file);
-        url += d.status === 'ok' ? `&at=${encodeURIComponent(d.rowid)}` : `&at_note=${d.status}`;
-      } else {
-        const p = new URLSearchParams({ tab: 'media', folder: d.folder, media });
-        if (d.status !== 'file_gone') p.set('at_file', d.file);
-        if (d.status === 'ok') { p.set('at', String(d.rowid)); p.set('at_offset', String(d.offset)); }
-        else p.set('at_note', d.status);
-        url = '/?' + p.toString();
-      }
-      window.location.href = url;
+      window.location.href = got.url;
     }
 
     const SEARCH_RETURN = 'aobana_search_return';

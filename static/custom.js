@@ -14,6 +14,8 @@
       try { saved = JSON.parse(sessionStorage.getItem(key) || '{}'); } catch (e) {}
       // Opened at a line: the file as it reads, no search or folds from an earlier visit
       if (at) saved = {};
+      // Opened by a click, not the browser's Back or Forward: the page without its search, at the top
+      else if (saved.q && !keepsSearch()) saved = { ...saved, q: '', y: 0, top: null, loaded: 0 };
       const parts = path.split('/').filter(Boolean);
       const parent = file ? (PARAMS.get('custom_return') || path) : parts.slice(0, -1).join('/');
       const up = parent ? customUrl(category, parent) : '/?tab=media&media=custom';
@@ -43,6 +45,11 @@
       const contentInput = document.getElementById('custom-cq');
       const input = { get value() { return (mode === 'content' ? contentInput : titleInput)?.value || ''; } };
       let offset = 0, controller = null, generation = 0, timer, scrollTimer, openKept = false;
+      let moreLoad = null;
+      const loadMore = () => moreLoad || (moreLoad = load(false).finally(() => { moreLoad = null; save(); }));
+      const moreObserver = new IntersectionObserver(entries => {
+        if (entries.some(e => e.isIntersecting)) { moreObserver.disconnect(); loadMore(); }
+      }, { rootMargin: '800px 0px' });
       let partsVary = !file, redrawSort = () => {};
       const sorts = () => CUSTOM_SORTS.filter(v => partsVary || !v.startsWith('parts'));
       let fileSort = (file && sorts().includes(saved.sort) && saved.sort) || 'default';
@@ -144,7 +151,8 @@
           if (reset && mode !== 'content' && !!data.parts_vary !== partsVary) { partsVary = !!data.parts_vary; redrawSort(); }
           const html = data.items.map(item => {
             const fileParent = item.shown_in ?? (item.path.split('/').slice(0, -1).join('/') || category);
-            const href = customUrl(category, item.type === 'folder' ? item.path : fileParent, item.type === 'folder' ? '' : item.file, path);
+            const href = customUrl(category, item.type === 'folder' ? item.path : fileParent, item.type === 'folder' ? '' : item.file, path)
+              + (item.type === 'hit' ? `&at=${encodeURIComponent(item.rowid)}` : '');
             const title = item.relative_title || (item.type === 'folder' ? item.name : item.title.split('｜').at(-1));
             const pills = item.type === 'hit' ? ''
               : (item.type === 'folder' && item.files > 1 ? `<span class="stat-pill secondary">${esc(t('custom_files', { n: fmt(item.files) }))}</span>` : '')
@@ -165,10 +173,10 @@
           else results.querySelector('#custom-list')?.insertAdjacentHTML('beforeend', html);
           offset += data.items.length;
           if (data.has_more) {
-            const button = document.createElement('button');
-            button.id = 'custom-more'; button.className = 'btn'; button.textContent = t('custom_more');
-            button.onclick = () => { button.disabled = true; load(false).then(save); };
-            results.append(button);
+            const more = document.createElement('div');
+            more.id = 'custom-more'; more.className = 'media-more'; more.textContent = t('loading');
+            results.append(more);
+            moreObserver.observe(more);
           }
         } catch (e) { if (e.name !== 'AbortError' && gen === generation) results.innerHTML = e.message === 'busy' ? busyLine('2em') : `<div class="error-text">${esc(t('load_failed'))}</div>`; }
         finally { done(); }
@@ -289,7 +297,11 @@
         buttons.forEach(b => b.onclick = () => { mode = b.dataset.customMode; active(); show(); (mode === 'title' ? titleInput : contentInput).focus(); run(); });
         [titleInput, contentInput].forEach(el => {
           el.addEventListener('compositionstart', () => { isComposing = true; });
-          el.addEventListener('compositionend', () => { isComposing = false; justConfirmed = true; setTimeout(() => { justConfirmed = false; }, 60); });
+          el.addEventListener('compositionend', () => {
+            isComposing = false; justConfirmed = true; setTimeout(() => { justConfirmed = false; }, 60);
+            // Chrome sends a confirmed word's input event before compositionend: the filter runs from here
+            if (el === titleInput) { clearTimeout(timer); timer = setTimeout(run, 180); }
+          });
           el.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || isComposing || justConfirmed || e.keyCode === 229)) e.preventDefault(); });
         });
         form.onsubmit = e => { e.preventDefault(); if (!isComposing && !justConfirmed) run(); };
@@ -304,7 +316,7 @@
       if (file) await loadFile(aim);
       else {
         await load();
-        while (offset < (saved.loaded || 0) && results.querySelector('#custom-more')) await load(false);
+        while (offset < (saved.loaded || 0) && results.querySelector('#custom-more')) await loadMore();
       }
       showOpenNote(at, results);
       const target = at && !at.note && at.rowid && results.querySelector(`.custom-line[data-rowid="${CSS.escape(at.rowid)}"]`);

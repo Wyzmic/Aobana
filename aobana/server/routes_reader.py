@@ -289,6 +289,7 @@ def api_locate():
 
     from aobana.search.furigana import tagger
     from aobana.search.titles import title_of
+    from aobana.search.custom import shown_title
     def contains(column):
         return " AND ".join([f"instr(replace({column}, char(160), ' '), ?) > 0"] * len(texts))
     forms = []
@@ -318,7 +319,7 @@ def api_locate():
                 return None
         out = []
         for r in res:
-            title = title_of(media_type, r["file"], db, db)
+            title = shown_title(db, r["file"]) if media_type == "custom" else title_of(media_type, r["file"], db, db)
             out.append({
                 "rowid": r["rowid"],
                 "file": r["file"],

@@ -216,7 +216,31 @@
           <div class="seg" id="media-seg"></div>
           <div class="media-find">
             <input id="media-filter" class="folder-filter" type="text" data-i18n-placeholder="media_filter" placeholder="" spellcheck="false" autocomplete="off">
+            <form id="media-form" class="media-detail-form" autocomplete="off" hidden>
+              <div class="search-input-wrap">
+                <input id="media-q" class="search-input" type="text" data-i18n-placeholder="placeholder" placeholder="" autocomplete="off" spellcheck="false">
+                <span class="search-btn-box">
+                  <button type="submit" class="search-btn" data-i18n-aria="tab_search" aria-label="検索">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+                  </button>
+                </span>
+              </div>
+              <label class="exact-chip" data-i18n-title="exact_title">
+                <input type="checkbox" id="media-exact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+                <span data-i18n="exact">完全一致</span>
+              </label>
+              <label class="exact-chip" data-i18n-title="ruby_only_title">
+                <input type="checkbox" id="media-ruby-only">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+                <span data-i18n="ruby_only">ルビのみ</span>
+              </label>
+            </form>
             <div id="media-sort"></div>
+            <div class="seg" id="media-mode">
+              <button type="button" class="seg-btn active" data-mode="title" data-i18n="media_mode_title">タイトル</button>
+              <button type="button" class="seg-btn" data-mode="content" data-i18n="media_mode_content">本文</button>
+            </div>
           </div>
         </div>
       </div>
@@ -507,7 +531,7 @@
       <ul class="whatsnew-list" id="whatsnew-list"></ul>
       <p id="whatsnew-none" data-i18n="whatsnew_none" hidden></p>
       <div class="btns">
-        <a class="btn" id="whatsnew-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
+        <button class="btn" type="button" id="whatsnew-more" onclick="whatsNewToChangelog()" data-i18n="whatsnew_more">詳しく見る</button>
         <button class="btn primary" type="button" onclick="closeWhatsNew()" data-i18n="close">閉じる</button>
       </div>
     </div>
@@ -518,7 +542,7 @@
       <div class="changelog-head">
         <h2 data-i18n="changelog">変更履歴</h2>
         <div class="btns">
-          <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="whatsnew_more">詳しく見る</a>
+          <a class="btn" id="changelog-more" href="https://github.com/Wyzmic/Aobana/releases" target="_blank" rel="noopener" data-i18n="changelog_github">GitHub で見る</a>
           <button class="btn primary" type="button" onclick="closeChangelog()" data-i18n="close">閉じる</button>
         </div>
       </div>

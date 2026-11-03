@@ -189,13 +189,15 @@ def _episode_stem(filename):
 
 
 def subtitle_group(relpath):
-    parts = [part.translate(FW_TO_HW_DIGITS) for part in re.split(r"[\\/]", relpath)[1:]]
+    names = re.split(r"[\\/]", relpath)
+    parts = [part.translate(FW_TO_HW_DIGITS) for part in names[1:]]
     clues = "/".join(parts)
-    if re.search(r"(?<![A-Za-z0-9])OVA(?![A-Za-z0-9])", clues, re.I):
+    if _OVA_CLUE_RE.search(clues):
         return {"kind": "ova", "label": "OVA", "order": 1001}
-    if re.search(r"劇場版|映画|\[映\]|(?<![A-Za-z0-9])(?:Movie|Film)(?![A-Za-z0-9])", clues, re.I):
-        return {"kind": "movie", "label": "劇場版", "order": 1002}
+    film = _FILM_CLUE_RE.search(clues)
+    own = {w.casefold() for w in _FILM_CLUE_RE.findall(names[0])} - {"劇場版"}
     for part in reversed(parts):
+        ordinal = False
         match = SUB_SE_RE.search(part)
         if not match:
             match = re.search(r"(?<![0-9一二三四五六七八九十百])(?:第)?([0-9一二三四五六七八九十]{1,3})(?:期|季|シリーズ)", part)
@@ -203,12 +205,31 @@ def subtitle_group(relpath):
             match = SUB_SEASON_WORD_RE.search(part)
         if not match:
             match = re.search(r"([0-9]+)(?:st|nd|rd|th)\b", part, re.I)
+            ordinal = bool(match)
         if not match:
             match = re.search(r"(?<![A-Za-z0-9])(?:Season[\s_.-]*|S)(\d{1,2})(?!\d)(?:$|[\s_.-]|E\d)", part, re.I)
         season = parse_int_or_kanji(match.group(1)) if match else None
         if season and 1 <= season <= 99:
+            before = _FILM_CLUE_RE.findall(clues.replace(part, part[:match.end()], 1))
+            if film and (ordinal or "劇場版" in clues or any(w.casefold() not in own for w in before)):
+                break
             return {"kind": "season", "label": f"{season}期", "order": season}
+    if film:
+        return {"kind": "movie", "label": "劇場版", "order": 1002}
+    own_name = names[0].translate(FW_TO_HW_DIGITS)
+    if _SPECIAL_MARK_RE.search(own_name) or _SPECIAL_WORD_RE.search(own_name):
+        pass
+    elif _SPECIAL_MARK_RE.search(clues) or (_SPECIAL_WORD_RE.search(clues)
+                                            and not _NUMBERED_TITLE_RE.search(format_episode_title(relpath))):
+        return {"kind": "special", "label": "スペシャル", "order": 1001.5}
     return {"kind": "other", "label": "", "order": 1003}
+
+
+_FILM_CLUE_RE = re.compile(r"劇場版|映画(?![\u4e00-\u9fff々])|\[映\]|(?<![A-Za-z0-9])(?:Movie|Film)(?![A-Za-z0-9])", re.I)
+_OVA_CLUE_RE = re.compile(r"(?<![A-Za-z0-9])(?:OVA|OAD|OAV)s?(?![A-Za-z])", re.I)
+_SPECIAL_MARK_RE = re.compile(r"(?<![A-Za-z0-9])(?:SP(?:E?\d{1,3})?(?![A-Za-z])|S00E\d)", re.I)
+_SPECIAL_WORD_RE = re.compile(r"スペシャル|特別編|特別篇|番外編|特番|(?<![A-Za-z0-9])Specials?(?![A-Za-z])", re.I)
+_NUMBERED_TITLE_RE = re.compile(r"[0-9０-９]+話$")
 
 
 _FILM_FILE_RE = re.compile(r'(?:Movie|Film|劇場版|映画|劇場|\[映\])', re.IGNORECASE)
@@ -223,7 +244,7 @@ def episode_order(items, grouping=True):
     clues = [subtitle_group(x['file']) for x in items]
     if (any(re.split(r"[\\/]", x['file'])[1:-1] for x in items)
             or any(g['kind'] == 'season' for g in clues)
-            or (len(items) > 1 and any(g['kind'] == 'ova' for g in clues))):
+            or (len(items) > 1 and any(g['kind'] in ('ova', 'special') for g in clues))):
         for x, g in zip(items, clues):
             x['subtitle_group'] = g
         items.sort(key=lambda x: x['subtitle_group']['order'])

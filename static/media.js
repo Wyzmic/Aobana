@@ -42,9 +42,10 @@
       if (PARAMS.get('media') === 'custom' && PARAMS.get('folder')) return;
       if (TAB !== 'media' || mediaRestoring) return;
       if (!PARAMS.get('folder')) {
+        const opts = mediaListOptions();
         const listState = { url: mediaUrl(), q: document.getElementById('media-filter')?.value || '',
           media: mediaTabFilter(), sort: mediaSort(), loaded: mediaOffset, y: Math.round(window.scrollY),
-          at: mediaListAnchor() };
+          at: mediaListAnchor(), mode: mediaListMode, hits: mediaHitsQ, exact: opts.exact, ruby_only: opts.rubyOnly };
         try { sessionStorage.setItem(MEDIA_LIST_STATE, JSON.stringify(listState)); } catch (e) {}
         store.set(MEDIA_STATE, JSON.stringify({ url: mediaUrl(), open: [], y: listState.y }));
         return;
@@ -157,6 +158,14 @@
       }
     }
 
+    function keepsSearch() {
+      const nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+      return !nav || nav.type === 'back_forward' || nav.type === 'reload';
+    }
+    function withoutSearch(state) {
+      if (!state.q) return state;
+      return { ...state, q: '', open: state.mode === 'content' ? [] : (state.open || []), y: 0, at: null };
+    }
     function handleMediaTabClick(e) {
       if (TAB === 'media') {
         e.preventDefault();
@@ -194,6 +203,9 @@
     let mediaPartsVary = true;
     let mediaGen = 0, mediaCtrl = null, mediaOffset = 0, mediaHasMore = false, mediaBusy = false;
     let mediaMoreObserver = null, mediaFilterTimer = null;
+    let mediaListMode = store.get('mediaListMode') === 'content' ? 'content' : 'title';
+    let mediaHitsQ = '';
+    const mediaHitRows = new Map();
 
     async function fetchMedia(params, signal, onWait) {
       for (;;) {
@@ -231,13 +243,33 @@
         </a>`;
     }
 
+    function mediaInnerHtml(it) {
+      const href = it.media === 'custom' ? customUrl(it.folder, it.path, it.inner === 'file' ? it.file : undefined)
+        : '/?' + new URLSearchParams({ tab: 'media', folder: it.folder, media: it.media, at_file: it.file });
+      // The work's name leads an episode's or chapter's title; the line under it names the work
+      const cut = it.title.indexOf(it.folder + '｜');
+      const name = cut >= 0 ? it.title.slice(cut + it.folder.length + 1) : it.title;
+      return `<a class="media-row media-inner" href="${esc(href)}" data-key="${esc(['inner', it.media, it.inner, it.path || it.file].join(':'))}" draggable="false">
+          <span class="media-kind ${it.media}">${esc(t('kind_' + it.media))}</span>
+          <span class="media-names">
+            <div class="media-name">${esc(name || it.title)}</div>
+            <div class="media-author">${esc([it.folder, ...it.trail].join(' › '))}</div>
+          </span>
+          ${it.inner === 'folder' ? `<span class="media-stats"><span class="stat-pill">${esc(t('custom_folder'))}</span></span>` : ''}
+        </a>`;
+    }
+
     async function loadMediaPage(reset) {
       if (reset) {
         mediaGen++;
         if (mediaCtrl) mediaCtrl.abort();
+        cancelServerSearch(0);
+        stopSearchEta();
+        document.getElementById('main-loading').style.display = 'none';
         mediaOffset = 0; mediaHasMore = false; mediaBusy = false;
       }
       if (mediaBusy) return;
+      if (mediaHitsQ) return loadMediaHits();
       mediaBusy = true;
       const gen = mediaGen;
       mediaCtrl = new AbortController();
@@ -270,15 +302,13 @@
         document.getElementById('media-empty').hidden = false;
         return;
       }
-      const counts = { subs: data.shows, epub: data.books, manga: data.manga, custom: data.custom };
-      const one = MEDIAS_ON.length === 1 ? MEDIAS_ON[0] : mediaTabFilter() === 'all' ? null : mediaTabFilter();
-      const summary = one ? t('media_summary_' + one, { n: fmt(counts[one] || 0) })
-        : [t('media_summary_total', { n: fmt(MEDIAS_ON.reduce((sum, m) => sum + (counts[m] || 0), 0)) }),
-           ...MEDIAS_ON.map(m => t('media_summary_' + m, { n: fmt(counts[m] || 0) }))].join(' · ');
-      document.getElementById('media-summary').textContent = summary;
+      showMediaSummary(data);
       if (!mediaOffset && !!data.parts_vary !== mediaPartsVary) { mediaPartsVary = !!data.parts_vary; initMediaSort(); }
-      const html = data.items.map(mediaRowHtml).join('');
+      const head = `<div class="media-inner-head">${esc(t('media_inner_head'))}</div>`;
+      const html = data.items.map((it, i) => (mediaOffset + i === data.works && it.inner ? head : '')
+        + (it.inner ? mediaInnerHtml(it) : mediaRowHtml(it))).join('');
       if (!mediaOffset) {
+        listEl.hidden = false;
         listEl.innerHTML = html || `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
       } else {
         listEl.insertAdjacentHTML('beforeend', html);
@@ -287,6 +317,117 @@
       mediaHasMore = data.has_more;
       moreEl.textContent = mediaHasMore ? t('loading') : '';
       if (mediaHasMore && !mediaRestoring) watchMediaEnd();
+    }
+
+    function showMediaSummary(data) {
+      const counts = { subs: data.shows, epub: data.books, manga: data.manga, custom: data.custom };
+      const one = MEDIAS_ON.length === 1 ? MEDIAS_ON[0] : mediaTabFilter() === 'all' ? null : mediaTabFilter();
+      const summary = one ? t('media_summary_' + one, { n: fmt(counts[one] || 0) })
+        : [t('media_summary_total', { n: fmt(MEDIAS_ON.reduce((sum, m) => sum + (counts[m] || 0), 0)) }),
+           ...MEDIAS_ON.map(m => t('media_summary_' + m, { n: fmt(counts[m] || 0) }))].join(' · ');
+      document.getElementById('media-summary').textContent = summary;
+    }
+
+    function mediaHitHtml(r) {
+      const media = r.media_type || 'subs';
+      const key = media + ':' + r.rowid;
+      mediaHitRows.set(key, r);
+      const href = media === 'custom' ? customUrl(r.folder, r.folder) : '/?' + new URLSearchParams({ tab: 'media', folder: r.folder, media });
+      // The page as text: pageLabel's link to the image would end the row's own link there
+      const page = r.page ? ` · ${esc(t('page_n', { n: fmt(r.page) }))}` : '';
+      return `<a class="media-row custom-hit" href="${esc(href)}" data-key="${esc(key)}" draggable="false">
+          <span class="media-kind ${media}">${esc(t('kind_' + media))}</span>
+          <span class="media-names"><div class="media-name">${esc(r.title || r.folder)}${page}</div><div class="main-sentence">${r.display_line}</div></span>
+        </a>`;
+    }
+
+    async function loadMediaHits() {
+      mediaBusy = true;
+      const gen = mediaGen, first = !mediaOffset;
+      mediaCtrl = new AbortController();
+      const opts = mediaListOptions();
+      const qs = new URLSearchParams({ q: mediaHitsQ, origin: 'media', media: mediaTabFilter(), sort: 'chrono',
+        limit: MEDIA_PAGE, offset: String(mediaOffset) });
+      if (opts.exact) qs.set('exact', 'on');
+      if (opts.rubyOnly) qs.set('ruby_only', 'on');
+      const listEl = document.getElementById('media-list');
+      const moreEl = document.getElementById('media-more');
+      const loading = document.getElementById('main-loading');
+      if (first) {
+        store.del('aobana_last_search');
+        mediaHitRows.clear();
+        listEl.hidden = true;
+        listEl.innerHTML = '';
+        moreEl.textContent = '';
+        loading.style.display = 'flex';
+        startSearchEta(qs.toString(), gen, () => mediaGen);
+        fetchMedia(new URLSearchParams({ media: mediaTabFilter(), limit: '0' }), mediaCtrl.signal)
+          .then(data => { if (gen === mediaGen && data.items) showMediaSummary(data); }).catch(() => {});
+      }
+      serverSearchInFlight++;
+      try {
+        const res = await fetch(apiSearchUrl(qs.toString()), { signal: mediaCtrl.signal });
+        const data = await res.json();
+        if (gen !== mediaGen || data.aborted) return;
+        listEl.hidden = false;
+        if (data.busy) {
+          if (first) listEl.innerHTML = busyLine('2em');
+          else moreEl.innerHTML = busyLine('1em');
+          return;
+        }
+        const html = (data.results || []).map(mediaHitHtml).join('');
+        if (first) listEl.innerHTML = html || `<div class="status-line" style="padding:2em;">${esc(t('no_results'))}</div>`;
+        else listEl.insertAdjacentHTML('beforeend', html);
+        mediaOffset += (data.results || []).length;
+        mediaHasMore = !!data.has_more;
+        moreEl.textContent = mediaHasMore ? t('loading') : '';
+        if (mediaHasMore && !mediaRestoring) watchMediaEnd();
+      } catch (e) {
+        if (e.name !== 'AbortError' && gen === mediaGen) {
+          listEl.hidden = false;
+          if (first) listEl.innerHTML = `<div class="status-line error-text" style="padding:2em;">${esc(t('error'))}</div>`;
+          else moreEl.textContent = t('error');
+        }
+      } finally {
+        serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
+        if (gen === mediaGen) {
+          mediaBusy = false;
+          if (first) { stopSearchEta(); loading.style.display = 'none'; }
+        }
+      }
+    }
+
+    async function openMediaHit(e) {
+      const a = e.target.closest('#media-list .custom-hit');
+      if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (e.target.closest('button')) return;
+      const row = mediaHitRows.get(a.dataset.key);
+      if (!row) return;
+      e.preventDefault();
+      if (a.dataset.opening) return;
+      a.dataset.opening = '1';
+      let got = {};
+      try { got = await readerAtUrl(row); } catch (err) {}
+      delete a.dataset.opening;
+      if (got.busy) { a.querySelector('.main-sentence')?.insertAdjacentHTML('afterend', busyLine('0.4em 0')); return; }
+      window.location.href = got.url || a.href;
+    }
+
+    async function readerAtUrl(row) {
+      const media = row.media_type || 'subs';
+      const res = await fetch('/api/reader/at?' + new URLSearchParams({ media, file: row.file, rowid: String(row.rowid), text: row.line || '' }));
+      if (await busyAnswer(res)) return { busy: true };
+      const d = await res.json();
+      if (!d || !d.status) return {};
+      if (media === 'custom') {
+        const url = d.status === 'file_gone' ? customUrl(row.folder, row.folder) : customUrl(d.folder, d.path, d.file);
+        return { url: url + (d.status === 'ok' ? `&at=${encodeURIComponent(d.rowid)}` : `&at_note=${d.status}`) };
+      }
+      const p = new URLSearchParams({ tab: 'media', folder: d.folder, media });
+      if (d.status !== 'file_gone') p.set('at_file', d.file);
+      if (d.status === 'ok') { p.set('at', String(d.rowid)); p.set('at_offset', String(d.offset)); }
+      else p.set('at_note', d.status);
+      return { url: '/?' + p.toString() };
     }
 
     function watchMediaEnd() {
@@ -300,14 +441,15 @@
       mediaMoreObserver.observe(moreEl);
     }
 
+    const mediaRowKey = el => el.dataset.key || el.getAttribute('href');
     function mediaListAnchor() {
       const bar = document.querySelector('.topbar');
       const edge = (bar ? bar.getBoundingClientRect().bottom : 0) + 8;
       const row = [...document.querySelectorAll('#media-list .media-row')].find(el => el.getBoundingClientRect().bottom > edge);
-      return row ? { url: row.getAttribute('href'), dy: row.getBoundingClientRect().top } : null;
+      return row ? { url: mediaRowKey(row), dy: row.getBoundingClientRect().top } : null;
     }
     function restoreMediaListScroll(state) {
-      const row = state.at && [...document.querySelectorAll('#media-list .media-row')].find(el => el.getAttribute('href') === state.at.url);
+      const row = state.at && [...document.querySelectorAll('#media-list .media-row')].find(el => mediaRowKey(el) === state.at.url);
       if (row) window.scrollTo({ top: window.scrollY + row.getBoundingClientRect().top - state.at.dy, behavior: 'instant' });
       else window.scrollTo(0, state.y || 0);
     }
@@ -317,19 +459,29 @@
 
     async function initMediaTab() {
       const folder = PARAMS.get('folder');
+      const clean = !keepsSearch();
       if (folder && PARAMS.get('media') === 'custom') return initCustomBrowser(folder);
-      if (folder) return initMediaDetail(folder);
+      if (folder) return initMediaDetail(folder, clean);
+      document.getElementById('media-list').before(document.getElementById('main-loading'));
+      initMediaListSearch();
       watchDockRow(document.querySelector('#media-body .media-toolbar-wrap'));
       let prior = null;
       try { prior = JSON.parse(sessionStorage.getItem(MEDIA_LIST_STATE) || 'null'); } catch (e) {}
+      // Opened by a click: the list without its search, at the top; its mode, chips, sort and media stay
+      if (clean && prior && (prior.q || prior.hits)) prior = { ...prior, q: '', hits: '', loaded: 0, y: 0, at: null };
       mediaRestoring = true;
       try {
         if (prior) {
           document.getElementById('media-filter').value = prior.q || '';
+          document.getElementById('media-q').value = prior.q || '';
           store.set('mediaSort', prior.sort);
           store.set('mediaTabFilter', prior.media);
           document.querySelectorAll('#media-seg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.media === prior.media));
+          if (prior.mode === 'title' || prior.mode === 'content') mediaListMode = prior.mode;
+          mediaHitsQ = mediaListMode === 'content' ? (prior.hits || '') : '';
+          setMediaListOptions(prior.exact, prior.ruby_only);
         }
+        showMediaListMode();
         setTitle(t('tab_media'));
         initMediaSort();
         const firstPage = loadMediaPage(true);
@@ -360,6 +512,8 @@
         value: sorts.includes(mediaSort()) ? mediaSort() : 'name', title: t('media_sort_title'), icon: ICON_ROWS,
         onChange: v => { store.set('mediaSort', v); initMediaSort(); mediaListTop(); loadMediaPage(true).then(saveMediaState); },
       });
+      // Its width decides what fits beside the box and the switch on a phone
+      fitDockedRow();
     }
 
     function setMediaTabFilter(m) {
@@ -371,8 +525,68 @@
     function mediaListTop() { window.scrollTo({ top: 0, behavior: 'instant' }); }
 
     function onMediaFilterInput() {
+      const q = document.getElementById('media-q');
+      if (q) q.value = document.getElementById('media-filter').value;
       clearTimeout(mediaFilterTimer);
       mediaFilterTimer = setTimeout(() => loadMediaPage(true).then(saveMediaState), 150);
+    }
+
+    function initMediaListSearch() {
+      const form = document.getElementById('media-form'), q = document.getElementById('media-q');
+      document.querySelectorAll('#media-mode .seg-btn').forEach(b => { b.onclick = () => setMediaListMode(b.dataset.mode); });
+      document.getElementById('media-list').addEventListener('click', openMediaHit);
+      q.addEventListener('compositionstart', () => { isComposing = true; });
+      q.addEventListener('compositionend', () => { isComposing = false; justConfirmed = true; setTimeout(() => { justConfirmed = false; }, 60); });
+      q.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229 || isComposing || justConfirmed)) e.preventDefault(); });
+      q.addEventListener('input', () => {
+        document.getElementById('media-filter').value = q.value;
+        // An emptied box shows the works again
+        if (!q.value.trim() && mediaHitsQ && !isComposing) runMediaHits('');
+      });
+      form.onsubmit = e => { e.preventDefault(); if (!isComposing && !justConfirmed) runMediaHits(q.value.trim()); };
+      form.querySelectorAll('input[type=checkbox]').forEach(el => {
+        el.onchange = () => {
+          el.closest('.exact-chip').classList.toggle('on', el.checked);
+          if (q.value.trim()) runMediaHits(q.value.trim()); else saveMediaState();
+        };
+      });
+    }
+    function runMediaHits(text) {
+      mediaHitsQ = text;
+      mediaListTop();
+      loadMediaPage(true).then(saveMediaState);
+    }
+    function showMediaListMode() {
+      const title = mediaListMode === 'title';
+      document.getElementById('media-filter').hidden = !title;
+      document.getElementById('media-form').hidden = title;
+      document.getElementById('media-sort').hidden = !title;
+      document.querySelectorAll('#media-mode .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mediaListMode));
+      fitDockedRow();
+    }
+    function setMediaListMode(mode) {
+      if (mode === mediaListMode) return;
+      mediaListMode = mode === 'content' ? 'content' : 'title';
+      store.set('mediaListMode', mediaListMode);
+      showMediaListMode();
+      const box = document.getElementById(mediaListMode === 'title' ? 'media-filter' : 'media-q');
+      box.focus();
+      const text = box.value.trim();
+      // Nothing typed and no hits shown: the same list in either mode, nothing to load again
+      if (!text && !mediaHitsQ) { saveMediaState(); return; }
+      if (mediaListMode === 'title') { mediaHitsQ = ''; mediaListTop(); loadMediaPage(true).then(saveMediaState); }
+      else runMediaHits(text);
+    }
+    function mediaListOptions() {
+      return { exact: !!document.getElementById('media-exact')?.checked, rubyOnly: !!document.getElementById('media-ruby-only')?.checked };
+    }
+    function setMediaListOptions(exact, rubyOnly) {
+      for (const [id, on] of [['media-exact', exact], ['media-ruby-only', rubyOnly]]) {
+        const cb = document.getElementById(id);
+        if (!cb) continue;
+        cb.checked = !!on;
+        cb.closest('.exact-chip').classList.toggle('on', !!on);
+      }
     }
 
     function mediaPathBar(crumbs, backHref, reveal = '') {
@@ -426,7 +640,8 @@
       await expandEpisode(header, rowid ? Math.max(0, at.offset - 200) : 0);
       const line = rowid && header.parentElement.querySelector(`.episode-line[data-rowid="${CSS.escape(rowid)}"]`);
       if (line) goToTargetLine(line);
-      else header.scrollIntoView({ block: 'start' });
+      // Centred as a line is: at the top the pinned bar and its docked rows covered the file's name
+      else header.scrollIntoView({ block: 'center' });
     }
 
     function customUrl(category, path, file, returnPath) {
@@ -437,7 +652,7 @@
     }
 
 
-    async function initMediaDetail(folder) {
+    async function initMediaDetail(folder, clean) {
       const at = takeOpenTarget();
       setTitle(folder);
       document.getElementById('media-body').hidden = true;
@@ -525,7 +740,7 @@
           await openMediaTarget(at);
         } else if (state && state.url === mediaUrl()) {
           document.getElementById('main-loading').style.display = 'none';
-          await restoreMediaState(state);
+          await restoreMediaState(clean ? withoutSearch(state) : state);
         }
         saveMediaState();
       } catch (e) {
@@ -789,7 +1004,8 @@
           if (!node.folders.has(name)) {
             const key = group.kind === 'book' ? 'book:' + name : group.kind + ':' + group.order;
             const shown = group.kind === 'season' ? t('group_season', { n: group.order })
-              : group.kind === 'movie' ? t('group_movie') : group.kind === 'ova' ? t('group_ova') : name;
+              : group.kind === 'movie' ? t('group_movie') : group.kind === 'ova' ? t('group_ova')
+              : group.kind === 'special' ? t('group_special') : name;
             const child = { name: shown, key, order: group.order, book: group.kind === 'book', entries: [], folders: new Map(), count: 0 };
             node.folders.set(name, child);
             node.entries.push(child);

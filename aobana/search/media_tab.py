@@ -124,6 +124,8 @@ def warm_media_library():
         with _BACKGROUND_READERS_LOCK:
             _BACKGROUND_READERS.update(c for c in conns.values() if c is not None)
         get_media_library(conns)
+        # The names inside the works too, which a first filter otherwise waited for (8.7 s on the dev library)
+        inner_names(conns)
     except Exception:
         pass
     finally:
@@ -239,7 +241,81 @@ MEDIA_SORTS = {"name": None, "parts_desc": ("episodes", True), "parts_asc": ("ep
                "lines_desc": ("lines", True), "lines_asc": ("lines", False)}
 
 
-def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name"):
+_INNER = {}
+
+
+def inner_names(dbs):
+    from aobana.utils import fold_title_filter, has_chapters, has_chapter_folder
+    from aobana.search import titles
+    key = db_fingerprint(*dbs.values())
+    if key in _INNER:
+        return _INNER[key]
+    out = []
+
+    def add(kind, media, work, name, trail, **link):
+        own = fold_title_filter(name).replace(fold_title_filter(work), "\n")
+        out.append(dict(link, inner=kind, media=media, folder=work, title=name, trail=trail, match=own))
+
+    subs = dbs.get("subs")
+    if subs is not None:
+        seen = set()
+        for (relpath,) in subs.execute("SELECT relpath FROM sources ORDER BY relpath"):
+            parts = re.split(r"[\\/]", relpath)
+            for n in range(2, len(parts)):
+                if (parts[0], n, parts[n - 1]) not in seen:
+                    seen.add((parts[0], n, parts[n - 1]))
+                    add("folder", "subs", parts[0], parts[n - 1], parts[1:n - 1], file=relpath)
+            add("file", "subs", parts[0], titles.get_formatted_title(subs, relpath), parts[1:-1], file=relpath)
+    epub = dbs.get("epub")
+    if epub is not None and has_chapters(epub):
+        works = {sid: title or (relpath[:-5] if relpath.lower().endswith(".epub") else relpath)
+                 for sid, relpath, title in epub.execute("SELECT id, relpath, title FROM sources")}
+        folder_sql = "MAX(folder)" if has_chapter_folder(epub) else "NULL"
+        seen = set()
+        for sid, file, book_folder in epub.execute(
+                f"SELECT source_id, file, {folder_sql} FROM chapters GROUP BY file ORDER BY file"):
+            work = works.get(sid)
+            if work is None:
+                continue
+            if book_folder and (work, book_folder) not in seen:
+                seen.add((work, book_folder))
+                add("folder", "epub", work, book_folder, [], file=file)
+            add("file", "epub", work, titles.format_book_title(file, db_epub=epub), [], file=file)
+    manga = dbs.get("manga")
+    if manga is not None:
+        for series, volume in manga.execute("SELECT title, volume FROM sources ORDER BY relpath"):
+            file = f"{series}\\{volume}"
+            add("file", "manga", series, titles.format_manga_title(file), [], file=file)
+    custom = dbs.get("custom")
+    if custom is not None:
+        from aobana.search.custom import all_sources, lone_file
+        metadata, sources = all_sources(custom)
+        sources = [s for s in sources if not metadata.get(s["relpath"], {}).get("folder_page")]
+        shown = set()
+        for path, name, files in custom.execute(
+                "SELECT path, name, files FROM custom_folders WHERE parent != ? AND files > 0 ORDER BY order_key, path", ("",)):
+            if lone_file(sources, path) is not None:
+                # Its one file under its own name stands for it, as on the folder's page
+                continue
+            parts = path.split("/")
+            add("folder", "custom", parts[0], name, parts[1:-1], path=path)
+        for category in {s["category"] for s in sources}:
+            alone = lone_file(sources, category)
+            if alone is not None:
+                # The work's own row opens it already
+                shown.add(alone["relpath"])
+        for s in sources:
+            if s["relpath"] in shown:
+                continue
+            parts = s["path"].split("/")
+            add("file", "custom", s["category"], titles.format_custom_title(parts[-1]), parts[1:-1],
+                path="/".join(parts[:-1]) or s["category"], file=s["file"])
+    _INNER.clear()
+    _INNER[key] = out
+    return out
+
+
+def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name", inner=None):
     if folder is not None:
         rows = [it for it in items if it["folder"] == folder and media in ("all", it["media"])]
         return {"items": rows[:1], "total": len(rows[:1]), "has_more": False}
@@ -251,8 +327,12 @@ def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, so
     key = MEDIA_SORTS.get(sort)
     if key:
         rows = sorted(rows, key=lambda it: it[key[0]] or 0, reverse=key[1])
+    works = len(rows)
+    if needle and inner:
+        rows = rows + [{k: v for k, v in it.items() if k != "match"} for it in inner
+                       if media in ("all", it["media"]) and needle in it["match"]]
     page = rows[offset:offset + limit] if limit else rows[offset:]
-    return {"items": page, "total": len(rows), "has_more": offset + len(page) < len(rows),
+    return {"items": page, "total": len(rows), "works": works, "has_more": offset + len(page) < len(rows),
             "parts_vary": len({it.get("episodes") or 0 for it in rows}) > 1,
             "shows": sum(1 for it in items if it["media"] == "subs"),
             "books": sum(1 for it in items if it["media"] == "epub"),

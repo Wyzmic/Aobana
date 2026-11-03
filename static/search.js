@@ -829,6 +829,7 @@
         row.querySelectorAll('.dock-off').forEach(el => el.classList.remove('dock-off'));
         if (ph && ph.isConnected) moveKeepingFocus(row, n => ph.replaceWith(n));
         else row.remove();
+        if (row.isConnected) (row.matches(MODE_ROWS) ? [row] : row.querySelectorAll(MODE_ROWS)).forEach(fitModeRow);
       }
       const bar = document.querySelector('.topbar');
       if (bar && !docked.length) bar.classList.remove('has-path', 'dock-away');
@@ -841,20 +842,21 @@
       queueDock();
     }
     function fitModeRow(row) {
+      row.querySelectorAll('.dock-off').forEach(el => el.classList.remove('dock-off'));
       row.classList.remove('chips-below');
       if (!dockPhone.matches) return;
       const seg = row.querySelector(':scope > .seg');
       const box = [...row.querySelectorAll('.folder-filter, .search-input-wrap')].find(el => el.offsetParent !== null);
       if (seg && box && seg.getBoundingClientRect().top > box.getBoundingClientRect().top + 4) row.classList.add('chips-below');
     }
-    window.addEventListener('resize', () => document.querySelectorAll('.media-detail-search').forEach(fitModeRow));
+    const MODE_ROWS = '.media-detail-search, .media-find';
     function fitDockedRow() {
-      document.querySelectorAll('.media-detail-search').forEach(fitModeRow);
+      document.querySelectorAll(MODE_ROWS).forEach(fitModeRow);
       const slot = document.getElementById('topbar-path');
       if (!slot) return;
       const crumbs = slot.querySelector('.path-crumbs');
       if (crumbs) crumbs.scrollLeft = crumbs.scrollWidth;
-      const row = slot.querySelector('.media-detail-search');
+      const row = slot.querySelector(MODE_ROWS);
       slot.querySelectorAll('.dock-off').forEach(el => el.classList.remove('dock-off'));
       if (!dockPhone.matches) return;
       const sort = slot.querySelector('#media-sort'), filter = slot.querySelector('#media-filter');
@@ -904,7 +906,7 @@
       const cs = getComputedStyle(row);
       const ph = document.createElement('div');
       ph.className = 'dock-placeholder';
-      ph.style.cssText = `height:${row.offsetHeight}px;margin:${cs.marginTop} 0 ${cs.marginBottom};`;
+      ph.style.cssText = `height:${row.getBoundingClientRect().height}px;margin:${cs.marginTop} 0 ${cs.marginBottom};`;
       topbarChange(bar, () => {
         moveKeepingFocus(row, n => { n.replaceWith(ph); slot.appendChild(n); });
         docked.push({ row, ph });

@@ -609,11 +609,15 @@
 
     .media-toolbar-wrap { container-type: inline-size; }
     .media-toolbar { display: flex; gap: var(--pad); align-items: center; flex-wrap: wrap; margin-bottom: var(--pad); }
-    .media-toolbar .seg { flex: 1 1 auto; max-width: 100%; }
-    .media-toolbar .seg .seg-btn { flex: 1 0 auto; padding: 0 9px; }
-    .media-find { display: flex; flex-wrap: wrap; gap: var(--pad); align-items: center; flex: 999 1 446px; min-width: 0; }
+    .media-toolbar > .seg { flex: 1 1 auto; max-width: 100%; }
+    .media-toolbar > .seg .seg-btn { flex: 1 0 auto; padding: 0 9px; }
+    .media-find { display: flex; flex-wrap: wrap; gap: var(--pad); align-items: center; flex: 999 1 602px; min-width: 0; }
     .media-find .folder-filter { flex: 999 1 240px; min-width: 0; width: auto; height: 38px; }
+    .media-find .media-detail-form { flex: 999 1 240px; }
+    .media-find > .seg { flex: none; }
+    .media-find > .seg .seg-btn { flex: none; padding: 0 14px; }
     #media-sort { flex: 1 0 auto; }
+    #media-sort[hidden] { display: none; }
     #media-sort .dd-btn { height: 38px; }
     .media-more { text-align: center; color: var(--text-muted); font-size: 0.85em; padding: 1em; min-height: 1px; }
     .load-eta { margin-top: 0.6em; color: var(--text-muted); font-size: 0.92em; letter-spacing: 0; font-variant-numeric: tabular-nums; }
@@ -626,6 +630,11 @@
       -webkit-user-drag: none;
     }
     .media-row:first-child { border-top: none; }
+    .media-inner-head {
+      padding: 0.45em 1.1em; font-size: 0.8em; font-weight: 700; color: var(--text-muted);
+      background: var(--bg-hover); border-top: 1px solid var(--border-color);
+    }
+    .media-inner-head:first-child { border-top: none; }
     .media-row:hover { background: var(--bg-hover); }
     .media-kind {
       font-size: 0.72em; font-weight: 700; padding: 3px 7px; border-radius: 6px; flex-shrink: 0;
@@ -655,6 +664,7 @@
     .media-detail-search .seg { width: 200px; max-width: 100%; flex-shrink: 0; }
     .media-detail-search #custom-sort { flex-shrink: 0; }
     .media-detail-search #custom-sort[hidden] { display: none; }
+    .media-detail-search #custom-sort .dd-btn { height: 38px; }
     .media-detail-search .folder-filter { flex: 1; min-width: 0; width: auto; height: 38px; }
     .media-detail-form { flex: 1; min-width: 0; display: flex; gap: 0.6em; align-items: center; margin: 0; }
     .media-detail-form .search-input-wrap { flex: 1 1 0; min-width: 0; }
@@ -957,12 +967,25 @@
       .media-detail-search.chips-below #custom-sort { order: 4; }
       .media-detail-search.chips-below #custom-sort { margin-left: auto; }
       .media-detail-search.chips-below { row-gap: 0; }
-      .media-detail-search.chips-below .exact-chip,
-      .media-detail-search.chips-below #custom-sort { margin-top: 0.5em; }
+      .media-detail-search.chips-below::after { height: 0.5em; }
       .topbar-path .media-detail-search { row-gap: 0; }
       .topbar-path .dock-off { display: none !important; }
       .topbar-path .media-detail-search #custom-sort,
       .topbar-path .media-detail-search.chips-below #custom-sort { order: 1; margin-left: 0; margin-top: 0; }
+      .media-find .search-input-wrap,
+      .media-find .folder-filter { flex: 999 1 170px; min-width: 170px; order: 0; }
+      .media-find > .seg { width: auto; order: 2; margin-left: auto; }
+      .media-find > .seg .seg-btn { flex: none; padding: 0 10px; }
+      .media-find .exact-chip,
+      .media-find #media-sort { order: 1; }
+      .media-find.chips-below::after { content: ''; order: 3; flex-basis: 100%; height: var(--dock-gap); }
+      .media-find.chips-below { row-gap: 0; }
+      .media-find.chips-below .exact-chip,
+      .media-find.chips-below #media-sort { order: 4; }
+      .media-find.chips-below #media-sort { flex: none; margin-left: auto; }
+      .topbar-path .media-find #media-sort,
+      .topbar-path .media-find.chips-below #media-sort { order: 1; }
+      .topbar-path .chips-below::after { height: 0 !important; }
       .topbar-path .media-find .folder-filter { flex-basis: 200px; }
       .topbar-path .path-crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
       .topbar-path .path-crumbs::-webkit-scrollbar { display: none; }
