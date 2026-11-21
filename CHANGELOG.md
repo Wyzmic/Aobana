@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.5: See what a title search found
+
+### Enhancements
+
+- **See what a title search found.** Every title search shows the matching part of each name in bold: the Media list, a work's episodes and chapters, the Search sidebar's titles, and Custom's folders, files and headings.
+- **Folders first in Custom.** A Custom page's **Titles** filter lists the folders whose name matches first, then the files whose own name matches, under **Inside the folders**.
+
+**Media and Custom**
+
+- The names inside the works are saved beside the databases, so after the first start the Media list's **Titles** filter finds them in seconds: 3.1 s on a library of 127,978 subtitle files and 590,495 chapters, where 2.4 took 36.7 s at every start.
+
+### Bug Fixes
+
+- On a large library, the Media list's **Titles** filter could take half a minute or more to answer, and longer while a word was typed with a Japanese input method. It now answers at once with the works and shows **Preparing the names inside the works...** with the time left, then adds the names inside the works when they are ready.
+- A book's chapters matched the Media list's **Titles** filter by the book's author, so a filter for an author listed every chapter of their books under **Inside the works**. A chapter now matches by its own name; the books still match by author.
+- A book's chapter in search results could show without its author until Aobana was restarted.
+- On a Mac, a folder spelled in another case than one already chosen (`SUBS` beside `subs`) was accepted in the **Settings** tab as a second folder. It is now refused, as on Windows.
+- Werkzeug, the library Aobana's server runs on, is updated to 3.1.9, which fixes how it checks file paths on Windows.
+
 ## 2.4: Search the lines in the Media list
 
 ### Enhancements

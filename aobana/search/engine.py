@@ -28,7 +28,7 @@ from aobana.search.reading import (
     ruby_only_cannot_match,
 )
 from aobana.search.titles import (
-    GLOBAL_BOOK_AUTHORS, GLOBAL_BOOK_TITLES, GLOBAL_MANGA_TITLES, GLOBAL_TITLES, get_sort_key,
+    GLOBAL_BOOK_AUTHORS, GLOBAL_BOOK_HEADS, GLOBAL_BOOK_TITLES, GLOBAL_MANGA_TITLES, GLOBAL_TITLES, get_sort_key,
     load_book_authors, title_of,
 )
 from aobana.search import iplusone, result_cache
@@ -2577,6 +2577,7 @@ def reset_caches():
     _retire_search_pool()
     drop_lexicon()
     GLOBAL_BOOK_TITLES.clear()
+    GLOBAL_BOOK_HEADS.clear()
     GLOBAL_BOOK_AUTHORS.clear()
     GLOBAL_TITLES.clear()
     GLOBAL_MANGA_TITLES.clear()

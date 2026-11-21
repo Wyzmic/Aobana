@@ -87,8 +87,10 @@
       };
       function readerHtml(data, found = false, titled = '') {
         const sections = data.kind === 'txt' ? [{ section_no: null }] : data.sections;
+        // A heading with the title filter's text marked, when one is typed
+        const headHtml = h => titled ? markTitle(h, titled) : esc(h);
         const sectionHtml = (s, i, rows, withHead = true) => {
-          const head = !withHead ? '' : s.heading ? `<h2 class="custom-heading">${esc(s.heading)}</h2>` : i ? '<div class="custom-divider"></div>' : '';
+          const head = !withHead ? '' : s.heading ? `<h2 class="custom-heading">${headHtml(s.heading)}</h2>` : i ? '<div class="custom-divider"></div>' : '';
           return head + rows.map(lineHtml).join('');
         };
         const units = [];
@@ -119,9 +121,9 @@
         return `<div class="episode-card">${shown.map(u => {
           const flat = u.parts.map(({ s, i, rows }) => sectionHtml(s, i, rows)).join('');
           if (!fold || !u.heading || (u.count === 1 && allOne)) return flat;
-          if (!u.count) return `<div class="custom-fold-empty"><span class="media-subfolder-arrow" aria-hidden="true">▸</span><span>${esc(u.heading)}</span></div>`;
+          if (!u.count) return `<div class="custom-fold-empty"><span class="media-subfolder-arrow" aria-hidden="true">▸</span><span>${headHtml(u.heading)}</span></div>`;
           const body = u.parts.map(({ s, i, rows }, k) => sectionHtml(s, i, rows, k > 0)).join('');
-          return `<details class="media-subfolder custom-fold" data-group="fold:${u.parts[0].s.section_no ?? u.n}"${u.count === 1 ? ' data-open-first' : ''}><summary><span class="media-subfolder-arrow" aria-hidden="true">▸</span><span>${esc(u.heading)}</span><span class="media-subfolder-count">${esc(t('stat_lines', { n: fmt(u.count) }))}</span></summary><div class="custom-fold-body">${body}</div></details>`;
+          return `<details class="media-subfolder custom-fold" data-group="fold:${u.parts[0].s.section_no ?? u.n}"${u.count === 1 ? ' data-open-first' : ''}><summary><span class="media-subfolder-arrow" aria-hidden="true">▸</span><span>${headHtml(u.heading)}</span><span class="media-subfolder-count">${esc(t('stat_lines', { n: fmt(u.count) }))}</span></summary><div class="custom-fold-body">${body}</div></details>`;
         }).join('')}</div>`;
       }
       function restoreFolds(found = false, root = results) {
@@ -149,7 +151,9 @@
           const data = await r.json();
           if (gen !== generation) return;
           if (reset && mode !== 'content' && !!data.parts_vary !== partsVary) { partsVary = !!data.parts_vary; redrawSort(); }
-          const html = data.items.map(item => {
+          // A title search's files come under their own heading, after the folders, as the Media list's names inside the works
+          const filesHead = `<div class="media-inner-head">${esc(t('custom_files_head'))}</div>`;
+          const html = data.items.map((item, i) => {
             const fileParent = item.shown_in ?? (item.path.split('/').slice(0, -1).join('/') || category);
             const href = customUrl(category, item.type === 'folder' ? item.path : fileParent, item.type === 'folder' ? '' : item.file, path)
               + (item.type === 'hit' ? `&at=${encodeURIComponent(item.rowid)}` : '');
@@ -157,7 +161,7 @@
             const pills = item.type === 'hit' ? ''
               : (item.type === 'folder' && item.files > 1 ? `<span class="stat-pill secondary">${esc(t('custom_files', { n: fmt(item.files) }))}</span>` : '')
                 + `<span class="stat-pill">${esc(t('stat_lines', { n: fmt(item.lines || 0) }))}</span>`;
-            return `<a class="media-row${item.type === 'hit' ? ' custom-hit' : ''}" href="${esc(href)}" draggable="false"><span class="media-kind custom">${esc(t(item.type === 'folder' ? 'custom_folder' : 'custom_file'))}</span><span class="media-names"><div class="media-name">${esc(title)}</div>${item.type === 'hit' ? `<div class="main-sentence">${item.display_line}</div>` : ''}</span><span class="media-stats">${pills}</span></a>`;
+            return `${data.folders && offset + i === data.folders ? filesHead : ''}<a class="media-row${item.type === 'hit' ? ' custom-hit' : ''}" href="${esc(href)}" draggable="false"><span class="media-kind custom">${esc(t(item.type === 'folder' ? 'custom_folder' : 'custom_file'))}</span><span class="media-names"><div class="media-name">${mode === 'title' ? markTitle(title, p.get('q')) : esc(title)}</div>${item.type === 'hit' ? `<div class="main-sentence">${item.display_line}</div>` : ''}</span><span class="media-stats">${pills}</span></a>`;
           }).join('');
           results.querySelector('#custom-more')?.remove();
           let intro = '';

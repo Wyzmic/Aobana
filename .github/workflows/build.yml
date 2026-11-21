@@ -20,12 +20,12 @@ env:
 
 jobs:
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Build
@@ -39,7 +39,7 @@ jobs:
           codesign --verify --deep --strict "$MNT/Aobana.app"
           test -x "$APP/MacOS/Aobana" && test -x "$APP/Resources/Aobana.command"
           hdiutil detach "$MNT"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: aobana-macos
           path: release/dist/*
@@ -52,10 +52,10 @@ jobs:
   linux:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Build
@@ -84,7 +84,7 @@ jobs:
           EOF
           docker run --rm -v "$PWD:/w" -v /tmp/in-container.sh:/tmp/in-container.sh ubuntu:24.04 bash -c "apt-get update >/dev/null && apt-get install -y python3 >/dev/null && bash /tmp/in-container.sh"
           docker run --rm -v "$PWD:/w" -v /tmp/in-container.sh:/tmp/in-container.sh fedora:latest bash -c "dnf install -y python3 findutils >/dev/null && bash /tmp/in-container.sh"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: aobana-linux
           path: release/dist/*

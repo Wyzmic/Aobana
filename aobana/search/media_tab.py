@@ -90,21 +90,27 @@ def media_library_status(dbs, db_epub=None, db_manga=None):
             from aobana.utils import outdated_sources
             need = {'requires_index': True} if outdated_sources(db_subs, 'subs') else {'requires_tables': ['source_ranges']}
             return dict({'ready': False, 'elapsed': 0, 'remaining': None}, **need)
-    with _MEDIA_SCHEDULE_LOCK:
-        if key not in _MEDIA_SCHEDULED:
-            _MEDIA_SCHEDULED.add(key)
-            def build():
-                try:
-                    warm_media_library()
-                finally:
-                    with _MEDIA_SCHEDULE_LOCK:
-                        _MEDIA_SCHEDULED.discard(key)
-            threading.Thread(target=build, daemon=True).start()
+    _schedule_warm(key)
     started = _MEDIA_COMPUTE["started"] or time.monotonic()
     expected = _MEDIA_COMPUTE["expected"] or _media_expected_seconds(dbs)
     elapsed = time.monotonic() - started
     return {"ready": False, "elapsed": round(elapsed, 1),
             "remaining": round(expected-elapsed, 1) if expected > elapsed else None}
+
+
+def _schedule_warm(key):
+    with _MEDIA_SCHEDULE_LOCK:
+        if key in _MEDIA_SCHEDULED:
+            return
+        _MEDIA_SCHEDULED.add(key)
+
+    def build():
+        try:
+            warm_media_library()
+        finally:
+            with _MEDIA_SCHEDULE_LOCK:
+                _MEDIA_SCHEDULED.discard(key)
+    threading.Thread(target=build, daemon=True).start()
 
 
 def _media_expected_seconds(dbs, db_epub=None, db_manga=None):
@@ -124,7 +130,7 @@ def warm_media_library():
         with _BACKGROUND_READERS_LOCK:
             _BACKGROUND_READERS.update(c for c in conns.values() if c is not None)
         get_media_library(conns)
-        # The names inside the works too, which a first filter otherwise waited for (8.7 s on the dev library)
+        # The names inside the works too, from media_inner.json.gz or built; a filter meanwhile shows the works
         inner_names(conns)
     except Exception:
         pass
@@ -241,22 +247,110 @@ MEDIA_SORTS = {"name": None, "parts_desc": ("episodes", True), "parts_asc": ("ep
                "lines_desc": ("lines", True), "lines_asc": ("lines", False)}
 
 
+INNER_CACHE_FORM = 2
+_INNER_FIELDS = ("inner", "media", "folder", "title", "trail", "match")
 _INNER = {}
+_INNER_LOCK = threading.Lock()
+_INNER_PROGRESS = {"started": None, "done": 0, "total": 0}
+INNER_SUBS_WEIGHT = 2
+
+
+def _inner_cache_path():
+    return paths.companion('media_inner.json.gz')
+
+
+def _inner_cache_read(key):
+    import gzip
+    import json
+    try:
+        with gzip.open(_inner_cache_path(), "rt", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict) or data.get("key") != repr(key) or data.get("form") != INNER_CACHE_FORM:
+            return None
+        return [dict(r[6], **dict(zip(_INNER_FIELDS, r[:6]))) for r in data["rows"]]
+    except (OSError, ValueError, EOFError, KeyError, TypeError, IndexError):
+        return None
+
+
+def _inner_cache_write(key, out, seconds):
+    import gzip
+    import json
+    path = _inner_cache_path()
+    tmp = path + ".tmp"
+    rows = [[it[k] for k in _INNER_FIELDS] + [{k: v for k, v in it.items() if k not in _INNER_FIELDS}] for it in out]
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with gzip.open(tmp, "wt", encoding="utf-8") as f:
+            json.dump({"key": repr(key), "form": INNER_CACHE_FORM, "seconds": round(seconds, 2), "rows": rows},
+                      f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def inner_names(dbs):
-    from aobana.utils import fold_title_filter, has_chapters, has_chapter_folder
-    from aobana.search import titles
+    import time
     key = db_fingerprint(*dbs.values())
     if key in _INNER:
         return _INNER[key]
+    with _INNER_LOCK:
+        if key in _INNER:
+            return _INNER[key]
+        _INNER_PROGRESS.update(started=time.monotonic(), done=0, total=0)
+        try:
+            out = _inner_cache_read(key)
+            built = out is None
+            if built:
+                out = _build_inner_names(dbs)
+        finally:
+            seconds = time.monotonic() - _INNER_PROGRESS["started"]
+            _INNER_PROGRESS["started"] = None
+        if db_fingerprint(*dbs.values()) != key:
+            return out
+        _INNER.clear()
+        _INNER[key] = out
+        if built:
+            _inner_cache_write(key, out, seconds)
+        return out
+
+
+def inner_names_now(dbs):
+    import time
+    key = db_fingerprint(*dbs.values())
+    if key in _INNER:
+        return _INNER[key], None
+    _schedule_warm(key)
+    started, done, total = (_INNER_PROGRESS[k] for k in ("started", "done", "total"))
+    remaining = None
+    # Guessed from the first 2 % on, when the rate has settled
+    if started and total and done > total / 50:
+        remaining = round(max(0.0, (time.monotonic() - started) * (total - done) / done), 1)
+    return None, {"remaining": remaining}
+
+
+def _build_inner_names(dbs):
+    from aobana.utils import fold_title_filter, has_chapters, has_chapter_folder
+    from aobana.search import titles
     out = []
+    progress = _INNER_PROGRESS
+    subs, epub, manga = dbs.get("subs"), dbs.get("epub"), dbs.get("manga")
+    progress["total"] = (
+        (subs.execute("SELECT COUNT(*) FROM sources").fetchone()[0] * INNER_SUBS_WEIGHT if subs is not None else 0)
+        + (epub.execute("SELECT COUNT(*) FROM chapters").fetchone()[0] if epub is not None and has_chapters(epub) else 0)
+        + (manga.execute("SELECT COUNT(*) FROM sources").fetchone()[0] if manga is not None else 0))
 
     def add(kind, media, work, name, trail, **link):
-        own = fold_title_filter(name).replace(fold_title_filter(work), "\n")
+        # Matched on the part the row shows, after the work's name: a book's author before it is the work's own row
+        cut = name.find(work + "｜")
+        shown = name[cut + len(work) + 1:] if cut >= 0 else name
+        own = fold_title_filter(shown or name).replace(fold_title_filter(work), "\n")
         out.append(dict(link, inner=kind, media=media, folder=work, title=name, trail=trail, match=own))
+        if kind == "file":
+            progress["done"] += INNER_SUBS_WEIGHT if media == "subs" else 1
 
-    subs = dbs.get("subs")
     if subs is not None:
         seen = set()
         for (relpath,) in subs.execute("SELECT relpath FROM sources ORDER BY relpath"):
@@ -266,7 +360,6 @@ def inner_names(dbs):
                     seen.add((parts[0], n, parts[n - 1]))
                     add("folder", "subs", parts[0], parts[n - 1], parts[1:n - 1], file=relpath)
             add("file", "subs", parts[0], titles.get_formatted_title(subs, relpath), parts[1:-1], file=relpath)
-    epub = dbs.get("epub")
     if epub is not None and has_chapters(epub):
         works = {sid: title or (relpath[:-5] if relpath.lower().endswith(".epub") else relpath)
                  for sid, relpath, title in epub.execute("SELECT id, relpath, title FROM sources")}
@@ -281,7 +374,6 @@ def inner_names(dbs):
                 seen.add((work, book_folder))
                 add("folder", "epub", work, book_folder, [], file=file)
             add("file", "epub", work, titles.format_book_title(file, db_epub=epub), [], file=file)
-    manga = dbs.get("manga")
     if manga is not None:
         for series, volume in manga.execute("SELECT title, volume FROM sources ORDER BY relpath"):
             file = f"{series}\\{volume}"
@@ -310,8 +402,6 @@ def inner_names(dbs):
             parts = s["path"].split("/")
             add("file", "custom", s["category"], titles.format_custom_title(parts[-1]), parts[1:-1],
                 path="/".join(parts[:-1]) or s["category"], file=s["file"])
-    _INNER.clear()
-    _INNER[key] = out
     return out
 
 

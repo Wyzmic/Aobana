@@ -202,7 +202,7 @@
     function mediaSortLabel(v) { return t('media_sort_' + v); }
     let mediaPartsVary = true;
     let mediaGen = 0, mediaCtrl = null, mediaOffset = 0, mediaHasMore = false, mediaBusy = false;
-    let mediaMoreObserver = null, mediaFilterTimer = null;
+    let mediaMoreObserver = null, mediaFilterTimer = null, mediaInnerTimer = null;
     let mediaListMode = store.get('mediaListMode') === 'content' ? 'content' : 'title';
     let mediaHitsQ = '';
     const mediaHitRows = new Map();
@@ -229,21 +229,21 @@
       });
     }
 
-    function mediaRowHtml(it) {
+    function mediaRowHtml(it, mark = '') {
       const p = new URLSearchParams({ tab: 'media', folder: it.folder, media: it.media });
       // A Custom category of one file under its own name opens the file
       const href = it.file ? customUrl(it.folder, '', it.file) : '/?' + p.toString();
       return `<a class="media-row" href="${esc(href)}" draggable="false">
           <span class="media-kind ${it.media}">${esc(t('kind_' + it.media))}</span>
           <span class="media-names">
-            <div class="media-name">${esc(it.folder)}</div>
-            ${it.author ? `<div class="media-author">${esc(it.author)}</div>` : ''}
+            <div class="media-name">${markTitle(it.folder, mark)}</div>
+            ${it.author ? `<div class="media-author">${markTitle(it.author, mark)}</div>` : ''}
           </span>
           <span class="media-stats">${statPills(it)}</span>
         </a>`;
     }
 
-    function mediaInnerHtml(it) {
+    function mediaInnerHtml(it, mark = '') {
       const href = it.media === 'custom' ? customUrl(it.folder, it.path, it.inner === 'file' ? it.file : undefined)
         : '/?' + new URLSearchParams({ tab: 'media', folder: it.folder, media: it.media, at_file: it.file });
       // The work's name leads an episode's or chapter's title; the line under it names the work
@@ -252,16 +252,17 @@
       return `<a class="media-row media-inner" href="${esc(href)}" data-key="${esc(['inner', it.media, it.inner, it.path || it.file].join(':'))}" draggable="false">
           <span class="media-kind ${it.media}">${esc(t('kind_' + it.media))}</span>
           <span class="media-names">
-            <div class="media-name">${esc(name || it.title)}</div>
-            <div class="media-author">${esc([it.folder, ...it.trail].join(' › '))}</div>
+            <div class="media-name">${markTitle(name || it.title, mark)}</div>
+            <div class="media-author">${markTitle([it.folder, ...it.trail].join(' › '), mark)}</div>
           </span>
           ${it.inner === 'folder' ? `<span class="media-stats"><span class="stat-pill">${esc(t('custom_folder'))}</span></span>` : ''}
         </a>`;
     }
 
-    async function loadMediaPage(reset) {
+    async function loadMediaPage(reset, quiet) {
       if (reset) {
         mediaGen++;
+        clearTimeout(mediaInnerTimer);
         if (mediaCtrl) mediaCtrl.abort();
         cancelServerSearch(0);
         stopSearchEta();
@@ -278,7 +279,8 @@
         offset: String(mediaOffset), limit: MEDIA_PAGE, sort: mediaSort() });
       const listEl = document.getElementById('media-list');
       const moreEl = document.getElementById('media-more');
-      if (!mediaOffset && !listEl.firstElementChild) {
+      // Not while asking again for the names inside the works: the wait line stays (it flickered)
+      if (!quiet && !mediaOffset && !listEl.firstElementChild) {
         listEl.innerHTML = `<div class="status-line" style="padding:2em;text-align:center;">${esc(t('loading'))}</div>`;
       }
       let data;
@@ -306,17 +308,31 @@
       if (!mediaOffset && !!data.parts_vary !== mediaPartsVary) { mediaPartsVary = !!data.parts_vary; initMediaSort(); }
       const head = `<div class="media-inner-head">${esc(t('media_inner_head'))}</div>`;
       const html = data.items.map((it, i) => (mediaOffset + i === data.works && it.inner ? head : '')
-        + (it.inner ? mediaInnerHtml(it) : mediaRowHtml(it))).join('');
+        + (it.inner ? mediaInnerHtml(it, needle) : mediaRowHtml(it, needle))).join('');
+      const none = `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
       if (!mediaOffset) {
-        listEl.hidden = false;
-        listEl.innerHTML = html || `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
-      } else {
+        listEl.hidden = !html && !!data.inner_pending;
+        // Nothing found is said only once the names inside the works are searched too
+        listEl.innerHTML = html || (data.inner_pending ? '' : none);
+      } else if (html) {
         listEl.insertAdjacentHTML('beforeend', html);
+      } else if (!listEl.firstElementChild && !data.inner_pending) {
+        listEl.innerHTML = none;
       }
       mediaOffset += data.items.length;
       mediaHasMore = data.has_more;
       moreEl.textContent = mediaHasMore ? t('loading') : '';
       if (mediaHasMore && !mediaRestoring) watchMediaEnd();
+      showMediaInnerWait(data, gen);
+    }
+
+    function showMediaInnerWait(data, gen) {
+      clearTimeout(mediaInnerTimer);
+      if (!data.inner_pending || mediaHasMore) return;
+      const left = data.inner_pending.remaining;
+      document.getElementById('media-more').innerHTML = `<div class="status-line" style="padding:1em;text-align:center;">${esc(t('media_inner_preparing'))}` +
+        (left == null ? '' : `<div class="load-eta">${esc(fmtEta(left))}</div>`) + '</div>';
+      mediaInnerTimer = setTimeout(() => { if (gen === mediaGen && !mediaBusy) loadMediaPage(false, true); }, 1500);
     }
 
     function showMediaSummary(data) {
@@ -800,7 +816,7 @@
         document.getElementById('results').innerHTML = `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
         return;
       }
-      renderEpisodesList(matched, true);
+      renderEpisodesList(matched, rawNeedle.trim());
     }
 
     function onMediaDetailContentInput(input) {
@@ -975,10 +991,10 @@
       }
     }
 
-    function episodeHeaderHTML(item) {
+    function episodeHeaderHTML(item, mark = '') {
       const safeFile = encodeURIComponent(item.file);
       return `<div class="episode-header" data-file="${safeFile}" onclick="expandEpisode(this)">
-                    <div class="episode-title">${esc(item.title)}</div>
+                    <div class="episode-title">${markTitle(item.title, mark)}</div>
                     ${item.lines === 0 ? `<span class="muted">${esc(t('media_no_dialogue'))}</span>` : ''}
                     ${mediaDetailMedia === 'epub' ? '' : revealIconHTML(mediaDetailMedia, item.file)}
                     <div class="episode-toggle-icon">▼</div>
@@ -987,11 +1003,13 @@
 
     function renderEpisodesList(filesList, filtering = false) {
       const resultsContainer = document.getElementById('results');
+      // `filtering` is the title filter's text when one is typed, marked in each title
+      const mark = typeof filtering === 'string' ? filtering : '';
       function episodeHTML(item) {
          const fileHash = btoa(unescape(encodeURIComponent(item.file))).substring(0, 32).replace(/=/g, '');
          return `
             <div class="card episode-card collapsed" id="ep-card-${fileHash}">
-                ${episodeHeaderHTML(item)}
+                ${episodeHeaderHTML(item, mark)}
                 <div class="episode-content"></div>
             </div>`;
       }

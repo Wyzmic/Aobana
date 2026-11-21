@@ -13,11 +13,11 @@ Python on Windows, `python/lib/python3.14/LICENSE.txt` on macOS and Linux, and e
 | SudachiPy | 0.6.11 | Apache License 2.0 | © Works Applications Co., Ltd. |
 | SudachiDict-core | 20260723 | Apache License 2.0 | © Works Applications Co., Ltd. |
 | Flask | 3.1.3 | BSD-3-Clause | © 2010 Pallets |
-| Werkzeug | 3.1.8 | BSD-3-Clause | © 2007 Pallets |
+| Werkzeug | 3.1.9 | BSD-3-Clause | © 2007 Pallets |
 | Jinja2 | 3.1.6 | BSD-3-Clause | © 2007 Pallets |
-| MarkupSafe | 3.0.3 | BSD-3-Clause | © 2010 Pallets |
+| MarkupSafe | 3.0.4 | BSD-3-Clause | © 2010 Pallets |
 | itsdangerous | 2.2.0 | BSD-3-Clause | © 2011 Pallets |
-| click | 8.5.0 | BSD-3-Clause | © 2014 Pallets |
+| click | 8.5.1 | BSD-3-Clause | © 2014 Pallets |
 | blinker | 1.9.0 | MIT | © 2010 Jason Kirtland |
 | Beautiful Soup | 4.15.0 | MIT | © Leonard Richardson |
 | soupsieve | 2.9.2 | MIT | © 2018–2026 Isaac Muse |

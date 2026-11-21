@@ -1,7 +1,7 @@
     const I18N = {
       ja: {
         media_custom: 'カスタム', kind_custom: 'カスタム', media_summary_custom: '{n} カテゴリ',
-        custom_files: '{n} ファイル', custom_folder: 'フォルダ', custom_file: 'ファイル',
+        custom_files: '{n} ファイル', custom_folder: 'フォルダ', custom_file: 'ファイル', custom_files_head: 'フォルダの中',
         path_back: '戻る', path_forward: '進む', path_label: '場所',
         custom_filter: 'このフォルダ内を検索', custom_filter_file: 'このファイルの見出しを検索', custom_more: '続きを表示',
         an_apply_all: 'おすすめをまとめて適用', an_apply: '適用', an_unapply: '適用を取り消す', an_unapply_all: 'まとめた適用を取り消す', an_choice_none: '未選択', an_choice_all: '全て残す', an_recommended_tag: '（おすすめ）', an_not_same_tag: '（ほかと内容が違う）', an_recommended: 'おすすめの残すファイル', an_match_keeper: '残すファイルと {pct}% 同じ内容', an_left_out_on_save: '保存すると外す', an_keeper: '残すファイル', an_reciprocal: "台詞の一致: このファイルの {a}% · 残すファイルの {b}%", an_saved_exclusion: '外したファイル（保存済み）', an_subplz_rule: 'SubPlz の選択ルール', an_bytes_rule: '同一のファイル内容', an_match_rule: "台詞が双方で 90% 以上一致", an_book_rule: '文が双方で 50% 以上一致', an_reciprocal_book: "文の一致: この本の {a}% · 残す本の {b}%", an_apply_failed: 'ファイルや点検結果が変わった可能性があります。もう一度点検してください。', an_repair_summary: '読み直しが必要な字幕: {n} 件', an_repair: '次回の対象にする', an_repair_override: "壊れた ASS の書式指定を無視: {tag}", an_repair_encoding: "文字コード {e}", an_repair_dot_time: "時刻のミリ秒がピリオド区切り", an_repair_ass_srt: "中身が ASS の .srt ファイル", an_repair_native: "ルビをふりがなとして表示", an_repair_garbled: "文字化けした台詞を正しい文字で表示", an_repair_text: "台詞を今の規則で読み直す", an_repair_lines: "{n} 行をインデックス（現在 {now} 行）", an_pending_lead: "次に「インデックス作成」を押したとき、これらの字幕を読み直してインデックスを更新します。", an_pending_title: "次回読み直す字幕 ({n})", an_reason_no_japanese: '日本語の行なし', an_reason_unsupported: "字幕として認識できない形式", an_reason_html_error: '字幕ではない HTML ファイル',
@@ -114,7 +114,7 @@
         empty_btn: 'ライブラリを開く',
         no_saved: 'お気に入りはまだありません。例文の ★ を押すと、ここに保存されます。',
         saved_count: '{n} 件',
-        media_summary_subs: '{n} 作品', media_summary_epub: '{n} 冊', media_summary_manga: '{n} シリーズ', media_filter: 'タイトル・著者で絞り込み', media_inner_head: '作品の中',
+        media_summary_subs: '{n} 作品', media_summary_epub: '{n} 冊', media_summary_manga: '{n} シリーズ', media_filter: 'タイトル・著者で絞り込み', media_inner_head: '作品の中', media_inner_preparing: '作品の中の名前を準備しています…',
         media_summary_total: '合計 {n} 件',media_preparing: 'メディア一覧を準備しています',
         media_sort_title: '並べ替え', media_sort_name: 'タイトル順', media_sort_parts_desc: '収録数の多い順', media_sort_parts_asc: '収録数の少ない順',
         media_sort_lines_desc: '行数の多い順', media_sort_lines_asc: '行数の少ない順', media_sort_default: '標準',
@@ -398,7 +398,7 @@
       },
       en: {
         media_custom: 'Custom', kind_custom: 'Custom', media_summary_custom: '{n} {n|category|categories}',
-        custom_files: '{n} {n|file|files}', custom_folder: 'Folder', custom_file: 'File',
+        custom_files: '{n} {n|file|files}', custom_folder: 'Folder', custom_file: 'File', custom_files_head: 'Inside the folders',
         path_back: 'Back', path_forward: 'Forward', path_label: 'Location',
         custom_filter: 'Search this folder', custom_filter_file: "Search this file's headings", custom_more: 'Show more',
         an_apply_all: 'Apply all recommendations', an_apply: 'Apply', an_unapply: 'Undo', an_unapply_all: 'Undo apply all', an_choice_none: 'Not chosen', an_choice_all: 'Keep all', an_recommended_tag: '(recommended)', an_not_same_tag: '(differs from the others)', an_recommended: 'Recommended to keep', an_match_keeper: '{pct}% the same as the kept file', an_left_out_on_save: 'Left out on save', an_keeper: 'File to keep', an_reciprocal: "Same lines: {a}% of this file · {b}% of the kept one", an_saved_exclusion: 'Left out (saved)', an_subplz_rule: 'SubPlz selection rule', an_bytes_rule: 'Identical file content', an_match_rule: "At least 90% of the lines match, both ways", an_book_rule: 'At least 50% of the sentences match, both ways', an_reciprocal_book: "Same sentences: {a}% of this book · {b}% of the kept one", an_apply_failed: 'The files or check results may have changed. Check the library again.', an_repair_summary: "Subtitles to read again: {n}", an_repair: 'Add to next index', an_repair_override: "Ignored a malformed ASS tag: {tag}", an_repair_encoding: "Encoding {e}", an_repair_dot_time: "Timecodes with a dot before the milliseconds", an_repair_ass_srt: "ASS content in an .srt file", an_repair_native: "Ruby will show as furigana", an_repair_garbled: "Garbled lines will show the right characters", an_repair_text: "Lines will be read by today's rules", an_repair_lines: "Indexes {n} {n|line|lines} (now {now})", an_pending_lead: "The next time you press \"Index library\", these subtitles are read again and their index is updated.", an_pending_title: "Subtitles to read at the next index ({n})", an_reason_no_japanese: 'No Japanese lines', an_reason_unsupported: 'Unrecognized format', an_reason_html_error: "HTML page, not subtitles",
@@ -511,7 +511,7 @@
         empty_btn: 'Open Library',
         no_saved: 'No favorites yet. Press ★ on a sentence to save it here.',
         saved_count: '{n} saved',
-        media_summary_subs: '{n} {n|show|shows}', media_summary_epub: '{n} {n|book|books}', media_summary_manga: '{n} manga {n|series|series}', media_filter: 'Filter by title or author', media_inner_head: 'Inside the works',
+        media_summary_subs: '{n} {n|show|shows}', media_summary_epub: '{n} {n|book|books}', media_summary_manga: '{n} manga {n|series|series}', media_filter: 'Filter by title or author', media_inner_head: 'Inside the works', media_inner_preparing: 'Preparing the names inside the works...',
         media_summary_total: '{n} in all',media_preparing: 'Preparing the media list',
         media_sort_title: 'Sort', media_sort_name: 'Title', media_sort_parts_desc: 'Most entries', media_sort_parts_asc: 'Fewest entries',
         media_sort_lines_desc: 'Most lines', media_sort_lines_asc: 'Fewest lines', media_sort_default: 'Default',

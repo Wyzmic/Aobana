@@ -29,7 +29,7 @@ DATA_FOLDER = "data"
 DB_NAMES = ("subs.db", "epub.db", "manga.db", "custom.db")
 DB_COMPANION_DBS = ("search_cache.db", "analysis.db")
 DB_COMPANIONS = ("filtered.tsv", "analysis.json", "analysis.view.jsonl", "analysis-attempt.json", "estimate.json",
-                 "media_cache.json", "library_summary.json", "library_figures.json",
+                 "media_cache.json", "media_inner.json.gz", "library_summary.json", "library_figures.json",
                  "settings_snapshot.json", ".index_run.json", ".index.stop", ".check.stop",
                  "pending-reindex.json", "pending-reindex.json.writer.lock",
                  "pending-reindex.json.bad", "filtered.tsv.epub-pending", ".index-runs")
@@ -489,10 +489,24 @@ def folder_key(path):
 def folders_overlap(a, b):
     a, b = folder_key(a), folder_key(b)
     try:
-        common = os.path.commonpath((a, b))
+        if os.path.commonpath((a, b)) in (a, b):
+            return True
     except ValueError:
-        return False
-    return common in (a, b)
+        pass
+    return _holds(a, b) or _holds(b, a)
+
+
+def _holds(outer, inner):
+    while True:
+        try:
+            if os.path.samefile(outer, inner):
+                return True
+        except OSError:
+            pass
+        parent = os.path.dirname(inner)
+        if parent == inner:
+            return False
+        inner = parent
 
 
 def set_roots(kind, cfg):

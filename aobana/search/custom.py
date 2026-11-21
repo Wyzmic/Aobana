@@ -278,6 +278,8 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
 
     def below(item):
         return not path or item['path'].startswith(path + '/') or (item['category'] == path and '/' not in item['path'])
+    def relative_title(item):
+        return format_custom_title(item['path'][len(path) + 1:] if path and item['path'].startswith(path + '/') else item['path'])
     scoped = [s for s in sources if below(s) and not metadata.get(s['relpath'], {}).get('folder_page')]
     introduction = next((s for s in scoped if metadata.get(s['relpath'], {}).get('paired_folder') == path), None)
     rows, hl = [], None
@@ -293,7 +295,18 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             rows.append(item)
     elif needle:
         folded = fold_title_filter(needle)
-        rows = [s for s in scoped if folded in fold_title_filter(s['title'])]
+        # As the Media list's works and the names inside them: the folders whose own name matches,
+        # then the files whose own name does; a matching folder stands for every file in it
+        for child in conn.execute('SELECT * FROM custom_folders WHERE files > 0 AND path != ? ORDER BY order_key, path', (path,)):
+            child = dict(child)
+            if (path and not child['path'].startswith(path + '/')) or folded not in fold_title_filter(child['name']):
+                continue
+            # A folder of one file under its own name is that file, as when browsing
+            if child['files'] == 1 and lone_file(sources, child['path']) is not None:
+                continue
+            rows.append(dict(child, type='folder', title=child['name'],
+                             relative_title='｜'.join(child['path'][len(path) + 1 if path else 0:].split('/'))))
+        rows.extend(s for s in scoped if folded in fold_title_filter(relative_title(s).rpartition('｜')[2]))
     else:
         for child in conn.execute('SELECT * FROM custom_folders WHERE parent = ? AND path != ? ORDER BY order_key, name', (path, path)):
             child = dict(child)
@@ -312,7 +325,8 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
         if path and '/' not in path and not any(s['kind'] == 'md' for s in scoped):
             rows.sort(key=lambda r: get_sort_key(r['title']))
     if mode != 'content' and sort in FOLDER_SORTS:
-        rows.sort(key=FOLDER_SORTS[sort])
+        # A title search keeps its folders above its files, each sorted
+        rows.sort(key=lambda r: (bool(needle) and r['type'] != 'folder', FOLDER_SORTS[sort](r)))
     # The 収録数 sorts are offered only where they reorder something: two counts or more in the list
     parts_vary = mode != 'content' and len({FOLDER_SORTS['parts_asc'](r) for r in rows}) > 1
     page = rows[offset:offset + limit]
@@ -321,11 +335,11 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
         # Only the page's hits are drawn: 21,394 hits took 5.8 s, all but 500 thrown away
         if hl is not None:
             decorate_result(item, conn, hl, lines)
-        if needle:
-            relative = item['path'][len(path) + 1:] if path and item['path'].startswith(path + '/') else item['path']
-            item['relative_title'] = format_custom_title(relative)
+        if needle and 'relative_title' not in item:
+            item['relative_title'] = relative_title(item)
     return {'path': path, 'parent': path.rpartition('/')[0], 'folder': dict(folder),
             'items': page, 'total': len(rows), 'has_more': offset + limit < len(rows), 'parts_vary': parts_vary,
+            'folders': sum(r['type'] == 'folder' for r in rows) if needle and mode != 'content' else 0,
             'page': file_page(conn, introduction['file']) if introduction and not needle else None}
 
 

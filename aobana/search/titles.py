@@ -647,12 +647,41 @@ def load_book_authors(db_epub):
     global GLOBAL_BOOK_AUTHORS
     if db_epub is not None and not GLOBAL_BOOK_AUTHORS:
         try:
-            cur = db_epub.execute("SELECT title, author FROM sources")
-            for r in cur:
-                if r["title"] and r["author"]:
-                    GLOBAL_BOOK_AUTHORS[r["title"]] = r["author"]
+            # By place, not r["title"]: the Media warm-up's connections have no row factory, and its
+            # titles were cached without their authors
+            for title, author in db_epub.execute("SELECT title, author FROM sources"):
+                if title and author:
+                    GLOBAL_BOOK_AUTHORS[title] = author
         except Exception:
             pass
+
+GLOBAL_BOOK_HEADS = {}
+
+
+def _book_head(head):
+    if head in GLOBAL_BOOK_HEADS:
+        return GLOBAL_BOOK_HEADS[head]
+    from aobana import utils
+    book_title = head
+    author = GLOBAL_BOOK_AUTHORS.get(book_title, "")
+    if not author:
+        m = re.match(r'^\[(.*?)\]\s*(.*)$', book_title)
+        if m:
+            author = m.group(1).strip()
+            book_title = m.group(2).strip()
+
+    book_title = utils.clean_book_title(book_title)
+    book_title = utils.convert_hw_katakana(book_title)
+    for old, new in utils.EPUB_STR_REPLACEMENTS:
+        book_title = book_title.replace(old, new)
+
+    if author:
+        author = utils.convert_hw_katakana(author)
+        for old, new in utils.EPUB_STR_REPLACEMENTS:
+            author = author.replace(old, new)
+    GLOBAL_BOOK_HEADS[head] = (author, book_title)
+    return author, book_title
+
 
 def format_book_title(file_key, db_epub=None):
     if file_key in GLOBAL_BOOK_TITLES:
@@ -660,36 +689,20 @@ def format_book_title(file_key, db_epub=None):
     load_book_authors(db_epub)
     from aobana import utils
     parts = re.split(r"[\\/]", file_key)
-    book_title = parts[0]
     ch_part = parts[1] if len(parts) > 1 else ""
-    
+
     ch_num = re.match(r'^(\d+)\.', ch_part)
     ch_clean = re.sub(r'^\d+\.', '', ch_part).strip()
     raw_head = re.match(r'^([^｜]+)｜(.+)$', ch_clean)
     if raw_head and utils.BOOK_RAW_FILE_CH_RE.search(raw_head.group(1)):
         ch_clean = raw_head.group(2).strip()
 
-    author = GLOBAL_BOOK_AUTHORS.get(book_title, "")
-    if not author:
-        m = re.match(r'^\[(.*?)\]\s*(.*)$', book_title)
-        if m:
-            author = m.group(1).strip()
-            book_title = m.group(2).strip()
-            
-    book_title = utils.clean_book_title(book_title)
-    book_title = utils.convert_hw_katakana(book_title)
-    for old, new in utils.EPUB_STR_REPLACEMENTS:
-        book_title = book_title.replace(old, new)
-        
+    author, book_title = _book_head(parts[0])
+
     if ch_clean:
         ch_clean = utils.convert_hw_katakana(ch_clean)
         for old, new in utils.EPUB_STR_REPLACEMENTS:
             ch_clean = ch_clean.replace(old, new)
-            
-    if author:
-        author = utils.convert_hw_katakana(author)
-        for old, new in utils.EPUB_STR_REPLACEMENTS:
-            author = author.replace(old, new)
 
     if utils.BOOK_RAW_FILE_CH_RE.search(ch_clean):
         ch_clean = str(int(ch_num.group(1))) if ch_num else ''

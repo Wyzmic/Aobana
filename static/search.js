@@ -411,7 +411,7 @@
       return `
           <li>
             <a href="#" data-folder="${esc(f)}" class="folder-link ${isSelected}" draggable="false">
-              <span class="folder-name">${esc(f)}</span>
+              <span class="folder-name">${markTitle(f, document.getElementById('folder-filter')?.value)}</span>
               ${PARAMS.get('q') && hasCount ? `<span class="count-badge">${fmt(count)}</span>` : ''}
             </a>
           </li>`;
@@ -464,6 +464,30 @@
     function foldTitleFilter(text) {
       return (text || '').normalize('NFKC').replace(/[ァ-ヶ]/g,
         c => String.fromCharCode(c.charCodeAt(0) - 0x60)).toLowerCase();
+    }
+
+    function markTitle(text, needle) {
+      text = text || '';
+      const want = foldTitleFilter((needle || '').trim());
+      if (!want) return esc(text);
+      const chars = text.match(/[\s\S][ﾞﾟ\p{M}]*/gu) || [];
+      const from = [];
+      let folded = '';
+      chars.forEach((c, i) => {
+        const f = foldTitleFilter(c);
+        folded += f;
+        for (let k = 0; k < f.length; k++) from.push(i);
+      });
+      const marked = new Array(chars.length).fill(false);
+      for (let at = folded.indexOf(want); at >= 0; at = folded.indexOf(want, at + want.length)) {
+        for (let k = at; k < at + want.length; k++) marked[from[k]] = true;
+      }
+      let html = '', open = false;
+      chars.forEach((c, i) => {
+        if (marked[i] !== open) { html += open ? '</mark>' : '<mark>'; open = marked[i]; }
+        html += esc(c);
+      });
+      return open ? html + '</mark>' : html;
     }
 
     function drawSidebar() {

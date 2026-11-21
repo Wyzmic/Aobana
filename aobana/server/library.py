@@ -1512,7 +1512,7 @@ def _log(state, text):
 def _clear_stale_for_rebuild():
     from aobana.search import result_cache
     result_cache.clear_result_cache()
-    for name in ("media_cache.json", "library_summary.json", "library_figures.json", "estimate.json"):
+    for name in ("media_cache.json", "media_inner.json.gz", "library_summary.json", "library_figures.json", "estimate.json"):
         try:
             os.remove(_beside_db(name))
         except OSError:
