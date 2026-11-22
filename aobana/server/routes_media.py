@@ -36,7 +36,7 @@ def api_custom_folder():
     if conn is None:
         return jsonify({'items': [], 'total': 0, 'has_more': False})
     args = request.args
-    # The query as /api/search reads it: `ー` the minus, `- ない` one word, 者 (U+FA5B) as 者 (audit 13, A13-01)
+    # The query as /api/search reads it: `ー` the minus, `- ない` one word, 者 (U+FA5B) as 者
     q = server.fold_compat(server.normalize_query(args.get('q', '')))
     return _media_request(conn, lambda stop: folder_page(
         conn, args.get('path', ''), q, args.get('mode', 'title'),

@@ -3,7 +3,7 @@ import re
 import unicodedata
 
 from aobana import paths
-from aobana.utils import BOOK_RUBY_RE, katakana_to_hiragana, ruby_merge_key, ruby_table
+from aobana.utils import BOOK_RUBY_RE, katakana_to_hiragana, ruby_merge_key, ruby_table, sudachi_pieces
 from aobana.search.reading import fold_small, kanji_readings
 from aobana.search.furigana import _sudachi_reading, tagger
 
@@ -194,8 +194,11 @@ def unfuse(text, dicts=FROZEN):
     ms = list(candidates(text))
     if not ms:
         return text, []
+    bounds, offset = set(), 0
     with tagger() as (tok, mode):
-        bounds = {t.begin() for t in tok.tokenize(text, mode)}
+        for piece in sudachi_pieces(text):
+            bounds |= {offset + t.begin() for t in tok.tokenize(piece, mode)}
+            offset += len(piece)
     found, edits = [], []
     for m in ms:
         got = _sets(text, m, bounds, dicts)

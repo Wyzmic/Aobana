@@ -1152,6 +1152,33 @@ def is_tautological_chapter(ch_title: str, sentences: list) -> bool:
     return False
 
 
+TITLE_ONLY_MAX_LINES = 6
+_TITLE_FOLD_NOISE_RE = re.compile(r'[^\w぀-ゟァ-ヺー-ヿ㐀-鿿]+')
+_NON_DIVIDER_SYMBOL_RE = re.compile(r'[！？!?+=*/<>]')
+
+
+def _title_folds(text: str) -> set:
+    bare = drawn_gloss_text(strip_ruby_markup(text or '')).replace('｜', '').replace('|', '')
+    return {_TITLE_FOLD_NOISE_RE.sub('', unicodedata.normalize('NFKC', t)).casefold() for t in (bare, text or '')} - {''}
+
+
+def drop_title_only_dividers(title, chapters):
+    kept = []
+    for i, chapter in enumerate(chapters):
+        name, lines = chapter['chapter_title'], chapter['sentences']
+        after = chapters[i + 1]['chapter_title'] if i + 1 < len(chapters) else ''
+        if (lines and len(lines) <= TITLE_ONLY_MAX_LINES and after.startswith(name + '｜')
+                and sum(line.count('。') for line in lines) <= max(1, name.count('。'))
+                and not any(not _title_folds(line) and _NON_DIVIDER_SYMBOL_RE.search(line) for line in lines)):
+            if _title_folds(''.join(lines)) & (_title_folds(name.split('｜')[-1]) | _title_folds(name)):
+                _EXCLUDED_LOG.append((title, "TITLE_ONLY_DIVIDER", name))
+                continue
+        kept.append(chapter)
+    for n, chapter in enumerate(kept, 1):
+        chapter['order_idx'] = n
+    return kept
+
+
 CHAPTER_LEVEL_RE = re.compile(
     r'^(?:(?:第\s*)?[0-9０-９一二三四五六七八九十百千]+\s*章|Chapter\s*\S+|'
     r'序章|終章|プロローグ|エピローグ|間章|幕間)', re.IGNORECASE)
@@ -1661,6 +1688,7 @@ def extract_epub_content(epub_path):
                 chapter['chapter_title'] = name
         except Exception:
             pass
+        chapters_data = drop_title_only_dividers(title, chapters_data)
         try:
             folders = index_folders(zf, opf, content_dir, spine_files, title, chapters_data)
         except Exception:
@@ -1711,10 +1739,12 @@ def book_rows(title, chapters_data):
             if i % 128 == 0:
                 control.check_stop()
             clean_text = fold_compat(get_clean_text_for_mecab(line))
-            base_forms, readings, lens = analyze_tokens(drawn_gloss_text(clean_text))
+            spans = _drawn_glosses(clean_text)
+            base_forms, readings, lens = analyze_tokens(_strip_drawn_gloss_spans(clean_text, spans))
 
             base_forms, readings = ruby_index_extras(line, BOOK_RUBY_RE, base_forms, readings)
-            base_forms, readings = ruby_index_extras(drawn_gloss_ruby(clean_text), BOOK_RUBY_RE, base_forms, readings)
+            if spans:
+                base_forms, readings = ruby_index_extras(_format_drawn_gloss_ruby(spans), BOOK_RUBY_RE, base_forms, readings)
 
             rows.append((file_key, line, clean_text, base_forms, readings, lens))
     return rows
@@ -1734,8 +1764,7 @@ def _drawn_glosses(clean_text):
     return out
 
 
-def drawn_gloss_text(clean_text):
-    spans = _drawn_glosses(clean_text)
+def _strip_drawn_gloss_spans(clean_text, spans):
     if not spans:
         return clean_text
     out, at = [], 0
@@ -1746,8 +1775,16 @@ def drawn_gloss_text(clean_text):
     return ''.join(out)
 
 
+def _format_drawn_gloss_ruby(spans):
+    return ''.join(f'｜{base}({re.sub(r"[ 　]", "", kana)})' for _, _, base, kana in spans)
+
+
+def drawn_gloss_text(clean_text):
+    return _strip_drawn_gloss_spans(clean_text, _drawn_glosses(clean_text))
+
+
 def drawn_gloss_ruby(clean_text):
-    return ''.join(f'｜{base}({re.sub(r"[ 　]", "", kana)})' for _, _, base, kana in _drawn_glosses(clean_text))
+    return _format_drawn_gloss_ruby(_drawn_glosses(clean_text))
 
 
 def _prepare(job):
@@ -1830,10 +1867,18 @@ def _recover_auto_filter_journal(conn):
     path = _auto_filter_journal()
     if not os.path.isfile(path):
         return
-    with open(path, encoding="utf-8") as fh:
-        rows = json.load(fh)
-    if not isinstance(rows, list):
-        raise ValueError("Invalid pending EPUB filter journal")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            rows = json.load(fh)
+        if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
+            raise ValueError("Invalid pending EPUB filter journal")
+    except (ValueError, TypeError) as error:
+        try:
+            os.replace(path, path + ".bad")
+        except OSError:
+            pass
+        say(f"PENDING_EPUB_FILTER_DROPPED {os.path.basename(path)}: unreadable ({error})")
+        return
     committed = []
     for row in rows:
         name = row.get("name", "")
@@ -2030,7 +2075,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                 continue
             current_disk_files.add(key)
             stat_of[relpath] = file_stat(epub_path)
-            jobs.append((epub_path, relpath, known_hash(existing_files.get(key, {}).get('hash'), existing_files.get(key, {}).get('stat'), epub_path)))
+            jobs.append((epub_path, relpath, known_hash(existing_files.get(key, {}).get('hash'), existing_files.get(key, {}).get('stat'), epub_path, stat_of[relpath])))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -2098,18 +2143,7 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
             if not meta_written:
                 write_tokenizer_meta(conn, 1)
                 meta_written = True
-            if old:
-                source_id = old['id']
-                replaced.append((source_id, old_spans(source_id)))
-                conn.execute("UPDATE sources SET relpath = ?, file_hash = ?, indexed_at = ?, index_format = ? WHERE id = ?",
-                             (relpath, file_hash, datetime.now().isoformat(' '), INDEX_FORMAT['epub'], source_id))
-            else:
-                cur = conn.execute("INSERT INTO sources (relpath, file_hash, title, author, index_format) VALUES (?, ?, '', '', ?)",
-                                   (relpath, file_hash, INDEX_FORMAT['epub']))
-                source_id = cur.lastrowid
-            conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?", (*stat_of[relpath], source_id))
-
-            new_or_updated += 1
+            source_id = old['id'] if old else None
             held = _HeldTitles(title_ids, source_id)
             distinct = distinct_book_title(title, relpath, author, held)
             if distinct != title:
@@ -2117,10 +2151,18 @@ def run_epub_indexer(force=False, outdated=False, allow_removal=False, rebuild=F
                 rows = [(distinct + r[0][cut:],) + tuple(r[1:]) for r in rows]
                 folders = {distinct + k[cut:]: v for k, v in folders.items()}
                 title = distinct
+            if old:
+                replaced.append((source_id, old_spans(source_id)))
+                conn.execute("UPDATE sources SET relpath = ?, file_hash = ?, title = ?, author = ?, indexed_at = ?, index_format = ?, file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                             (relpath, file_hash, title, author, datetime.now().isoformat(' '), INDEX_FORMAT['epub'], *stat_of[relpath], source_id))
+            else:
+                cur = conn.execute("INSERT INTO sources (relpath, file_hash, title, author, index_format, file_size, file_mtime_ns) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                   (relpath, file_hash, title, author, INDEX_FORMAT['epub'], *stat_of[relpath]))
+                source_id = cur.lastrowid
+            new_or_updated += 1
             title_ids[id_title.get(source_id)].discard(source_id)
             title_ids[title].add(source_id)
             id_title[source_id] = title
-            conn.execute("UPDATE sources SET title = ?, author = ? WHERE id = ?", (title, author, source_id))
             inserted_rows += conn.executemany(
                 "INSERT INTO epubs(rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?);",
                 [(next_rowid + i, source_id) + r[:5] for i, r in enumerate(rows)]

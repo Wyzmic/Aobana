@@ -240,6 +240,8 @@ def fts_query_error(error) -> bool:
 
 
 def ruby_index_extras(line: str, regex, base_forms: str, readings: str):
+    if '(' not in line:
+        return base_forms, readings
     line = fold_compat(line)
     matches = [m for m in regex.finditer(line) if len(m.group(3).strip()) >= 2]
     if not matches:
@@ -1514,9 +1516,9 @@ def stored_display_length(line, media):
             return None
         processed = line
     elif media == "manga":
-        processed = BOOK_RUBY_RE.sub(r'\1\2', line)
+        processed = BOOK_RUBY_RE.sub(r'\1\2', line) if '(' in line else line
     else:
-        processed = RUBY_RE.sub(r'\1\2', line)
+        processed = RUBY_RE.sub(r'\1\2', line) if '(' in line else line
     return len(DISPLAY_NONWORD_RE.sub('', DISPLAY_PUNCT_RE.sub('', processed)))
 
 

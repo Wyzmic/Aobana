@@ -29,6 +29,7 @@ and offer the release page, or download an update when you choose to update.
 - **Known words and i+1:** load the words you already know under **Known words** in the Settings tab: a list with one word per line, an Anki export, a Jiten or Migaku export, or your Anki decks through Aobana Reibun 1.2 or later. Then **i+1 first** or **i+1 only** puts forward the sentences where the word you searched is the only one you do not know, and each result shows how many of its words you know.
 - **Furigana:** readings above Japanese text, from the author's own ruby where the book has it. One click turns it off.
 - **Context:** open the lines around any sentence, or open it in the Media tab and read the whole episode or chapter in order. The Media tab's **Content** searches the lines of every work it lists, and **Titles** finds the works and the episodes, chapters and files inside them by name, the match in bold. **Open folder** shows where a file is on your computer.
+- **Reading mode:** open any show, book or manga in the Media tab to read from the original file (`.srt`, `.ass`, `.ssa`, `.epub`, `.mokuro`). Vertical or horizontal text, by page or scrolling, with furigana, themes, a bookmark and your place kept in each work; manga shows the page images with the OCR text on top, one page at a time or as a vertical strip.
 - **Copy for Anki:** copy any sentence with its furigana and the searched word in bold, ready to paste into a card.
 - **Favorites, sorting and filters:** save sentences; sort them by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
 - **Japanese and English UI**, four themes, keyboard shortcuts.
@@ -46,6 +47,10 @@ Searching subtitles for 構う with **i+1 first**: the sentences where 構う is
 The Media tab: a show's episodes by season, one opened to read its lines in order, in the Night theme:
 
 ![The Media tab with an episode open, in the Night theme](assets/media-night.en.png)
+
+Reading mode: a book read from the original EPUB in vertical text, paginated, in the Sepia theme:
+
+![Reading mode with a vertical book open, in the Sepia theme](assets/reader-sepia.en.png)
 
 ## Install (Windows 10 / 11, 64-bit)
 1. Download `Aobana-Setup-<version>.exe` from the [latest release](https://github.com/Wyzmic/Aobana/releases/latest) and run it. It is not code-signed, so Windows SmartScreen may say *"Windows protected your PC"*: click **More info**, then **Run anyway**.
@@ -97,7 +102,7 @@ Aobana runs in a terminal window; close the window to quit. Your library goes in
    **Check library**, in the same tab, lists copies of the same episode or book with one recommended to keep, files that aren't in Japanese, subtitles that aren't UTF-8 (which it can convert, keeping the original as a backup), and files that can't be read, with the reason. Nothing changes until you tick what to leave out and press the save button; no file is moved or deleted, and anything left out can be put back. **Add to next index** marks files to be read again at the next **Index library**.
 3. **Search.** A search keeps running when you switch tabs.
 
-In the Media tab, **← All media** and the browser's Back button bring back the list and your place in it. Seasons, OVAs, specials and films are grouped when their folder or file names say so. Clicking the active Search or Media icon at the top scrolls back up, and **Q** jumps to the search box. Subtitles can be UTF-8, UTF-16, Shift-JIS, EUC-JP or ISO-2022-JP.
+In the Media tab, **← All media** and the browser's Back button bring back the list and your place in it. Seasons, OVAs, specials and films are grouped when their folder or file names say so. On a show, book or manga page, press **Reading mode** (or **Continue reading**) to read it from the original file. Subtitles, books and manga each keep their own display settings, set in the reader or under **Reading mode** in the Settings tab. Clicking the active Search or Media icon at the top scrolls back up, and **Q** jumps to the search box. Subtitles can be UTF-8, UTF-16, Shift-JIS, EUC-JP or ISO-2022-JP.
 
 The Guide tab explains the rest.
 

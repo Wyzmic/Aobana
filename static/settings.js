@@ -3,6 +3,7 @@
       folderPicker = !!lib.folder_picker;
       renderMediaCard(lib);
       if (!document.querySelector('#set-known-words .known-preview:not([hidden])')) renderKnownWords();
+      renderReaderSettings();
       renderDbCard(lib);
       renderPortCard(lib);
       renderSearchWorkersCard(lib.search_workers);
@@ -15,7 +16,17 @@
         const cached = await fetch('/api/library/settings-snapshot').then(r => r.json());
         if (cached.settings) renderSettings(cached.settings);
       } catch (e) {}
+      if (typeof rmFetchPrefs === 'function') await rmFetchPrefs().catch(() => null);
       await refreshSettings();
+      if (window.location.hash === '#set-reader') {
+        const from = store.get('reader_settings_media');
+        store.del('reader_settings_media');
+        const el = document.getElementById(`set-reader-${from}`) || document.getElementById('set-reader');
+        // Measured against the bar itself: --bar-h may not be set yet on a fresh load.
+        const bar = document.querySelector('.topbar');
+        const under = (bar ? bar.getBoundingClientRect().height : 0) + 12;
+        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - under, behavior: 'instant' });
+      }
     }
 
     async function refreshSettings() {
@@ -34,6 +45,7 @@
       const on = lib.media || { subs: true, books: true, manga: false, custom: false };
       if (typeof lib.subtitle_tags === 'boolean') syncSubTags(lib.subtitle_tags);
       syncMediaOn(lib.media);
+      if (settingsShown) renderReaderSettings();
       settingsLib = lib;
       const rows = MEDIA_KINDS.map(which => {
         const dirs = mediaDirs(lib, which);
@@ -234,7 +246,7 @@
       }
       facts += indexed ? `<div>${esc(t('lib_indexed_' + which, { files: fmt(indexed.files), rows: fmt(indexed.rows) }))}</div>`
         : `<div>${esc(t('lib_updating'))}</div>`;
-      // Custom's files the index left unread, read from custom.db, so the line stays after a restart (audit 10, F43)
+      // Custom's files the index left unread, read from custom.db, so the line stays after a restart
       const skipped = (indexed && indexed.skipped) || {};
       if (skipped.unsupported) facts += `<div>${esc(t('lib_json_unsupported', { n: fmt(skipped.unsupported) }))}</div>`;
       if (skipped.empty) facts += `<div>${esc(t('lib_md_empty', { n: fmt(skipped.empty) }))}</div>`;
@@ -776,5 +788,80 @@
         msg.classList.add('warn');
         msg.textContent = res.error === 'not_found' ? t('lib_err_notfound') : t('lib_error', { e: res.error });
       }
+    }
+
+    // Subtitles, books and manga each have their own section and settings, shared in no way.
+    const READER_SETTINGS_MEDIA = [['subs', 'media_subs'], ['epub', 'media_epub'], ['manga', 'media_manga']];
+    function readerSettingsSection(media) {
+      const p = rmGetPrefs(media);
+      const seg = (key, opts) => `<div class="seg seg-fit">${opts.map(([val, lbl]) => {
+        const arg = typeof val === 'string' ? `'${val}'` : String(val);
+        return `<button type="button" class="seg-btn ${p[key] === val ? 'active' : ''}" onclick="setReaderPref('${media}', '${key}', ${arg})">${esc(lbl)}</button>`;
+      }).join('')}</div>`;
+      const row = (label, body) => `<div class="rm-set-row"><span class="rm-set-label">${esc(label)}</span>${body}</div>`;
+      const range = (key, min, max, step, val, fmtJs, shown) => `<div class="rm-range-row">
+              <input type="range" min="${min}" max="${max}" step="${step}" value="${val}" oninput="this.nextElementSibling.textContent=${fmtJs}" onchange="setReaderPref('${media}', '${key}', Number(this.value))">
+              <span class="rm-range-val">${shown}</span>
+            </div>`;
+      const themes = [
+        ['app', t('rm_theme_app')], ['paper', t('theme_paper')], ['haze', t('theme_haze')],
+        ['sepia', t('rm_theme_sepia')], ['night', t('theme_night')], ['midnight', t('theme_midnight')],
+      ];
+      const textRows = [
+        row(t('rm_furi'), seg('furigana', [['on', t('rm_furi_on')], ['hover', t('rm_furi_hover')], ['off', t('rm_furi_off')]])),
+        row(t('rm_font'), rmFontSelectHtml(p.font_family, `set-${media}`, media)),
+        row(t('rm_font_weight'), range('font_weight', 200, 900, 100, p.font_weight || 400, 'this.value', p.font_weight || 400)),
+        row(t('rm_font_size'), range('font_size', 12, 36, 1, p.font_size, "this.value+'px'", `${p.font_size}px`)),
+        row(t('rm_line_height'), range('line_height', 1, 2.6, 0.05, p.line_height, 'Number(this.value).toFixed(2)', Number(p.line_height).toFixed(2))),
+        row(t('rm_max_width'), range('max_width', 10, 72, 2, p.max_width, "this.value+'em'", `${p.max_width}em`)),
+      ].join('');
+      const rows = [row(t('rm_theme'), `<div class="rm-theme-grid">${themes.map(([v, lbl]) =>
+        `<button type="button" class="btn rm-theme-chip ${p.theme === v ? 'active' : ''}" onclick="setReaderPref('${media}', 'theme', '${v}')">${esc(lbl)}</button>`
+      ).join('')}</div>`)];
+      if (media === 'manga') {
+        rows.push(row(t('rm_manga_layout'), seg('manga_layout', [['single', t('rm_manga_single')], ['strip', t('rm_manga_strip')]])));
+        rows.push(row(t('rm_manga_boxes'), seg('manga_boxes', [['hover', t('rm_manga_boxes_hover')], ['always', t('rm_manga_boxes_always')], ['off', t('rm_manga_boxes_off')]])));
+      } else {
+        rows.push(row(t('rm_dir'), seg('writing_mode', [['auto', t('rm_dir_auto')], ['vertical', t('rm_dir_vertical')], ['horizontal', t('rm_dir_horizontal')]])));
+        rows.push(row(t('rm_v_layout'), seg('v_layout', [['paginated', t('rm_layout_paginated')], ['continuous', t('rm_layout_continuous')]])));
+        rows.push(row(t('rm_h_layout'), seg('h_layout', [['continuous', t('rm_layout_continuous')], ['paginated', t('rm_layout_paginated')]])));
+        rows.push(textRows);
+      }
+      if (media === 'subs') rows.push(row(t('rm_sub_timestamps'), seg('sub_timestamps', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(t('rm_progress_show'), seg('show_progress', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(t('rm_edge_click'), seg('edge_click_nav', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(t('rm_edge_click_width'), range('edge_click_width', 5, 35, 1, p.edge_click_width || 12, "this.value+'%'", `${p.edge_click_width || 12}%`)));
+      let html = `<div class="rm-set-grid">${rows.join('')}</div>`;
+      if (media === 'manga') {
+        html += `<div class="set-reader-sub" id="set-reader-manga-text">
+          <div class="set-reader-sub-title">${esc(t('set_reader_manga_text'))}</div>
+          <p class="muted">${esc(t('set_reader_manga_text_lead'))}</p>
+          <div class="rm-set-grid">${textRows}</div>
+        </div>`;
+      }
+      const label = READER_SETTINGS_MEDIA.find(([m]) => m === media)[1];
+      return `<section class="set-reader-media" id="set-reader-${media}"><h4>${esc(t(label))}</h4>${html}</section>`;
+    }
+    function renderReaderSettings(msg = '', media = '') {
+      const card = document.getElementById('set-reader');
+      if (!card || typeof rmGetPrefs !== 'function') return;
+      // Only the media that are on in Settings, in the app's order: subtitles, books, manga.
+      const shown = READER_SETTINGS_MEDIA.filter(([m]) => MEDIA_ON[m]);
+      card.hidden = !shown.length;
+      card.innerHTML = `
+        <h3>${esc(t('set_reader_title'))}</h3>
+        <p class="muted" style="margin:0 0 0.7em; font-size:0.9em;">${esc(t('set_reader_lead'))}</p>
+        ${shown.map(([m]) => readerSettingsSection(m)).join('')}`;
+      if (msg && media) {
+        const sec = document.getElementById(`set-reader-${media}`);
+        if (sec) sec.insertAdjacentHTML('beforeend', `<div class="notice ok" style="margin:0.8em 0 0;">${esc(msg)}</div>`);
+      }
+      if (typeof rmFontSyncOpenPopup === 'function') rmFontSyncOpenPopup();
+    }
+
+    async function setReaderPref(media, key, val) {
+      if (typeof rmUpdatePrefs !== 'function') return;
+      await rmUpdatePrefs({ [key]: val }, { media });
+      renderReaderSettings(t('set_reader_saved'), media);
     }
 

@@ -701,8 +701,7 @@ def index_rows(flat_lines, relpath):
             continue
         base_forms, readings, lens = analyze_tokens(clean_text)
 
-        extracted_rubies = [m[2] for m in RUBY_RE.findall(line)]
-        if extracted_rubies:
+        if '(' in line and RUBY_RE.search(line):
             base_forms, readings = ruby_index_extras(line, RUBY_RE, base_forms, readings)
             line = RUBY_RE.sub(clean_ruby_match, line)
 
@@ -919,7 +918,7 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
             current_disk_files.add(key)
             stat_of[relpath] = file_stat(path)
             known = None if key in pending_names else existing_files.get(key, {}).get('hash')
-            jobs.append((path, relpath, known_hash(known, existing_files.get(key, {}).get('stat'), path)))
+            jobs.append((path, relpath, known_hash(known, existing_files.get(key, {}).get('stat'), path, stat_of[relpath])))
         if n_filtered:
             emit("filtered", f"FILTERED {n_filtered}", count=n_filtered)
 
@@ -966,13 +965,12 @@ def run_indexer(force=False, outdated=False, allow_removal=False, rebuild=False)
                 deleted_rows += source_ranges.delete(conn, source_id)
                 if lexicon:
                     drop_ruby_lexicon(conn, [source_id])
-                conn.execute("UPDATE sources SET relpath = ?, file_hash = ?, indexed_at = ?, index_format = ? WHERE id = ?",
-                             (relpath, file_hash, datetime.now().isoformat(' '), INDEX_FORMAT['subs'], source_id))
+                conn.execute("UPDATE sources SET relpath = ?, file_hash = ?, indexed_at = ?, index_format = ?, file_size = ?, file_mtime_ns = ? WHERE id = ?",
+                             (relpath, file_hash, datetime.now().isoformat(' '), INDEX_FORMAT['subs'], *stat_of[relpath], source_id))
             else:
-                cur = conn.execute("INSERT INTO sources (relpath, file_hash, index_format) VALUES (?, ?, ?)",
-                                   (relpath, file_hash, INDEX_FORMAT['subs']))
+                cur = conn.execute("INSERT INTO sources (relpath, file_hash, index_format, file_size, file_mtime_ns) VALUES (?, ?, ?, ?, ?)",
+                                   (relpath, file_hash, INDEX_FORMAT['subs'], *stat_of[relpath]))
                 source_id = cur.lastrowid
-            conn.execute("UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?", (*stat_of[relpath], source_id))
             new_or_updated += 1
             inserted_rows += conn.executemany(
                 "INSERT INTO subtitles(rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?);",

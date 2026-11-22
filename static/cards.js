@@ -310,7 +310,7 @@
     async function relocateSaved() {
       const items = savedSentences.map(s => ({ rowid: s.rowid, file: s.file, line: s.line, media_type: s.media_type }));
       if (!items.length) return;
-      // The server reads 5,000 a request (RELOCATE_MAX): more go in batches (audit 10, F54)
+      // The server reads 5,000 a request (RELOCATE_MAX): more go in batches
       const answers = [];
       for (let at = 0; at < items.length; at += 5000) {
         const res = await apiPost('/api/relocate', { items: items.slice(at, at + 5000) }).catch(() => null);

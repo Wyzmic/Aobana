@@ -336,11 +336,12 @@ def _build_inner_names(dbs):
     from aobana.search import titles
     out = []
     progress = _INNER_PROGRESS
-    subs, epub, manga = dbs.get("subs"), dbs.get("epub"), dbs.get("manga")
+    subs, epub, manga, custom = dbs.get("subs"), dbs.get("epub"), dbs.get("manga"), dbs.get("custom")
     progress["total"] = (
         (subs.execute("SELECT COUNT(*) FROM sources").fetchone()[0] * INNER_SUBS_WEIGHT if subs is not None else 0)
         + (epub.execute("SELECT COUNT(*) FROM chapters").fetchone()[0] if epub is not None and has_chapters(epub) else 0)
-        + (manga.execute("SELECT COUNT(*) FROM sources").fetchone()[0] if manga is not None else 0))
+        + (manga.execute("SELECT COUNT(*) FROM sources").fetchone()[0] if manga is not None else 0)
+        + (custom.execute("SELECT COUNT(*) FROM sources").fetchone()[0] if custom is not None else 0))
 
     def add(kind, media, work, name, trail, **link):
         # Matched on the part the row shows, after the work's name: a book's author before it is the work's own row
@@ -378,21 +379,21 @@ def _build_inner_names(dbs):
         for series, volume in manga.execute("SELECT title, volume FROM sources ORDER BY relpath"):
             file = f"{series}\\{volume}"
             add("file", "manga", series, titles.format_manga_title(file), [], file=file)
-    custom = dbs.get("custom")
     if custom is not None:
-        from aobana.search.custom import all_sources, lone_file
+        from aobana.search.custom import all_sources, lone_file_map
         metadata, sources = all_sources(custom)
         sources = [s for s in sources if not metadata.get(s["relpath"], {}).get("folder_page")]
+        lone_map = lone_file_map(sources)
         shown = set()
         for path, name, files in custom.execute(
                 "SELECT path, name, files FROM custom_folders WHERE parent != ? AND files > 0 ORDER BY order_key, path", ("",)):
-            if lone_file(sources, path) is not None:
+            if path in lone_map:
                 # Its one file under its own name stands for it, as on the folder's page
                 continue
             parts = path.split("/")
             add("folder", "custom", parts[0], name, parts[1:-1], path=path)
         for category in {s["category"] for s in sources}:
-            alone = lone_file(sources, category)
+            alone = lone_map.get(category)
             if alone is not None:
                 # The work's own row opens it already
                 shown.add(alone["relpath"])

@@ -131,21 +131,29 @@ def prepare_changed(prepare, jobs, workers, file_hash, stop=None):
         except Exception as e:
             return job, None, f"{type(e).__name__}: {e}"
 
-    known = [job for job in jobs if job[2] is not None]
+    unchanged = [job for job in jobs if isinstance(job[2], Unchanged)]
+    known = [job for job in jobs if job[2] is not None and not isinstance(job[2], Unchanged)]
     changed = [job for job in jobs if job[2] is None]
-    pool = ThreadPoolExecutor(max(1, workers))
-    try:
-        for job, digest, error in pool.map(hashed, known):
-            if error == 'stopped' or (stop and stop()):
-                run_control.check_stop()
-                return
-            if error or digest == job[2]:
-                _prepared()
-                yield ('error', job[1], None, error) if error else ('same', job[1], digest, None)
-            else:
-                changed.append(job[:2] + (Digest(digest),) + job[3:])
-    finally:
-        pool.shutdown(wait=True, cancel_futures=True)
+    for job in unchanged:
+        if stop and stop():
+            run_control.check_stop()
+            return
+        _prepared()
+        yield ('same', job[1], str(job[2]), None)
+    if known:
+        pool = ThreadPoolExecutor(max(1, workers))
+        try:
+            for job, digest, error in pool.map(hashed, known):
+                if error == 'stopped' or (stop and stop()):
+                    run_control.check_stop()
+                    return
+                if error or digest == job[2]:
+                    _prepared()
+                    yield ('error', job[1], None, error) if error else ('same', job[1], digest, None)
+                else:
+                    changed.append(job[:2] + (Digest(digest),) + job[3:])
+        finally:
+            pool.shutdown(wait=True, cancel_futures=True)
     if changed:
         order = {job[1]: i for i, job in enumerate(jobs)}
         changed.sort(key=lambda job: order[job[1]])
@@ -156,14 +164,14 @@ class Unchanged(str):
     pass
 
 
-def known_hash(known, recorded, path):
+def known_hash(known, recorded, path, current=None):
     if not known or not recorded or None in recorded:
         return known
-    try:
-        st = os.stat(path)
-    except OSError:
+    if current is None:
+        current = file_stat(path)
+    if None in current:
         return known
-    return Unchanged(known) if (st.st_size, st.st_mtime_ns) == tuple(recorded) else known
+    return Unchanged(known) if tuple(current) == tuple(recorded) else known
 
 
 def file_stat(path):

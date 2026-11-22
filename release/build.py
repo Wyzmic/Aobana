@@ -49,6 +49,7 @@ APP_FILES = [
     "aobana/server/routes_library.py", "aobana/server/routes_settings.py", "aobana/server/routes_learn.py",
     "aobana/server/routes_update.py",
     "aobana/server/library.py", "aobana/server/check_view.py", "aobana/server/updater.py", "aobana/server/folder_picker.py",
+    "aobana/server/system_fonts.py",
     "aobana/server/index.html",
     "aobana/search/__init__.py", "aobana/search/engine.py", "aobana/search/furigana.py",
     "aobana/search/titles.py", "aobana/search/result_cache.py", "aobana/search/media_tab.py", "aobana/search/custom.py",
@@ -101,7 +102,7 @@ PUBLIC_VERSIONS, DEV_ONLY, DEV_WORDS = public_code()
 TSV_COLUMNS = {"ruby.tsv": 5, "kanji_readings.tsv": 3}
 PUBLIC_FILES = ["README.md", "README.ja.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md"]
 REPO_ONLY = {"README.md", "README.ja.md", "requirements.txt"}
-PUBLIC_ASSETS = [f"{view}.{lang}.png" for view in ("search-iplus1", "search-haze", "media-night")
+PUBLIC_ASSETS = [f"{view}.{lang}.png" for view in ("search-iplus1", "search-haze", "media-night", "reader-sepia")
                  for lang in ("en", "ja")]
 REPO_FILES = ["termux/install.sh", "termux/aobana-shortcut.sh", "termux/uninstall.sh"]
 BUILD_FILES = ["build.py", "launcher/Aobana.cs", "launcher/make_icon.py", "installer/aobana.iss",

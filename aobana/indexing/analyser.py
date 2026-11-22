@@ -200,11 +200,12 @@ def _measure_sub(job):
     n, ja, zh, mix, en = _counts(lines)
     details = {k:v for k,v in details.items() if k != "text"}
     details["mojibake"] = sum(1 for l in lines if mojibake(l))
-    details["text_sha"] = stored_text_sha(fold_compat(indexer.get_clean_text_for_mecab(l)) for l in lines)
+    cleaned = [indexer.get_clean_text_for_mecab(l) for l in lines]
+    details["text_sha"] = stored_text_sha(fold_compat(c) for c in cleaned)
     from aobana.indexing.duplicate_rules import has_author_furigana
     details["author_furigana"] = has_author_furigana(lines)
     return relpath, {"sha": sha, "n": n, "ja": ja, "zh": zh, "mix": mix, "en": en, "utf8": utf8,
-                     "keys": _pack(line_keys((indexer.get_clean_text_for_mecab(l) for l in lines), SUB_KEY_CHARS)), "distinct": 0, "details": details,
+                     "keys": _pack(line_keys(cleaned, SUB_KEY_CHARS)), "distinct": 0, "details": details,
                      "title": "", "author": ""}, None
 
 
@@ -1079,38 +1080,39 @@ def estimate(only=None):
         excluded = {name_key(r['name']) for r in filtered_rows(paths.filtered_list()) if r['media'] == media}
         if os.path.isfile(db):
             try:
-                c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-                indexed = {name_key(r[0]) for r in c.execute("SELECT relpath FROM sources")}
-                if media == "custom" and c.execute(
-                        "SELECT 1 FROM sqlite_master WHERE name = 'custom_skipped'").fetchone():
-                    indexed |= {name_key(r[0]) for r in c.execute("SELECT relpath FROM custom_skipped")}
-                from aobana.utils import is_outdated
-                if "index_format" in {r[1] for r in c.execute("PRAGMA table_info(sources)")}:
-                    stale = {name_key(relpath) for relpath, fmt in c.execute(
-                        "SELECT relpath, index_format FROM sources") if is_outdated(media, relpath, fmt)}
-                else:
-                    stale = set(indexed)
-                cols = {r[1] for r in c.execute("PRAGMA table_info(sources)")}
-                if media == "custom" and "kind" in cols:
-                    from aobana.utils import ruby_outdated, trim_outdated
-                    trim, on = paths.custom_trim(), paths.custom_ruby()
-                    done = "trimmed" if "trimmed" in cols else "NULL"
-                    read = "ruby" if "ruby" in cols else "NULL"
-                    stale |= {name_key(relpath) for relpath, kind, was, ruby in c.execute(
-                        f"SELECT relpath, kind, {done}, {read} FROM sources")
-                        if trim_outdated(kind, was, trim) or ruby_outdated(kind, ruby, on)}
-                from aobana.utils import missing_tables, held_removals
-                m['tables'] = missing_tables(c, media)
-                if m['tables']:
-                    from aobana.utils import count_rows
-                    m['table_rows'] = count_rows(c, table)
-                if 'repeats' not in m['tables'] and media in line_repeats.TABLES:
-                    titles, _ = line_repeats._titles(c, media)
-                    title_rows = {t: sum(hi - lo + 1 for *_, lo, hi in runs) for t, runs in titles.items()}
-                    of_source = {run[0]: t for t, runs in titles.items() for run in runs}
-                    title_of = {name_key(rel): of_source[sid] for sid, rel in c.execute("SELECT id, relpath FROM sources")
-                                if sid in of_source}
-                c.close()
+                with closing(sqlite3.connect(f"file:{db}?mode=ro", uri=True)) as c:
+                    cols = {r[1] for r in c.execute("PRAGMA table_info(sources)")}
+                    fmt_col = "index_format" if "index_format" in cols else "NULL"
+                    kind_col = "kind" if "kind" in cols else "NULL"
+                    done_col = "trimmed" if "trimmed" in cols else "NULL"
+                    read_col = "ruby" if "ruby" in cols else "NULL"
+                    src_rows = c.execute(
+                        f"SELECT rowid, relpath, {fmt_col}, {kind_col}, {done_col}, {read_col} FROM sources"
+                    ).fetchall()
+                    indexed = {name_key(r[1]) for r in src_rows}
+                    if media == "custom" and c.execute(
+                            "SELECT 1 FROM sqlite_master WHERE name = 'custom_skipped'").fetchone():
+                        indexed |= {name_key(r[0]) for r in c.execute("SELECT relpath FROM custom_skipped")}
+                    from aobana.utils import is_outdated
+                    if "index_format" in cols:
+                        stale = {name_key(r[1]) for r in src_rows if is_outdated(media, r[1], r[2])}
+                    else:
+                        stale = set(indexed)
+                    if media == "custom" and "kind" in cols:
+                        from aobana.utils import ruby_outdated, trim_outdated
+                        trim, on = paths.custom_trim(), paths.custom_ruby()
+                        stale |= {name_key(r[1]) for r in src_rows
+                                  if trim_outdated(r[3], r[4], trim) or ruby_outdated(r[3], r[5], on)}
+                    from aobana.utils import missing_tables, held_removals
+                    m['tables'] = missing_tables(c, media)
+                    if m['tables']:
+                        from aobana.utils import count_rows
+                        m['table_rows'] = count_rows(c, table)
+                    if 'repeats' not in m['tables'] and media in line_repeats.TABLES:
+                        titles, _ = line_repeats._titles(c, media)
+                        title_rows = {t: sum(hi - lo + 1 for *_, lo, hi in runs) for t, runs in titles.items()}
+                        of_source = {run[0]: t for t, runs in titles.items() for run in runs}
+                        title_of = {name_key(r[1]): of_source[r[0]] for r in src_rows if r[0] in of_source}
             except sqlite3.Error:
                 pass
         inventory = list(_walk(root, media))

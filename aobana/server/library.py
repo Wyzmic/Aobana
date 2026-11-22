@@ -1298,7 +1298,7 @@ def _mokuro_pages(db_manga, source_id):
     try:
         key = (mokuro, os.path.getmtime(mokuro))
         if key not in _MOKURO_PAGES:
-            with open(mokuro, encoding="utf-8") as fh:
+            with open(mokuro, encoding="utf-8-sig") as fh:
                 pages = json.load(fh).get("pages") or []
             if len(_MOKURO_PAGES) >= 3:
                 _MOKURO_PAGES.pop(next(iter(_MOKURO_PAGES)))
@@ -1308,20 +1308,33 @@ def _mokuro_pages(db_manga, source_id):
         return None, []
 
 
+def manga_volume_image_dirs(mokuro):
+    if not mokuro:
+        return None
+    folder = mokuro[:-len(".mokuro")] if mokuro.lower().endswith(".mokuro") else mokuro
+    roots = [os.path.realpath(root) for root in paths.media_roots('manga')]
+    home = next((root for root in roots if _inside(mokuro, root)), None)
+    return (folder, home, ())
+
+
+def manga_volume_image_in_dirs(dirs, img):
+    if not dirs or not img:
+        return None
+    folder, home, _extras = dirs
+    if home:
+        image = os.path.realpath(os.path.join(folder, img))
+        if _inside(image, home) and os.path.isfile(image):
+            return image
+    return None
+
+
 def manga_volume_image_path(db_manga, source_id, page):
     mokuro, pages = _mokuro_pages(db_manga, source_id)
     try:
         img = pages[page - 1].get("img_path") if 1 <= page <= len(pages) else None
     except AttributeError:
         return None
-    if not mokuro or not img:
-        return None
-    folder = mokuro[:-len(".mokuro")] if mokuro.lower().endswith(".mokuro") else mokuro
-    image = os.path.realpath(os.path.join(folder, img))
-    roots = [os.path.realpath(root) for root in paths.media_roots('manga')]
-    if any(_inside(mokuro, root) and _inside(image, root) for root in roots) and os.path.isfile(image):
-        return image
-    return None
+    return manga_volume_image_in_dirs(manga_volume_image_dirs(mokuro), img)
 
 
 def manga_page_neighbours(db_manga, source_id, page):
@@ -2146,7 +2159,7 @@ def start_encoding_repair(report):
 
 
 # encoding_repair.convert's reasons as the codes the page has a string for (an_encoding_err_<code>);
-# they reached the page as these English sentences (audit 10, F56)
+# they reached the page as these English sentences
 _ENCODING_ERRORS = {
     'Invalid encoding repair root': 'moved', 'Invalid encoding repair source': 'moved',
     'Encoding repair source changed': 'changed', 'Encoding repair source changed before replacement': 'changed',
@@ -2572,7 +2585,7 @@ def _summarize_db(st, name, db, data):
         data[name+'_indexed'] = {'files':conn.execute('SELECT COUNT(*) FROM sources').fetchone()[0],
                                 'rows':count_rows(conn,table)}
         if st == 'custom' and conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'custom_skipped'").fetchone():
-            # The files the index left unread, by reason, for the card's lasting line (audit 10, F43)
+            # The files the index left unread, by reason, for the card's lasting line
             data[name+'_indexed']['skipped'] = dict(conn.execute(
                 'SELECT reason, count(*) FROM custom_skipped GROUP BY reason'))
         data[name+'_outdated'] = outdated_sources(conn,st)

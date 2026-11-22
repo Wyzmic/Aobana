@@ -516,6 +516,7 @@
     });
 
     document.addEventListener('keydown', function(e) {
+      if (typeof isReadingModeOpen === 'function' && isReadingModeOpen()) return;
       const activeTag = document.activeElement ? document.activeElement.tagName : '';
       const isInputActive = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
 

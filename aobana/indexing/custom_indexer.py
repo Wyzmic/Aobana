@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import re
@@ -7,7 +6,7 @@ import sys
 import time
 from datetime import datetime
 
-from sudachipy import dictionary, tokenizer
+from sudachipy import tokenizer
 from aobana import paths, utils
 from aobana.indexing import kanji_table, line_repeats, run_control as control, subtitle_input
 from aobana.custom_source import Catalog, natural_key
@@ -317,26 +316,37 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                 # The stat before any hash: a file written after it reads as changed next run
                 stat_of[relpath] = file_stat(path)
                 if old:
-                    known = known_hash(known, (old['file_size'], old['file_mtime_ns']), path)
+                    known = known_hash(known, (old['file_size'], old['file_mtime_ns']), path, current=stat_of[relpath])
                 jobs.append((path, relpath, known, trim))
         jobs.sort(key=lambda job: order_key(job[1]))
-        catalog = Catalog((job[0], job[1]) for job in jobs)
-        jobs = [(*job, catalog.get(job[1]), ruby) for job in jobs]
-        source_meta = [(job[1], meta['path'], meta['folder_page'], meta['paired_folder']) for job in jobs
-                       if (meta := catalog.get(job[1])) is not None]
-        if {tuple(r) for r in conn.execute('SELECT * FROM custom_source_meta')} != set(source_meta):
-            conn.execute('DELETE FROM custom_source_meta')
-            conn.executemany('INSERT INTO custom_source_meta VALUES (?, ?, ?, ?)', source_meta)
-        # By id: a WHERE on replace(relpath, ...) read every source once a page (16,000 files: 19 s)
-        ids = {}
-        for source_id, relpath in conn.execute('SELECT id, relpath FROM sources'):
-            ids.setdefault(utils.name_key(relpath), []).append(source_id)
-        conn.executemany('UPDATE sources SET category = ?1, title = ?2, order_key = ?3 WHERE id = ?4 '
-                         'AND (category IS NOT ?1 OR title IS NOT ?2 OR order_key IS NOT ?3)',
-                         [(meta['category'], meta['title'], meta['order_key'], source_id)
-                          for relpath, meta in catalog.meta.items() for source_id in ids.get(relpath, ())])
+        md_jobs = [job for job in jobs if job[1].lower().endswith('.md')]
+        existing_meta = {tuple(r) for r in conn.execute('SELECT * FROM custom_source_meta')}
+        if md_jobs and (
+            any(not isinstance(job[2], type(job[2])) or type(job[2]).__name__ != 'Unchanged' for job in md_jobs)
+            or {r[0] for r in existing_meta} != {job[1] for job in md_jobs}
+        ):
+            catalog = Catalog((job[0], job[1]) for job in jobs)
+            jobs = [(*job, catalog.get(job[1]), ruby) for job in jobs]
+            source_meta = [(job[1], meta['path'], meta['folder_page'], meta['paired_folder']) for job in jobs
+                           if (meta := catalog.get(job[1])) is not None]
+            if existing_meta != set(source_meta):
+                conn.execute('DELETE FROM custom_source_meta')
+                conn.executemany('INSERT INTO custom_source_meta VALUES (?, ?, ?, ?)', source_meta)
+            # By id: a WHERE on replace(relpath, ...) read every source once a page (16,000 files: 19 s)
+            ids = {}
+            for k_ex, r_ex in existing.items():
+                ids.setdefault(k_ex, []).append(r_ex['id'])
+            conn.executemany('UPDATE sources SET category = ?1, title = ?2, order_key = ?3 WHERE id = ?4 '
+                             'AND (category IS NOT ?1 OR title IS NOT ?2 OR order_key IS NOT ?3)',
+                             [(meta['category'], meta['title'], meta['order_key'], source_id)
+                              for relpath, meta in catalog.meta.items() for source_id in ids.get(relpath, ())])
+            n_md = len(catalog.meta)
+        else:
+            jobs = [(*job, None, ruby) for job in jobs]
+            if not md_jobs and existing_meta:
+                conn.execute('DELETE FROM custom_source_meta')
+            n_md = len(md_jobs)
         n_txt = sum(job[1].lower().endswith('.txt') for job in jobs)
-        n_md = len(catalog.meta)
         utils.say(f'Found {n_txt} .txt and {n_md} .md file(s) in {CUSTOM_ROOT_DIR}.')
         utils.say(f'other files: {other_count}')
         reasons = {}
@@ -423,12 +433,11 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                 source_id = old['id']
                 deleted_rows += drop(source_id)
                 utils.drop_ruby_lexicon(conn, [source_id])
-                conn.execute('UPDATE sources SET relpath = ?, category = ?, kind = ?, file_hash = ?, title = ?, order_key = ?, lines = ?, indexed_at = ?, index_format = ?, trimmed = ?, ruby = ? WHERE id = ?',
-                             (relpath, category, source_kind, file_hash, title, key, readable, datetime.now().isoformat(' '), utils.INDEX_FORMAT['custom'], trimmed, read_ruby, source_id))
+                conn.execute('UPDATE sources SET relpath = ?, category = ?, kind = ?, file_hash = ?, title = ?, order_key = ?, lines = ?, indexed_at = ?, index_format = ?, trimmed = ?, ruby = ?, file_size = ?, file_mtime_ns = ? WHERE id = ?',
+                             (relpath, category, source_kind, file_hash, title, key, readable, datetime.now().isoformat(' '), utils.INDEX_FORMAT['custom'], trimmed, read_ruby, *stat_of[relpath], source_id))
             else:
-                source_id = conn.execute('INSERT INTO sources (relpath, category, kind, file_hash, title, order_key, lines, index_format, trimmed, ruby) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                         (relpath, category, source_kind, file_hash, title, key, readable, utils.INDEX_FORMAT['custom'], trimmed, read_ruby)).lastrowid
-            conn.execute('UPDATE sources SET file_size = ?, file_mtime_ns = ? WHERE id = ?', (*stat_of[relpath], source_id))
+                source_id = conn.execute('INSERT INTO sources (relpath, category, kind, file_hash, title, order_key, lines, index_format, trimmed, ruby, file_size, file_mtime_ns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                                         (relpath, category, source_kind, file_hash, title, key, readable, utils.INDEX_FORMAT['custom'], trimmed, read_ruby, *stat_of[relpath])).lastrowid
             inserted_rows += conn.executemany('INSERT INTO custom (rowid, source_id, file, line, clean_text, base_forms, readings) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                               [(next_rowid + i, source_id, *r[:5]) for i, r in enumerate(rows) if r[10]]).rowcount
             conn.executemany('INSERT INTO custom_quiet (rowid, source_id, file, line) VALUES (?, ?, ?, ?)',
@@ -463,7 +472,8 @@ def run_custom_indexer(force=False, outdated=False, allow_removal=False):
                 flush()
                 pending, last_commit = 0, time.monotonic()
         flush()
-        conn.execute('DELETE FROM custom_sections WHERE source_id NOT IN (SELECT id FROM sources)')
+        if drops[0]:
+            conn.execute('DELETE FROM custom_sections WHERE source_id NOT IN (SELECT id FROM sources)')
         # The orphaned custom_lines went at the flush above, the same sweep (a rowid in custom is one in custom_docsize)
         conn.commit()
         line_repeats.ensure(conn, 'custom', DB_PATH, paths.index_workers())

@@ -50,6 +50,15 @@
       if (lang !== 'ja' && lang !== 'en') lang = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
       document.documentElement.setAttribute('lang', lang);
       if (get('furigana') === 'off') document.documentElement.classList.add('no-furigana');
+      try {
+        var nav = (performance.getEntriesByType('navigation')[0] || {}).type;
+        if ((nav === 'reload' || nav === 'back_forward') && sessionStorage.getItem('aobana_rm_open') === '1'
+            && /[?&]tab=media\b/.test(location.search) && /[?&]folder=[^&]/.test(location.search)
+            && !/[?&]media=custom\b/.test(location.search)) {
+          document.documentElement.classList.add('rm-booting');
+          setTimeout(function () { document.documentElement.classList.remove('rm-booting'); }, 3000);
+        }
+      } catch (e) {}
     })();
   </script>
   <meta name="darkreader" content="NO-DARKREADER-PLUGIN">
@@ -318,6 +327,7 @@
       <h1 data-i18n="tab_settings">設定</h1>
       <div class="lib-card" id="set-media"></div>
       <div class="lib-card" id="set-known-words" style="margin-top:1em;"></div>
+      <div class="lib-card" id="set-reader" style="margin-top:1em;"></div>
       <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
       <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
         <h3 data-i18n="search_workers_title">検索の並列処理</h3>
@@ -552,6 +562,8 @@
       </div>
     </div>
   </div>
+
+  <div id="reading-mode" class="rm-dialog" role="dialog" aria-modal="true" aria-labelledby="rm-title" hidden></div>
 
   <div id="task-notices" aria-live="polite"></div>
 

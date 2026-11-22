@@ -235,7 +235,8 @@ def _learn_target(q):
     return iplusone.target_units(q)
 
 
-def analyze_query(q):
+@functools.lru_cache(maxsize=256)
+def _analyze_query_cached(q):
     content_bases = []
     sql_bases = []
     readings = []
@@ -244,13 +245,11 @@ def analyze_query(q):
     with tagger() as (tokenizer_obj, mode):
         words = tokenizer_obj.tokenize(q, mode)
     if words and all(_is_symbol(w.part_of_speech()[0], w.surface()) for w in words):
-        return content_bases, sql_bases, readings, base_groups
+        return (), (), (), ()
 
     script_type = detect_script(q)
     
     if script_type == 'katakana':
-        with tagger() as (tokenizer_obj, mode):
-            words = tokenizer_obj.tokenize(q, mode)
         content_bases = [q]
         hiragana_readings = []
         for word in words:
@@ -366,7 +365,12 @@ def analyze_query(q):
                 sql_bases = [f"({phrase})"]
                 base_groups = [list(readings)]
             
-    return content_bases, sql_bases, readings, base_groups
+    return tuple(content_bases), tuple(sql_bases), tuple(readings), tuple(tuple(g) for g in base_groups)
+
+
+def analyze_query(q):
+    cb, sb, rd, bg = _analyze_query_cached(q)
+    return list(cb), list(sb), list(rd), [list(g) for g in bg]
 
 @functools.lru_cache(maxsize=256)
 def excluded_sequence(term, media):

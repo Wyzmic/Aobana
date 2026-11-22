@@ -59,7 +59,9 @@
     }
 
     const LABEL_CONTROLS = '.brand, .nav-tab, .seg-btn, .dd-btn, .dd-item, .exact-chip, .sq-btn, .btn, .icon-btn, '
-      + '.search-btn, .reveal-btn, .path-back, .modal-close, .menu-btn, .sidebar-more, summary, label[for]';
+      + '.search-btn, .reveal-btn, .path-back, .modal-close, .menu-btn, .sidebar-more, summary, label[for], '
+      + '.rm-topbar-title, .rm-drawer-head, .rm-set-label, .rm-range-val, .rm-footer, .rm-toc-group, .rm-toc-item, '
+      + '.rm-bm-where, .rm-toast, .rm-sub-ts';
     function hideLabelText(node) {
       const parent = node.parentElement;
       if (!parent || !node.data.trim() || parent.closest('svg, style, script, textarea')) return;

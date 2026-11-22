@@ -113,11 +113,30 @@ def decorate_result(row, conn, highlight, lines=None):
     return True
 
 
+_META_PATH_CACHE = {}
+
+
+def _meta_paths(conn):
+    from aobana.search.result_cache import db_fingerprint
+    key = db_fingerprint(conn)
+    cached = _META_PATH_CACHE.get(key)
+    if cached is not None:
+        return cached
+    if conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone():
+        mapping = {name_key(rel): path for rel, path in conn.execute('SELECT relpath, path FROM custom_source_meta')}
+    else:
+        mapping = {}
+    if len(_META_PATH_CACHE) >= 4:
+        _META_PATH_CACHE.clear()
+    _META_PATH_CACHE[key] = mapping
+    return mapping
+
+
 def shown_title(conn, file):
-    if file.lower().endswith('.md') and conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone():
-        meta = conn.execute('SELECT path FROM custom_source_meta WHERE replace(relpath, char(92), ?) = ?', ('/', name_key(file))).fetchone()
-        if meta:
-            return format_custom_title(meta[0])
+    if file.lower().endswith('.md'):
+        path = _meta_paths(conn).get(name_key(file))
+        if path:
+            return format_custom_title(path)
     return format_custom_title(file)
 
 
@@ -127,6 +146,34 @@ def _source_fields(row, metadata=None):
     out['path'] = (metadata or {}).get(out['relpath'], {}).get('path', name_key(out['relpath']))
     out['title'] = format_custom_title(out['path'])
     out['type'] = 'file'
+    return out
+
+
+def lone_file_map(sources):
+    counts = {}
+    first = {}
+    for s in sources:
+        p = s['path']
+        if '/' in p:
+            parts = p.split('/')
+            for n in range(1, len(parts)):
+                k = '/'.join(parts[:n])
+                counts[k] = counts.get(k, 0) + 1
+                if counts[k] == 1:
+                    first[k] = s
+        else:
+            k = s['category']
+            counts[k] = counts.get(k, 0) + 1
+            if counts[k] == 1:
+                first[k] = s
+    out = {}
+    for folder, n in counts.items():
+        if n != 1:
+            continue
+        s = first[folder]
+        parent, _, name = s['path'].rpartition('/')
+        if parent in ('', folder) and os.path.splitext(name)[0].casefold() == folder.rpartition('/')[2].casefold():
+            out[folder] = s
     return out
 
 
@@ -286,7 +333,18 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
     if needle and mode == 'content':
         sql, args, hl = _content_where(needle, exact, ruby_only, conn, stop)
         ids = {s['id']: s for s in scoped}
-        for r in conn.execute(f'SELECT rowid, source_id, file, line FROM custom WHERE {sql} ORDER BY rowid', args):
+        if ids:
+            id_list = sorted(ids)
+            if len(id_list) <= 400:
+                ph = ','.join('?' for _ in id_list)
+                scoped_sql = f'({sql}) AND custom.rowid IN (SELECT id FROM custom_content WHERE c0 IN ({ph}))'
+                scoped_args = [*args, *id_list]
+            else:
+                scoped_sql = f'({sql}) AND source_id BETWEEN ? AND ?'
+                scoped_args = [*args, id_list[0], id_list[-1]]
+        else:
+            scoped_sql, scoped_args = None, None
+        for r in (conn.execute(f'SELECT rowid, source_id, file, line FROM custom WHERE {scoped_sql} ORDER BY rowid', scoped_args) if scoped_sql else ()):
             if r['source_id'] not in ids:
                 continue
             item = dict(r)
@@ -295,6 +353,7 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             rows.append(item)
     elif needle:
         folded = fold_title_filter(needle)
+        lone_map = lone_file_map(sources)
         # As the Media list's works and the names inside them: the folders whose own name matches,
         # then the files whose own name does; a matching folder stands for every file in it
         for child in conn.execute('SELECT * FROM custom_folders WHERE files > 0 AND path != ? ORDER BY order_key, path', (path,)):
@@ -302,18 +361,19 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             if (path and not child['path'].startswith(path + '/')) or folded not in fold_title_filter(child['name']):
                 continue
             # A folder of one file under its own name is that file, as when browsing
-            if child['files'] == 1 and lone_file(sources, child['path']) is not None:
+            if child['files'] == 1 and child['path'] in lone_map:
                 continue
             rows.append(dict(child, type='folder', title=child['name'],
                              relative_title='｜'.join(child['path'][len(path) + 1 if path else 0:].split('/'))))
         rows.extend(s for s in scoped if folded in fold_title_filter(relative_title(s).rpartition('｜')[2]))
     else:
+        lone_map = lone_file_map(sources)
         for child in conn.execute('SELECT * FROM custom_folders WHERE parent = ? AND path != ? ORDER BY order_key, name', (path, path)):
             child = dict(child)
             if not child['files']:
                 continue
             # A folder is a folder, one file in it or more, but for its one file under its own name
-            alone = lone_file(sources, child['path'])
+            alone = lone_map.get(child['path'])
             if alone is not None and alone in scoped:
                 rows.append(dict(alone, shown_in=path))
             else:

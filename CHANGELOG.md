@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.6: Reading mode
+
+### Enhancements
+
+- **Reading mode.** Press **Reading mode** on a show, book or manga page in **Media** (or the reader icon on any episode, chapter or volume) to read from the original file (`.srt`, `.ass`, `.ssa`, `.epub`, `.mokuro`). Books and subtitles offer vertical or horizontal text, paginated or scrolling layouts, furigana controls, themes and bookmarks; manga shows the page images with the OCR text on top, one page at a time or as a vertical strip. Aobana remembers your place per work, and falls back to the indexed text with a notice if the original file cannot be read.
+
+**Reading mode**
+
+- **Settings** has a **Reading mode** card with separate defaults for subtitles, books and manga, shown only for media that are turned on: theme (including **Sepia**), writing direction and default layout for vertical and horizontal text, furigana (**Show**, **Hover / tap**, **Hide**), font (**Default (Noto Sans JP)**, **Serif (device)**, or any Japanese font installed on your device), weight, size, line height, content width, progress bar, edge-click page turning, subtitle timestamps, and manga layout and text boxes. **More in Settings** inside Reading mode opens that media's section, and **Restore defaults** resets the open media's display settings.
+- A book's chapter is found in the `.epub` by its text, so it starts at its own heading (also a heading on a page of its own) and ends where the next chapter begins, even when the book quotes the chapter's lines elsewhere.
+- Links inside an `.epub` book (contents, notes and back links) open their target, including across chapters. The browser's Back button returns to the place before the link, Forward redoes the jump, and Back from the opening place closes Reading mode.
+- A **Contents** drawer lists the work's episodes, chapters or volumes, and a bookmark can be set, jumped to, moved or cleared per work. Skipping quickly through parts cancels earlier loads and opens only the last one.
+- A manga volume with no page images shows each page's text on a card using the manga text settings, with furigana that the OCR fused into the line shown as ruby. Double-clicking or double-tapping a zoomed manga page resets the zoom.
+- Keyboard shortcuts work throughout Reading mode: arrow keys and `A`/`D` turn pages or scroll (holding a key in a scrolling layout scrolls steadily until released, and `↑`/`↓` or `←`/`→` step between parts depending on the layout), `[` / `]` switch parts, `T` opens **Contents**, `B` opens bookmarks, `F` cycles furigana, `S` opens **Display**, `0` resets manga zoom and `Esc` closes open panels or Reading mode.
+
+**Media and Custom**
+
+- Custom is faster on large libraries: Markdown titles are cached instead of scanned per result, a folder's **Content** search reads only that folder's lines, and single-file folders are found in one pass.
+
+**Library and indexing**
+
+- An **Index library** run where nothing changed finishes sooner: each file is checked once, no extra indexing processes start, and Custom skips re-reading Markdown pages and clean-up passes. Indexing also skips the ruby pass on subtitle and manga lines that contain no `(`, and finds each book sentence's furigana once instead of twice.
+- **Check library** cleans each subtitle line once instead of twice and reads the file list once.
+- A book page that only shows a part's title, above the chapters of that part, is no longer indexed as a chapter of its own. This applies to newly indexed books; books already in the index keep their chapters until they are read again.
+
+### Bug Fixes
+
+- A damaged pending book filter file (for example after an interrupted run) stopped every later book index run until it was deleted by hand. Aobana now sets the damaged file aside and logs it so indexing can continue.
+- A `.mokuro` file saved with a UTF-8 byte order mark (BOM) could not be read. It is now read normally.
+- With Custom on, the time left shown under **Preparing the names inside the works...** in **Media** did not count Custom's files.
+
 ## 2.5: See what a title search found
 
 ### Enhancements

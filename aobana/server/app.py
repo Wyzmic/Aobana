@@ -80,7 +80,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.5"
+VERSION = "2.6"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
@@ -252,7 +252,8 @@ def index():
     exact = request.args.get("exact", "")
     media = request.args.get("media", "all")
     resp = make_response(render_template("index.html", q=q, sort=sort, exact=exact, media=media,
-                                         boot=BOOT_ID, asset_v=_asset_v(), font_v=FONT_V, version=VERSION,
+                                         boot=BOOT_ID, asset_v=_asset_v(), font_v=FONT_V,
+                                         version=VERSION,
                                          handoff=library.load_profile_handoff(PORT),
                                          handoff_pending=library.handoff_pending_from(PORT),
                                          media_boot=_media_boot(), termux=ON_PHONE,
