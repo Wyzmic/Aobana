@@ -177,23 +177,6 @@ ja.ConfirmUninstall=Aobana と、チェックした項目を削除します。�
 Name: "startmenuicon"; Description: "{cm:StartMenuIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
-[InstallDelete]
-Type: files; Name: "{app}\app.py"
-Type: files; Name: "{app}\engine.py"
-Type: files; Name: "{app}\utils.py"
-Type: files; Name: "{app}\paths.py"
-Type: files; Name: "{app}\library.py"
-Type: files; Name: "{app}\analyser.py"
-Type: files; Name: "{app}\indexer.py"
-Type: files; Name: "{app}\epub_indexer.py"
-Type: files; Name: "{app}\manga_indexer.py"
-Type: files; Name: "{app}\ass_ruby.py"
-Type: files; Name: "{app}\folder_picker.py"
-Type: files; Name: "{app}\updater.py"
-Type: files; Name: "{app}\launcher.py"
-Type: files; Name: "{app}\index.html"
-Type: filesandordirs; Name: "{app}\__pycache__"
-
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

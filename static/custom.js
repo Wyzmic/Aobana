@@ -51,7 +51,7 @@
         if (entries.some(e => e.isIntersecting)) { moreObserver.disconnect(); loadMore(); }
       }, { rootMargin: '800px 0px' });
       let partsVary = !file, redrawSort = () => {};
-      const sorts = () => CUSTOM_SORTS.filter(v => partsVary || !v.startsWith('parts'));
+      const sorts = () => CUSTOM_SORTS.filter(v => (partsVary || !v.startsWith('parts')) && !(file && v === 'read_desc'));
       let fileSort = (file && sorts().includes(saved.sort) && saved.sort) || 'default';
       let pages = null;
       const topLine = () => {
@@ -71,8 +71,31 @@
         const open = saved.open || [], shut = saved.shut || [];
         const top = pages && (pages.start > 0 || pages.end < pages.total) ? topLine() : null;
         const exact = !!document.getElementById('custom-exact')?.checked, rubyOnly = !!document.getElementById('custom-ruby-only')?.checked;
-        try { sessionStorage.setItem(key, JSON.stringify({ q: input.value, mode, exact, rubyOnly, y: window.scrollY, top, open, shut, loaded: offset, sort: fileSort })); } catch (e) {}
+        const reader = typeof rmCurrentRecipe === 'function' ? rmCurrentRecipe() : null;
+        try { sessionStorage.setItem(key, JSON.stringify({ q: input.value, mode, exact, rubyOnly, y: window.scrollY, top, open, shut, loaded: offset, sort: fileSort, reader })); } catch (e) {}
         store.set(MEDIA_STATE, JSON.stringify({ url: mediaUrl(), open: [], y: window.scrollY }));
+      };
+      window.customSaveState = save;
+      // Reading mode open when the page was left (a reload, Back) opens again where it was.
+      let readerWasOpen = false;
+      try { readerWasOpen = sessionStorage.getItem('aobana_rm_open') === '1'; } catch (e) {}
+      const rmJump = typeof takeReadingJump === 'function' ? takeReadingJump('custom', path) : null;
+      if (rmJump) {
+        openReadingMode(rmJump).finally(() => document.documentElement.classList.remove('rm-booting'));
+      } else if (saved.reader && readerWasOpen && typeof rmSupportsMedia === 'function' && rmSupportsMedia(saved.reader.media)) {
+        openReadingMode({ ...saved.reader, fromRestore: true }).finally(() => document.documentElement.classList.remove('rm-booting'));
+      } else {
+        document.documentElement.classList.remove('rm-booting');
+      }
+      // 「読書モード」 for a folder of .txt and .md files, or one such file, as on a book's page.
+      const showReaderButton = on => {
+        const row = head.querySelector('.custom-rm-row');
+        if (!on || typeof rmEntryButtonHTML !== 'function') { row?.remove(); return; }
+        if (row) return;
+        head.querySelector('h1').insertAdjacentHTML('afterend', `<div class="media-detail-meta-row custom-rm-row">${rmEntryButtonHTML('custom', path)}</div>`);
+        const btn = document.getElementById('rm-entry-btn');
+        if (file) btn.dataset.file = file;
+        else rmRefreshEntryButton('custom', path);
       };
       window.addEventListener('pagehide', save);
       document.addEventListener('click', e => { if (e.target.closest('a')) save(); }, true);
@@ -150,9 +173,11 @@
           if (!r.ok) throw new Error(await busyAnswer(r) ? 'busy' : 'folder');
           const data = await r.json();
           if (gen !== generation) return;
+          if (reset) showReaderButton(!!data.readable);
           if (reset && mode !== 'content' && !!data.parts_vary !== partsVary) { partsVary = !!data.parts_vary; redrawSort(); }
           // A title search's files come under their own heading, after the folders, as the Media list's names inside the works
           const filesHead = `<div class="media-inner-head">${esc(t('custom_files_head'))}</div>`;
+          const unreadHead = `<div class="media-inner-head">${esc(t('media_unread_head'))}</div>`;
           const html = data.items.map((item, i) => {
             const fileParent = item.shown_in ?? (item.path.split('/').slice(0, -1).join('/') || category);
             const href = customUrl(category, item.type === 'folder' ? item.path : fileParent, item.type === 'folder' ? '' : item.file, path)
@@ -161,7 +186,9 @@
             const pills = item.type === 'hit' ? ''
               : (item.type === 'folder' && item.files > 1 ? `<span class="stat-pill secondary">${esc(t('custom_files', { n: fmt(item.files) }))}</span>` : '')
                 + `<span class="stat-pill">${esc(t('stat_lines', { n: fmt(item.lines || 0) }))}</span>`;
-            return `${data.folders && offset + i === data.folders ? filesHead : ''}<a class="media-row${item.type === 'hit' ? ' custom-hit' : ''}" href="${esc(href)}" draggable="false"><span class="media-kind custom">${esc(t(item.type === 'folder' ? 'custom_folder' : 'custom_file'))}</span><span class="media-names"><div class="media-name">${mode === 'title' ? markTitle(title, p.get('q')) : esc(title)}</div>${item.type === 'hit' ? `<div class="main-sentence">${item.display_line}</div>` : ''}</span><span class="media-stats">${pills}</span></a>`;
+            const lead = (data.unread_from != null && offset + i === data.unread_from ? unreadHead : '')
+              + (data.folders && offset + i === data.folders ? filesHead : '');
+            return `${lead}<a class="media-row${item.type === 'hit' ? ' custom-hit' : ''}" href="${esc(href)}" draggable="false"><span class="media-kind custom">${esc(t(item.type === 'folder' ? 'custom_folder' : 'custom_file'))}</span><span class="media-names"><div class="media-name">${mode === 'title' ? markTitle(title, p.get('q')) : esc(title)}</div>${item.type === 'hit' ? `<div class="main-sentence">${item.display_line}</div>` : ''}</span><span class="media-stats">${pills}</span></a>`;
           }).join('');
           results.querySelector('#custom-more')?.remove();
           let intro = '';
@@ -211,6 +238,7 @@
           p.delete('at');
           pages = { query: p, found, titled, start: data.start ?? 0, end: data.end ?? data.lines.length, total: data.total ?? data.lines.length };
           results.classList.toggle('custom-prose', data.kind === 'txt' || data.kind === 'md');
+          showReaderButton(data.kind === 'txt' || data.kind === 'md');
           fileTitle = data.title;
           results.innerHTML = readerHtml(data, found, titled) || `<div class="status-line">${esc(t(found ? 'no_results' : 'media_none'))}</div>`;
           if (results.querySelector('.episode-card')) {

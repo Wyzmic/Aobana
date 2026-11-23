@@ -244,7 +244,8 @@ def _count_media_library(dbs, db_epub=None, db_manga=None):
 
 
 MEDIA_SORTS = {"name": None, "parts_desc": ("episodes", True), "parts_asc": ("episodes", False),
-               "lines_desc": ("lines", True), "lines_asc": ("lines", False)}
+               "lines_desc": ("lines", True), "lines_asc": ("lines", False), "read_desc": None}
+# read_desc: the works last read in Reading mode first, the latest first; the rest by name after.
 
 
 INNER_CACHE_FORM = 2
@@ -406,7 +407,7 @@ def _build_inner_names(dbs):
     return out
 
 
-def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name", inner=None):
+def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name", inner=None, read_at=None):
     if folder is not None:
         rows = [it for it in items if it["folder"] == folder and media in ("all", it["media"])]
         return {"items": rows[:1], "total": len(rows[:1]), "has_more": False}
@@ -416,14 +417,22 @@ def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, so
             if media in ("all", it["media"])
             and (not needle or needle in fold_title_filter(it["folder"]) or needle in fold_title_filter(it["author"]))]
     key = MEDIA_SORTS.get(sort)
+    unread_from = None
     if key:
         rows = sorted(rows, key=lambda it: it[key[0]] or 0, reverse=key[1])
+    elif sort == "read_desc" and read_at:
+        rows = sorted(rows, key=lambda it: -read_at.get((it["media"], it["folder"]), 0))
+        # The 未読 line goes above the first work never read, only when some were read and some not
+        read = sum(1 for it in rows if read_at.get((it["media"], it["folder"]), 0) > 0)
+        if 0 < read < len(rows):
+            unread_from = read
     works = len(rows)
     if needle and inner:
         rows = rows + [{k: v for k, v in it.items() if k != "match"} for it in inner
                        if media in ("all", it["media"]) and needle in it["match"]]
     page = rows[offset:offset + limit] if limit else rows[offset:]
-    return {"items": page, "total": len(rows), "works": works, "has_more": offset + len(page) < len(rows),
+    return {"items": page, "total": len(rows), "works": works, "unread_from": unread_from,
+            "has_more": offset + len(page) < len(rows),
             "parts_vary": len({it.get("episodes") or 0 for it in rows}) > 1,
             "shows": sum(1 for it in items if it["media"] == "subs"),
             "books": sum(1 for it in items if it["media"] == "epub"),

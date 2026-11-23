@@ -58,14 +58,14 @@
 
         <p>検索ページの検索はタブを切り替えても続きます。メディアで新しい本文検索をすると置き換わりますが、作品一覧の閲覧や絞り込みでは止まりません。インデックス作成、表の準備、データベースの移動・削除では検索を停止して更新します。ファイルを読むだけの点検では検索は止まりません。</p>
         <h2>既知語と i+1</h2>
-        <p>知っている語のリストを読み込むと、並べ替えの横に i+1 のメニューが出ます。i+1 の例文は、知らない語が1語だけの文です。その1語は検索した語で、検索した語を知っているときはほかの語です。かなで検索すると、その読みの文だけが入ります（からい なら、つらい と書いた文は入りません）。「i+1 を優先」はそれを上に並べます（おすすめ順では、そのあと知らない語の少ない文から）。「i+1 のみ」はそれだけを表示します。1語で検索すると、i+1 がオフでも、各例文に「既知 5/8」のように知っている語の数が出ます（助詞などは数えません）。i+1 の例文は数字の色が変わります。設定でこの数を消すと、i+1 の例文にだけ「i+1」と出ます。リストは<a href="/?tab=settings">設定</a>タブの「既知語」で読み込みます。</p>
+        <p>知っている語のリストを読み込むと、並べ替えの横に i+1 のメニューが出ます。i+1 の例文は、知らない語が1語だけの文です。その1語は検索した語で、検索した語を知っているときはほかの語です。かなで検索すると、その読みの文だけが入ります（からい なら、つらい と書いた文は入りません）。「i+1 を優先」はそれを上に並べます（おすすめ順では、そのあと知らない語の少ない文から）。「i+1 のみ」はそれだけを表示します。1語で検索すると、i+1 がオフでも、各例文に「既知 5/8」のように知っている語の数が出ます（助詞などは数えません）。i+1 の例文は数字の色が変わります。設定でこの数を消すと、i+1 の例文にだけ「i+1」と出ます。リストは<a href="/?tab=settings#set-known-words">設定</a>タブの「既知語」で読み込みます。</p>
         <ul>
           <li><b>ファイルから</b> — 1行に1語のテキスト、Anki の「ノートをテキストで書き出す」で保存したファイル、Jiten と Migaku の書き出しを読めます。読み込む前に、語と読みの列を確かめられます。</li>
           <li><b>Anki から</b> — Anki と Aobana Reibun が開いていれば、「Anki から取り込む」でデッキを選べます。既定では間隔 21 日以上の成熟したカードの語を取り込みます。あとで「Anki から更新」を押すと、同じデッキを読み直します。Anki を閉じても、取り込んだリストはそのまま使えます。</li>
         </ul>
         <h2>例文の操作</h2>
         <ul>
-          <li><b>★</b> お気に入りに保存します。<a href="/?tab=saved">お気に入り</a>タブで見られます（このブラウザに保存されます）。</li>
+          <li><b>★</b> お気に入りに保存します。<a href="/?tab=saved">保存</a>タブの「お気に入り」で見られます（このブラウザに保存されます）。</li>
           <li><b>⋯</b> 前後の文脈を表示します。</li>
           <li><b>ふ</b> ふりがなの表示・非表示を切り替えます。</li>
           <li><b>文をコピー</b>（「メディアで開く」の右）文をコピーします。ふりがなを表示しているときはふりがなも付き、検索した語は太字になります。Anki などにそのまま貼り付けられ、テキストだけの場所では読みが語のあとの（）に入ります。</li>
@@ -73,9 +73,9 @@
 
         <h2>メディア</h2>
         <p><a href="/?tab=media">メディア</a>タブには、インデックス済みのすべての作品・書籍・漫画・カスタムのカテゴリが一覧で表示されます。一覧の「本文」は、表示中のタブの全作品の台詞・文を検索し、ヒットを押すとその行から開きます。「タイトル」で絞り込むと、名前が合う話・章・巻、カスタムのフォルダ・ファイルも「作品の中」に表示し、名前の合った部分を太字にします。カスタムのフォルダでは、名前が合うフォルダを先に、ファイルを「フォルダの中」に表示します。作品を開くと、各話・各章・各巻を最初から順に読めます。漫画の文にはページ番号が付きます。ページ番号を押すとそのページが開き、← で次のページ、→ で前のページへ進みます。巻の終わりでは次の巻へ続きます。「← メディア一覧」とブラウザの戻る操作では、並び順、読み込んだ一覧とスクロール位置を復元します。検索語を復元するのはブラウザの戻る・進むと再読み込みだけで、パスや一覧、タブを押して開いたページは検索語なしで表示されます。他のタブから戻ると現在のメディア画面を保ちます。字幕の期はフォルダ名・ファイル名の明確な手掛かりでまとめ、判別できる OVA・スペシャル・劇場版もグループにします。判別できない話は通常の行で表示します。グループが1つなら開き、複数なら閉じた状態で始まります。戻ったときは開閉状態を復元します。上部の選択中のメディア・検索アイコンを押すと、そのページの先頭へ移動できます。</p>
-        <p>字幕・書籍・漫画の作品ページでは「読書モード」で元のファイル（字幕・EPUB・mokuro）をそのまま読めます（元のファイルが読めないときはインデックス済みのテキストを案内付きで表示します）。縦書きは「ページ送り」、横書きは「スクロール」が既定で、作品ごとに位置としおりを記憶します。文字方向・表示形式などの表示設定は字幕・書籍・漫画で別々で、読書モード内と<a href="/?tab=settings">設定</a>タブの「読書モード」の両方から変えられます。カスタムには読書モードはありません。</p>
+        <p>字幕・書籍・漫画の作品ページでは「読書モード」で元のファイル（字幕・EPUB・mokuro）をそのまま読めます（元のファイルが読めないときはインデックス済みのテキストを案内付きで表示します）。カスタムでは .txt と .md のフォルダとファイルのページに「読書モード」があり、インデックス済みのテキストを読みます。表示形式（ページ送り・スクロール）は文字方向とは別の設定で、字幕は「スクロール」、ほかは「ページ送り」が既定です。作品ごとに位置としおりを記憶します。「メモ」（N キー）で今の位置にメモを残せ、先に文を選ぶとその文を引用にします。メモや本文は Markdown でコピーでき、ふりがなを含めるかも選べます。読んだ作品とメモは<a href="/?tab=saved">保存</a>タブの「続きから読む」と「読書メモ」にまとまります。表示設定は字幕・書籍・漫画・カスタムで別々で、読書モード内と<a href="/?tab=settings#set-reader">設定</a>タブの「読書モード」の両方から変えられます。</p>
 
-        <p><b>Q</b> で、検索・メディア・お気に入り・ライブラリの表示中の検索欄や絞り込み欄に移り、入力内容を選択できます。</p>
+        <p><b>Q</b> で、検索・メディア・保存・ライブラリの表示中の検索欄や絞り込み欄に移り、入力内容を選択できます。</p>
         <h2>ショートカット</h2>
         <p><span class="kbd-key">Q</span> 検索バー · <span class="kbd-key">D</span>/<span class="kbd-key">↓</span> 次へ · <span class="kbd-key">A</span>/<span class="kbd-key">↑</span> 前へ · <span class="kbd-key">C</span> 文脈 · <span class="kbd-key">S</span> お気に入り · <span class="kbd-key">F</span> ふりがな · <span class="kbd-key">?</span> ヘルプ · <span class="kbd-key">Esc</span> 閉じる</p>
 
@@ -86,12 +86,12 @@
           <li><b>まとめて入れる</b> — Anki の「ツール → Aobana Reibun → Run」でデッキ全体に、ブラウザでは選んだノートに入れます。フィールドが埋まっているときは、スキップ・置き換え・追加から選べます。</li>
           <li><b>復習中に1枚ずつ</b> — <span class="kbd-key">Ctrl+Shift+W</span> を押すと、今のカードに Aobana の例文が入ります。</li>
           <li><b>ほかの2つのソース</b> — Nadeshiko（API キーが必要）と Immersion Kit（キー不要）の例文も、スクリーンショットと音声つきで入れられます（<span class="kbd-key">Ctrl+Shift+O</span>・<span class="kbd-key">Ctrl+Shift+K</span>）。</li>
-          <li><b>i+1 の既知語</b> — Anki が開いている間、Aobana はアドオンを通してデッキの語を読めます。<a href="/?tab=settings">設定</a>の「既知語」で「Anki から取り込む」を押します。Anki の中身は変わりません。</li>
+          <li><b>i+1 の既知語</b> — Anki が開いている間、Aobana はアドオンを通してデッキの語を読めます。<a href="/?tab=settings#set-known-words">設定</a>の「既知語」で「Anki から取り込む」を押します。Anki の中身は変わりません。</li>
         </ul>
         <p>Anki の「ツール → アドオン」で「アドオンを入手...」を押し、上のコードを入力するとインストールできます。AnkiAutoImage のコードから作り始めました。</p>
 
         <h2>表示と設定</h2>
-        <p>右上のボタンでショートカット一覧（?）、言語（日本語 / English）、テーマ（紙・霞・夜・深夜）を切り替えられます。</p>
+        <p>言語、テーマ、アクセントは「設定 → 一般」で変えられます。ショートカット一覧は ? キー、右上のボタン（パソコン）、このガイドの上のボタンで開けます。</p>
 
         <h2>アプリの終了</h2>
         <p>Aobana は「露草 / Aobana」という名前のウィンドウ（macOS と Linux ではターミナル）で動いています。終了するにはそのウィンドウを閉じます。ブラウザのタブを閉じるだけでは止まりません。</p>
@@ -155,14 +155,14 @@ Custom folder/
 
         <p>A Search page query keeps running when you change tabs. A new content search in Media replaces it; browsing or filtering the title list does not. Indexing, table preparation and moving or deleting a database interrupt searches so the database can be updated. Check library only reads your files and does not interrupt a search.</p>
         <h2>Known words and i+1</h2>
-        <p>Import a list of words you know, and an i+1 menu appears beside the sort. An i+1 sentence has one word you don't know: the one you searched, or another word if you already know that one. Search in kana and only that reading counts: からい leaves out lines that write つらい. "i+1 first" puts those sentences on top (under Recommended, then the ones with the fewest unknown words); "i+1 only" shows just them. Search one word and each sentence shows how many of its words you know, like "5/8 known", even with i+1 off (particles and the like don't count). On an i+1 sentence the number is colored. Turn the counts off in Settings and only the i+1 sentences are marked, with "i+1". Lists are imported in <a href="/?tab=settings">Settings</a> under "Known words".</p>
+        <p>Import a list of words you know, and an i+1 menu appears beside the sort. An i+1 sentence has one word you don't know: the one you searched, or another word if you already know that one. Search in kana and only that reading counts: からい leaves out lines that write つらい. "i+1 first" puts those sentences on top (under Recommended, then the ones with the fewest unknown words); "i+1 only" shows just them. Search one word and each sentence shows how many of its words you know, like "5/8 known", even with i+1 off (particles and the like don't count). On an i+1 sentence the number is colored. Turn the counts off in Settings and only the i+1 sentences are marked, with "i+1". Lists are imported in <a href="/?tab=settings#set-known-words">Settings</a> under "Known words".</p>
         <ul>
           <li><b>From a file</b>: one word per line, a file saved with Anki's "Notes in Plain Text" export, or a Jiten or Migaku export. Before importing, you can check which columns hold the word and its reading.</li>
           <li><b>From Anki</b>: with Anki open and Aobana Reibun installed, "Import from Anki" lets you pick decks. By default it takes the words of mature cards, with an interval of 21 days or more. "Update from Anki" reads the same decks again later. The imported list keeps working with Anki closed.</li>
         </ul>
         <h2>Sentence buttons</h2>
         <ul>
-          <li><b>★</b> saves it to the <a href="/?tab=saved">Favorites</a> tab (stored in this browser).</li>
+          <li><b>★</b> saves it to Favorites, in the <a href="/?tab=saved">Saved</a> tab (stored in this browser).</li>
           <li><b>⋯</b> shows the surrounding context.</li>
           <li><b>ふ</b> shows or hides furigana.</li>
           <li><b>Copy sentence</b> (right of Open in Media) copies the sentence: with its furigana while furigana is shown, and the searched word in bold. It pastes as it is into Anki and other rich editors; where only text goes, the reading follows its word in （）.</li>
@@ -170,9 +170,9 @@ Custom folder/
 
         <h2>Media</h2>
         <p>The <a href="/?tab=media">Media</a> tab lists every indexed show, book, manga series and Custom category. In the list, "Content" searches the lines of every work on the tab, and a hit opens its work at that line. "Titles" also lists the episodes, chapters, volumes and Custom folders and files whose names match, under "Inside the works", the matching part of each name in bold. In a Custom folder, it lists the matching folders first, then the files under "Inside the folders". Open one to read its episodes, chapters or volumes in order; manga lines carry their page number. Click it to open that page: ← turns to the next page and → to the previous one, on into the next or previous volume. "← All media" and browser Back restore your sort, loaded titles and scrolling position. Only the browser's Back, Forward and reload bring back a search: a page opened by a click (the path, a row, a tab) opens without it. Returning from another app tab keeps the current Media view. Subtitle seasons use explicit folder or filename clues, with OVA, special and film groups when recognized. Unclassified episodes stay as ordinary rows. One group opens by default; multiple groups start collapsed, and your open groups restore on return. Click the active Media or Search icon at the top to scroll that page to the top.</p>
-        <p>On subtitle, book and manga pages, press "Reading mode" to read from the original file (subtitle, EPUB or mokuro); if the file cannot be read, indexed text is shown with a notice. Vertical text defaults to "Paginated" and horizontal text to "Scroll"; your place and bookmark are remembered per work. Display options — including writing direction and layout — are kept separately for subtitles, books and manga, and can be changed inside Reading mode or under "Reading mode" in <a href="/?tab=settings">Settings</a>. Custom has no reading mode.</p>
+        <p>On subtitle, book and manga pages, press "Reading mode" to read from the original file (subtitle, EPUB or mokuro); if the file cannot be read, indexed text is shown with a notice. In Custom, folders and files of .txt and .md have "Reading mode" too, and it reads their indexed text. The layout (Paginated or Scroll) is its own setting, apart from the writing direction: subtitles default to "Scroll", the rest to "Paginated". Your place and bookmark are remembered per work. "Notes" (the N key) keeps a note at your place, with the text you selected first as its quote. Notes and the text can be copied as Markdown, with or without furigana. The works you read and their notes are listed under "Continue reading" and "Reading notes" in the <a href="/?tab=saved">Saved</a> tab. Display options are kept separately for subtitles, books, manga and Custom, and can be changed inside Reading mode or under "Reading mode" in <a href="/?tab=settings#set-reader">Settings</a>.</p>
 
-        <p><b>Q</b> focuses and selects the visible search or filter field on Search, Media, Favorites and Library. It is a quick way to start again.</p>
+        <p><b>Q</b> focuses and selects the visible search or filter field on Search, Media, Saved and Library. It is a quick way to start again.</p>
         <h2>Keyboard shortcuts</h2>
         <p><span class="kbd-key">Q</span> search bar · <span class="kbd-key">D</span>/<span class="kbd-key">↓</span> next · <span class="kbd-key">A</span>/<span class="kbd-key">↑</span> previous · <span class="kbd-key">C</span> context · <span class="kbd-key">S</span> favorite · <span class="kbd-key">F</span> furigana · <span class="kbd-key">?</span> help · <span class="kbd-key">Esc</span> close</p>
 
@@ -183,12 +183,12 @@ Custom folder/
           <li><b>A whole deck at once</b>: "Tools → Aobana Reibun → Run" fills a deck, and the Browser fills the notes you select. When a field is already filled, you choose to skip it, replace it or add to it.</li>
           <li><b>One card while reviewing</b>: <span class="kbd-key">Ctrl+Shift+W</span> puts an Aobana sentence on the current card.</li>
           <li><b>Two more sources</b>: Nadeshiko (needs an API key) and Immersion Kit (no key) add sentences with a screenshot and audio (<span class="kbd-key">Ctrl+Shift+O</span>, <span class="kbd-key">Ctrl+Shift+K</span>).</li>
-          <li><b>Known words for i+1</b>: while Anki is open, Aobana can read your decks' words through the add-on. Press "Import from Anki" under "Known words" in <a href="/?tab=settings">Settings</a>. Nothing in Anki changes.</li>
+          <li><b>Known words for i+1</b>: while Anki is open, Aobana can read your decks' words through the add-on. Press "Import from Anki" under "Known words" in <a href="/?tab=settings#set-known-words">Settings</a>. Nothing in Anki changes.</li>
         </ul>
         <p>To install it, open "Tools → Add-ons" in Anki, press "Get Add-ons..." and enter the code above. It started from AnkiAutoImage's code.</p>
 
         <h2>Appearance and settings</h2>
-        <p>The buttons at the top right show keyboard shortcuts (?), and switch language (日本語 / English) and theme (Paper, Haze, Night, Midnight).</p>
+        <p>Language, theme and accent are in Settings → General. The keyboard shortcuts open with the ? key, the button at the top right (on a computer) or the button at the top of this guide.</p>
 
         <h2>Quitting</h2>
         <p>Aobana runs in a window titled "露草 / Aobana" (a Terminal window on macOS and Linux). Close it to quit; closing the browser tab does not stop Aobana.</p>
@@ -209,9 +209,10 @@ Custom folder/
     function initGuideTab() {
       setTitle(t('tab_guide'));
       document.getElementById('guide-body').innerHTML =
-        `<div class="guide-top"><span class="guide-version">Aobana ${esc(APP_VERSION)}</span>` +
+        `<div class="guide-top"><span class="guide-version guide-version-main">Aobana ${esc(APP_VERSION)}</span>` +
         `<button class="btn" onclick="openChangelog()">${esc(t('changelog'))}</button>` +
-        `<button class="btn" onclick="openWelcome()">${esc(t('welcome_again'))}</button></div>` +
+        `<button class="btn" onclick="openWelcome()">${esc(t('welcome_again'))}</button>` +
+        `<button class="btn" onclick="toggleShortcutsModal()">${esc(t('sc_title'))}</button></div>` +
         GUIDE[LANG].replace('<!--reibun-->', reibunTop());
       guideToc();
       if (location.hash === '#reibun') document.getElementById('reibun').scrollIntoView({ block: 'start' });

@@ -1,4 +1,5 @@
 import os
+import re
 import struct
 import sys
 import threading
@@ -7,6 +8,10 @@ _MAX_FILES = 6000
 _EXTS = (".ttf", ".otf", ".ttc", ".otc")
 _LOCK = threading.Lock()
 _CACHE = None
+_OTHER_CJK_WIN_LANGS = frozenset((0x404, 0x804, 0xC04, 0x1004, 0x1404, 0x412))
+_OTHER_CJK_MAC_LANGS = frozenset((19, 23, 33))
+_JP_DLNG_TAGS = frozenset(("ja", "jpan", "hira", "kana", "hrkt"))
+_NON_JP_REGION_RE = re.compile(r"(?:^|[\s_-])(?:HK|KR|SC|TC|GB|Big5)$")
 
 
 def _font_dirs():
@@ -90,7 +95,32 @@ def _names(fh, table):
         return ""
     english = pick([(3, 0x409), (1, 0), (0, 0)]) or next((v for k, v in found.items() if k[0] == 3 and k[2] in (16, 1)), "")
     japanese = pick([(3, 0x411), (1, 11)])
-    return english, japanese
+    has_other_cjk = any(
+        (plat == 3 and lang in _OTHER_CJK_WIN_LANGS) or (plat == 1 and lang in _OTHER_CJK_MAC_LANGS)
+        for plat, lang, _nid in found
+    )
+    return english, japanese, has_other_cjk
+
+
+def _design_languages(fh, table):
+    off, length = table
+    data = _read(fh, off, min(length, 65536))
+    if len(data) < 16:
+        return ()
+    _ver, _flags, _res, count = struct.unpack(">IIII", data[:16])
+    for i in range(min(count, 64)):
+        rec = data[16 + 12 * i:28 + 12 * i]
+        if len(rec) < 12:
+            break
+        tag, doff, dlen = struct.unpack(">4sII", rec)
+        if tag == b"dlng" and doff + dlen <= len(data):
+            raw = data[doff:doff + dlen].decode("ascii", "ignore")
+            return tuple(tok.strip().lower() for tok in raw.split(",") if tok.strip())
+    return ()
+
+
+def _dlng_is_japanese(tags):
+    return any(t in _JP_DLNG_TAGS or t.startswith("ja-") for t in tags)
 
 
 def _has_char(fh, table, cp):
@@ -163,13 +193,22 @@ def _faces(path):
                 tables = _tables(fh, base)
                 if b"name" not in tables or b"cmap" not in tables:
                     continue
-                english, japanese = _names(fh, tables[b"name"])
-                # Japanese: kana in the font, and a Japanese name or the Japanese code page; Chinese
-                # and Korean fonts carry kana too, but neither of the other two.
+                english, japanese, has_other_cjk = _names(fh, tables[b"name"])
+                # Japanese: kana in the font, design languages (when present) include Japanese,
+                # and not a Chinese/Korean regional face.
                 if not english or not _has_char(fh, tables[b"cmap"], 0x3042):
                     continue
-                if not japanese and not (b"OS/2" in tables and _japanese_code_page(fh, tables[b"OS/2"])):
-                    continue
+                dlng = _design_languages(fh, tables[b"meta"]) if b"meta" in tables else ()
+                if dlng:
+                    if not _dlng_is_japanese(dlng):
+                        continue
+                else:
+                    if has_other_cjk and not japanese:
+                        continue
+                    if not japanese and not (b"OS/2" in tables and _japanese_code_page(fh, tables[b"OS/2"])):
+                        continue
+                    if _NON_JP_REGION_RE.search(english):
+                        continue
                 yield english, japanese
             except (ValueError, struct.error, OSError):
                 continue

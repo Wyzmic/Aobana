@@ -39,7 +39,11 @@
       catch (e) { return null; }
     }
     function saveMediaState() {
-      if (PARAMS.get('media') === 'custom' && PARAMS.get('folder')) return;
+      if (PARAMS.get('media') === 'custom' && PARAMS.get('folder')) {
+        // A Custom page keeps its own state (custom.js), the open reader with it.
+        if (typeof customSaveState === 'function') customSaveState();
+        return;
+      }
       if (TAB !== 'media' || mediaRestoring) return;
       if (!PARAMS.get('folder')) {
         const opts = mediaListOptions();
@@ -195,7 +199,7 @@
     }
 
     const MEDIA_PAGE = '500';
-    const MEDIA_SORTS = ['name', 'parts_desc', 'parts_asc', 'lines_desc', 'lines_asc'];
+    const MEDIA_SORTS = ['name', 'read_desc', 'parts_desc', 'parts_asc', 'lines_desc', 'lines_asc'];
     function mediaSort() {
       const v = store.get('mediaSort', 'name');
       return MEDIA_SORTS.includes(v) ? v : 'name';
@@ -207,6 +211,7 @@
     }
     function mediaSortLabel(v) { return t('media_sort_' + v); }
     let mediaPartsVary = true;
+    let mediaSortFor = '';
     let mediaGen = 0, mediaCtrl = null, mediaOffset = 0, mediaHasMore = false, mediaBusy = false;
     let mediaMoreObserver = null, mediaFilterTimer = null, mediaInnerTimer = null;
     let mediaListMode = store.get('mediaListMode') === 'content' ? 'content' : 'title';
@@ -311,9 +316,11 @@
         return;
       }
       showMediaSummary(data);
-      if (!mediaOffset && !!data.parts_vary !== mediaPartsVary) { mediaPartsVary = !!data.parts_vary; initMediaSort(); }
+      if (!mediaOffset && (!!data.parts_vary !== mediaPartsVary || mediaSortFor !== mediaTabFilter())) { mediaPartsVary = !!data.parts_vary; initMediaSort(); }
       const head = `<div class="media-inner-head">${esc(t('media_inner_head'))}</div>`;
-      const html = data.items.map((it, i) => (mediaOffset + i === data.works && it.inner ? head : '')
+      const unreadHead = `<div class="media-inner-head">${esc(t('media_unread_head'))}</div>`;
+      const html = data.items.map((it, i) => (data.unread_from != null && mediaOffset + i === data.unread_from && !it.inner ? unreadHead : '')
+        + (mediaOffset + i === data.works && it.inner ? head : '')
         + (it.inner ? mediaInnerHtml(it, needle) : mediaRowHtml(it, needle))).join('');
       const none = `<div class="status-line" style="padding:2em;">${esc(t('media_none'))}</div>`;
       if (!mediaOffset) {
@@ -482,10 +489,8 @@
     async function initMediaTab() {
       const folder = PARAMS.get('folder');
       const clean = !keepsSearch();
-      if (folder && PARAMS.get('media') === 'custom') {
-        document.documentElement.classList.remove('rm-booting');
-        return initCustomBrowser(folder);
-      }
+      // custom.js ends rm-booting once it knows whether Reading mode opens again
+      if (folder && PARAMS.get('media') === 'custom') return initCustomBrowser(folder);
       if (folder) return initMediaDetail(folder, clean);
       document.documentElement.classList.remove('rm-booting');
       try { sessionStorage.removeItem('aobana_rm_open'); } catch (e) {}
@@ -533,6 +538,7 @@
       if (mediaHasMore) watchMediaEnd();
     }
     function initMediaSort() {
+      mediaSortFor = mediaTabFilter();
       const sorts = MEDIA_SORTS.filter(v => mediaPartsVary || !v.startsWith('parts'));
       makeDropdown(document.getElementById('media-sort'), {
         options: sorts.map(v => ({ value: v, label: mediaSortLabel(v) })),
@@ -679,8 +685,30 @@
     }
 
 
+    // The 保存 tab opens Reading mode on the work's own page: the place goes ahead in the session,
+    // the page opens it once loaded, and the list stays hidden meanwhile (rm-booting)
+    function jumpToReadingMode(jump) {
+      if (!rmSupportsMedia(jump.media) || !jump.folder) return;
+      try {
+        sessionStorage.setItem('aobana_rm_jump', JSON.stringify(jump));
+        sessionStorage.setItem('aobana_rm_open', '1');
+      } catch (e) {}
+      window.location.href = jump.media === 'custom'
+        ? customUrl(jump.folder.split('/')[0], jump.folder)
+        : '/?' + new URLSearchParams({ tab: 'media', folder: jump.folder, media: jump.media });
+    }
+    function takeReadingJump(media, folder) {
+      try {
+        const j = JSON.parse(sessionStorage.getItem('aobana_rm_jump') || 'null');
+        if (!j || j.folder !== folder || (media !== 'all' && j.media !== media)) return null;
+        sessionStorage.removeItem('aobana_rm_jump');
+        return j;
+      } catch (e) { return null; }
+    }
+
     async function initMediaDetail(folder, clean) {
       const at = takeOpenTarget();
+      const rmJump = takeReadingJump(MEDIAS_ALL.includes(PARAMS.get('media')) ? PARAMS.get('media') : 'all', folder);
       setTitle(folder);
       document.getElementById('media-body').hidden = true;
       const head = document.getElementById('media-detail');
@@ -763,7 +791,10 @@
         mediaDetailFiles = ep.files || [];
         renderEpisodesList(mediaDetailFiles);
         const state = readMediaState();
-        if (at) {
+        if (rmJump) {
+          document.getElementById('main-loading').style.display = 'none';
+          await openReadingMode(rmJump);
+        } else if (at) {
           document.getElementById('main-loading').style.display = 'none';
           await openMediaTarget(at);
         } else if (state && state.url === mediaUrl()) {
@@ -1197,7 +1228,11 @@
         return linesHtml;
     }
 
-    const RM_ENABLED_MEDIA = new Set(['epub', 'subs', 'manga']);
+    const RM_ENABLED_MEDIA = new Set(['epub', 'subs', 'manga', 'custom']);
+    // A part laid out from HTML sections: a book read from its file, and a Custom file.
+    function rmHtmlPart(part) {
+      return !!part && part.source === 'file' && (part.media === 'epub' || part.media === 'custom');
+    }
     const RM_PREFS_KEY = 'aobana_reader_prefs';
     const RM_DEFAULT_PREFS = {
       theme: 'app',
@@ -1206,16 +1241,19 @@
       line_height: 1.85,
       font_family: '',
       max_width: 44,
+      max_height: 36,
+      image_scale: 80,
       furigana: 'on',
       writing_mode: 'auto',
-      v_layout: 'paginated',
-      h_layout: 'continuous',
+      layout: 'paginated',
       sub_timestamps: false,
       manga_boxes: 'hover',
       manga_layout: 'single',
       edge_click_nav: true,
       edge_click_width: 12,
       show_progress: true,
+      auto_hide_bar: false,
+      hide_bar_scroll: false,
     };
 
     // Subtitles, books and manga keep their own display settings.
@@ -1223,9 +1261,13 @@
     function rmPrefsMedia(media) {
       return RM_ENABLED_MEDIA.has(media) ? media : (RM_ENABLED_MEDIA.has(rmState.media) ? rmState.media : 'epub');
     }
+    // Subtitles scroll by default; the rest turn pages.
+    function rmDefaultPrefs(m) {
+      return m === 'subs' ? { ...RM_DEFAULT_PREFS, layout: 'continuous' } : { ...RM_DEFAULT_PREFS };
+    }
     function rmSetPrefsCache(media, prefs) {
       const m = rmPrefsMedia(media);
-      rmPrefsCache[m] = { ...RM_DEFAULT_PREFS, ...prefs };
+      rmPrefsCache[m] = { ...rmDefaultPrefs(m), ...prefs };
       store.set(`${RM_PREFS_KEY}_${m}`, JSON.stringify(rmPrefsCache[m]));
     }
     function rmSupportsMedia(media) {
@@ -1262,18 +1304,68 @@
     let rmDeviceFontsCache = null;
     let rmFontPopupState = null;
     let rmFontEventsBound = false;
+    function rmFontCanvasCtx() {
+      if (rmFontCanvasCtx.ctx !== undefined) return rmFontCanvasCtx.ctx;
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = 200;
+        cv.height = 44;
+        rmFontCanvasCtx.ctx = cv.getContext('2d', { willReadFrequently: true }) || cv.getContext('2d');
+      } catch (e) {
+        rmFontCanvasCtx.ctx = null;
+      }
+      return rmFontCanvasCtx.ctx;
+    }
+    function rmFontFingerprint(fontCss) {
+      const ctx = rmFontCanvasCtx();
+      if (!ctx) return null;
+      const sample = 'あ永漢の明ゴ';
+      ctx.clearRect(0, 0, 200, 44);
+      ctx.fillStyle = '#000';
+      ctx.textBaseline = 'top';
+      ctx.font = fontCss;
+      const w = Math.round(ctx.measureText(sample).width * 10);
+      ctx.fillText(sample, 2, 6);
+      try {
+        const data = ctx.getImageData(0, 0, 200, 44).data;
+        let h1 = 0x811c9dc5;
+        let h2 = 0x01000193;
+        for (let i = 3; i < data.length; i += 4) {
+          const a = data[i];
+          h1 = Math.imul(h1 ^ a, 0x01000193) >>> 0;
+          h2 = Math.imul(h2 ^ (a + (i & 255)), 0x85ebca6b) >>> 0;
+        }
+        return `${w}:${h1.toString(16)}:${h2.toString(16)}`;
+      } catch (e) {
+        return null;
+      }
+    }
     function rmFontDrawable(family) {
-      const ctx = rmFontDrawable.ctx || (rmFontDrawable.ctx = document.createElement('canvas').getContext('2d'));
+      const ctx = rmFontCanvasCtx();
+      if (!ctx) return false;
       const sample = 'mmmmlli WQ.,あア漢永の';
       const shape = font => {
+        const fp = rmFontFingerprint(font);
+        if (fp) return fp;
         ctx.font = font;
         const m = ctx.measureText(sample);
         return `${m.width}|${m.actualBoundingBoxAscent}|${m.actualBoundingBoxDescent}`;
       };
-      return ['monospace', 'serif', 'sans-serif'].some(base => shape(`32px "${family}", ${base}`) !== shape(`32px ${base}`));
+      // The three generic families draw the same all page long: drawn once, not once per font
+      const baseShape = base => {
+        if (!rmFontBaseShapes.has(base)) rmFontBaseShapes.set(base, shape(`28px ${base}`));
+        return rmFontBaseShapes.get(base);
+      };
+      return ['monospace', 'serif', 'sans-serif'].some(base => shape(`28px "${family}", ${base}`) !== baseShape(base));
     }
+    const rmFontBaseShapes = new Map();
     function rmMergeFonts(serverFonts) {
       const seen = new Map();
+      const drawnHashes = new Set();
+      const defFp = rmFontFingerprint(`28px ${RM_FONT_FALLBACK}`);
+      const serFp = rmFontFingerprint('28px serif');
+      if (defFp) drawnHashes.add(defFp);
+      if (serFp) drawnHashes.add(serFp);
       const add = f => {
         const fam = rmFontName(f && f.family);
         if (!fam) return;
@@ -1285,10 +1377,19 @@
           return;
         }
         if (!rmFontDrawable(fam)) return;
+        const fp = rmFontFingerprint(`28px ${rmFontStack(fam)}`);
+        if (fp) {
+          if (drawnHashes.has(fp)) return;
+          drawnHashes.add(fp);
+        }
         seen.set(key, { family: fam, name_ja: f.name_ja || '' });
       };
       for (const f of (serverFonts || [])) add(f);
       for (const f of RM_DEVICE_FONTS) add(f);
+      // Two weights can share one Japanese name (新字源 明朝 W3 and W7): those show their own names.
+      const jaCount = new Map();
+      for (const f of seen.values()) if (f.name_ja) jaCount.set(f.name_ja, (jaCount.get(f.name_ja) || 0) + 1);
+      for (const f of seen.values()) if (f.name_ja && jaCount.get(f.name_ja) > 1) f.name_ja = '';
       return Array.from(seen.values()).sort((a, b) => {
         const ak = a.family.toLowerCase(), bk = b.family.toLowerCase();
         return ak < bk ? -1 : (ak > bk ? 1 : 0);
@@ -1300,13 +1401,24 @@
     }
     function rmLoadFonts() {
       if (rmFontList || rmFontListLoading) return rmFontListLoading;
-      rmFontListLoading = fetch('/api/reading/fonts').then(r => r.ok ? r.json() : { fonts: [] }).catch(() => ({ fonts: [] }))
-        .then(data => {
-          rmFontList = rmMergeFonts((data && data.fonts) || []);
-          if (typeof renderReaderSettings === 'function') renderReaderSettings();
-          if (isReadingModeOpen()) rmRenderSettingsPanel();
-          return rmFontList;
-        });
+      const fontsReady = (document.fonts && document.fonts.ready)
+        ? Promise.race([
+          Promise.all([
+            document.fonts.load ? document.fonts.load('28px "Aobana Sans"').catch(() => {}) : Promise.resolve(),
+            document.fonts.ready.catch(() => {}),
+          ]),
+          new Promise(r => setTimeout(r, 1500)),
+        ])
+        : Promise.resolve();
+      rmFontListLoading = Promise.all([
+        fetch('/api/reading/fonts').then(r => r.ok ? r.json() : { fonts: [] }).catch(() => ({ fonts: [] })),
+        fontsReady,
+      ]).then(([data]) => {
+        rmFontList = rmMergeFonts((data && data.fonts) || []);
+        if (typeof renderReaderSettings === 'function') renderReaderSettings();
+        if (isReadingModeOpen()) rmRenderSettingsPanel();
+        return rmFontList;
+      });
       return rmFontListLoading;
     }
     function rmFontOptions(current) {
@@ -1571,15 +1683,15 @@
     }
     function rmGetPrefs(media) {
       const m = rmPrefsMedia(media);
-      if (rmPrefsCache[m]) return { ...RM_DEFAULT_PREFS, ...rmPrefsCache[m] };
+      if (rmPrefsCache[m]) return { ...rmDefaultPrefs(m), ...rmPrefsCache[m] };
       try {
         const saved = JSON.parse(store.get(`${RM_PREFS_KEY}_${m}`) || 'null');
         if (saved && typeof saved === 'object') {
-          rmPrefsCache[m] = { ...RM_DEFAULT_PREFS, ...saved };
+          rmPrefsCache[m] = { ...rmDefaultPrefs(m), ...saved };
           return { ...rmPrefsCache[m] };
         }
       } catch (e) {}
-      return { ...RM_DEFAULT_PREFS };
+      return rmDefaultPrefs(m);
     }
     async function rmFetchPrefs() {
       try {
@@ -1591,17 +1703,31 @@
         }
       } catch (e) {}
     }
-    const RM_NO_RELAYOUT_KEYS = new Set(['theme', 'furigana', 'edge_click_nav', 'edge_click_width', 'manga_boxes']);
+    // Settings that leave the text where it is. The click zones are among them: on a wide window a
+    // page leaves room for zones of the default width (RM_EDGE_ROOM), whatever they are set to.
+    const RM_NO_RELAYOUT_KEYS = new Set(['theme', 'furigana', 'manga_boxes', 'edge_click_width', 'edge_click_nav']);
+    const RM_EDGE_ROOM = 0.12;
+    let rmDragAnchor = null;
+    let rmDragClearTimer = null;
+    function rmClearDragAnchor() {
+      clearTimeout(rmDragClearTimer);
+      rmDragClearTimer = null;
+      rmDragAnchor = null;
+    }
     async function rmUpdatePrefs(patch, opts = {}) {
       const m = rmPrefsMedia(opts.media);
+      const needsRelayout = Object.keys(patch || {}).some(k => !RM_NO_RELAYOUT_KEYS.has(k));
+      const anchor = (needsRelayout && isReadingModeOpen() && m === rmState.media && rmState.part)
+        ? (opts.anchor || rmDragAnchor || rmLayoutAnchor())
+        : null;
+      if (opts.endDrag) rmClearDragAnchor();
       const next = { ...rmGetPrefs(m), ...patch };
       rmSetPrefsCache(m, next);
       try {
         const res = await apiPost('/api/reading/state', { media: m, prefs: patch });
         if (res && res.prefs) rmSetPrefsCache(m, res.prefs);
       } catch (e) {}
-      const needsRelayout = Object.keys(patch || {}).some(k => !RM_NO_RELAYOUT_KEYS.has(k));
-      if (isReadingModeOpen() && m === rmState.media) rmApplyPrefsToDom(needsRelayout, opts.rebuildSettings !== false);
+      if (isReadingModeOpen() && m === rmState.media) rmApplyPrefsToDom(needsRelayout, opts.rebuildSettings !== false, anchor);
       return rmGetPrefs(m);
     }
 
@@ -1610,13 +1736,32 @@
       if (isReadingModeOpen() && rmState.media !== 'manga' && rmState.work && (rmState.work.writing_mode != null || rmState.work.layout != null)) {
         await rmSaveWorkOverride({ writing_mode: null, layout: null });
       }
-      return rmUpdatePrefs({ ...RM_DEFAULT_PREFS });
+      return rmUpdatePrefs(rmDefaultPrefs(rmPrefsMedia()));
     }
 
     function rmLiveRangePref(key, val, labelEl, text) {
       if (labelEl) labelEl.textContent = text;
+      const needsRelayout = !RM_NO_RELAYOUT_KEYS.has(key);
+      if (needsRelayout && isReadingModeOpen() && rmState.part && !rmDragAnchor) {
+        rmDragAnchor = rmLayoutAnchor();
+      }
+      if (rmDragAnchor) {
+        clearTimeout(rmDragClearTimer);
+        rmDragClearTimer = setTimeout(() => { rmDragAnchor = null; }, 1200);
+      }
       rmSetPrefsCache(rmState.media, { ...rmGetPrefs(), [key]: val });
-      if (isReadingModeOpen()) rmApplyPrefsToDom(!RM_NO_RELAYOUT_KEYS.has(key), false);
+      if (isReadingModeOpen()) rmApplyPrefsToDom(needsRelayout, false, rmDragAnchor);
+      if (key === 'edge_click_width') rmPreviewEdgeZones();
+    }
+
+    // While クリック領域の幅 is dragged, both click zones are tinted so their reach shows.
+    let rmEdgePreviewTimer = null;
+    function rmPreviewEdgeZones() {
+      const dlg = document.getElementById('reading-mode');
+      if (!dlg) return;
+      clearTimeout(rmEdgePreviewTimer);
+      dlg.classList.toggle('rm-edge-preview', rmEdgeNavActive());
+      rmEdgePreviewTimer = setTimeout(() => dlg.classList.remove('rm-edge-preview'), 900);
     }
 
     function rmEntryButtonHTML(media, folder) {
@@ -1644,6 +1789,8 @@
     function rmOpenFromEntry(btn) {
       const media = btn.dataset.media;
       const folder = btn.dataset.folder;
+      // Custom: a file page opens its own file, a folder page its place or first file.
+      if (media === 'custom') return openReadingMode({ media, folder, file: btn.dataset.file || '' });
       const file = btn.dataset.savedFile || (mediaDetailFiles[0] && mediaDetailFiles[0].file) || '';
       if (!file) return;
       openReadingMode({ media, folder, file });
@@ -1667,6 +1814,9 @@
       dir: 'horizontal',
       layout: 'continuous',
       sections: [],
+      secCharStarts: [],
+      secCharLens: [],
+      totalPlainChars: 0,
       secIndex: 0,
       pageIndex: 0,
       pageCount: 1,
@@ -1685,9 +1835,480 @@
 
     let rmIgnorePopCount = 0;
 
+    const RM_ANCHOR_WS_RE = /[\s\u3000\u200b]/;
+    const RM_ANCHOR_SKIP_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE', 'SVG', 'NOSCRIPT']);
+
+    function rmIsLowSurrogate(c) { return c >= 0xdc00 && c <= 0xdfff; }
+    function rmCountNonWs(str, limit = str.length) {
+      let n = 0;
+      for (let i = 0; i < limit && i < str.length; i++) {
+        if (!RM_ANCHOR_WS_RE.test(str[i])) n++;
+      }
+      return n;
+    }
+
+    function rmRawIdxFromNonWs(str, targetNonWs) {
+      let n = 0;
+      for (let i = 0; i < str.length; i++) {
+        if (!RM_ANCHOR_WS_RE.test(str[i])) {
+          if (n >= targetNonWs) return i;
+          n++;
+        }
+      }
+      return Math.max(0, str.length - 1);
+    }
+
+    function rmCollectAnchorNodes(root) {
+      const nodes = [];
+      let total = 0;
+      if (!root) return { nodes, total };
+      const walk = (el) => {
+        for (let c = el.firstChild; c; c = c.nextSibling) {
+          if (c.nodeType === 3) {
+            const txt = c.nodeValue || '';
+            const n = rmCountNonWs(txt);
+            if (n > 0) {
+              nodes.push({ node: c, text: txt, nonWsLen: n, cumStart: total });
+              total += n;
+            }
+          } else if (c.nodeType === 1) {
+            if (RM_ANCHOR_SKIP_TAGS.has(c.tagName)) continue;
+            if (c.classList && (c.classList.contains('rm-sent-break') || c.classList.contains('rm-sub-ts') || c.classList.contains('rm-part-nav-end'))) continue;
+            walk(c);
+          }
+        }
+      };
+      walk(root);
+      return { nodes, total };
+    }
+
+    function rmExtractQuoteAt(nodes, startIdx, rawIdx, maxLen = 40) {
+      let out = '';
+      for (let i = startIdx; i < nodes.length && out.length < maxLen; i++) {
+        const chunk = (i === startIdx ? nodes[i].text.slice(rawIdx) : nodes[i].text)
+          .replace(/[\r\n\t]+/g, ' ')
+          .replace(/\s{2,}/g, ' ');
+        out += chunk;
+      }
+      return out.trim().slice(0, maxLen);
+    }
+
+    // Precompute cumulative non-whitespace plain-text character counts across spine sections so
+    // continuous and paginated layouts share one layout-independent 0..N coordinate space.
+    function rmBuildPartCharIndex(root) {
+      const part = rmState.part;
+      if (!part || rmState.media === 'manga') {
+        rmState.secCharStarts = [];
+        rmState.secCharLens = [];
+        rmState.totalPlainChars = 0;
+        return;
+      }
+      if (rmHtmlPart(part)) {
+        const starts = [];
+        const lens = [];
+        let acc = 0;
+        if (rmState.layout === 'paginated' && rmState.sections.length) {
+          for (let i = 0; i < rmState.sections.length; i++) {
+            starts.push(acc);
+            const doc = rmParseSafeDoc(rmState.sections[i] || '');
+            const n = rmCollectAnchorNodes(doc.body).total;
+            lens.push(n);
+            acc += n;
+          }
+        } else if (root) {
+          const spines = [...root.querySelectorAll(':scope > section.rm-epub-spine')]
+            .filter(sec => (sec.textContent || '').trim() || sec.querySelector('img, svg, hr, table'));
+          if (spines.length) {
+            for (const sec of spines) {
+              starts.push(acc);
+              const n = rmCollectAnchorNodes(sec).total;
+              lens.push(n);
+              acc += n;
+            }
+          } else {
+            starts.push(0);
+            acc = rmCollectAnchorNodes(root).total;
+            lens.push(acc);
+          }
+        }
+        rmState.secCharStarts = starts;
+        rmState.secCharLens = lens;
+        rmState.totalPlainChars = acc;
+        return;
+      }
+      const total = root ? rmCollectAnchorNodes(root).total : 0;
+      rmState.secCharStarts = [0];
+      rmState.secCharLens = [total];
+      rmState.totalPlainChars = total;
+    }
+
+    function rmAnchorTopPad() {
+      const dlg = document.getElementById('reading-mode');
+      const bar = document.getElementById('rm-topbar');
+      if (dlg && dlg.classList.contains('rm-autohide-pad') && !rmBarHidden && bar) {
+        return (bar.offsetHeight || 46) + 8;
+      }
+      return 8;
+    }
+
+    function rmRectInViewport(r, vr, vertical, paginated, topPad) {
+      if (!r || r.width < 0.2 || r.height < 0.2) return false;
+      if (paginated) {
+        const cx = (r.left + r.right) * 0.5;
+        const cy = (r.top + r.bottom) * 0.5;
+        return cx >= vr.left - 2 && cx <= vr.right + 2 && cy >= vr.top - 2 && cy <= vr.bottom + 2;
+      }
+      if (vertical) {
+        return r.left < vr.right - 2 && r.right > vr.left + 2;
+      }
+      return r.bottom > vr.top + topPad && r.top < vr.bottom - 2;
+    }
+
+    function rmRectBeforeStart(r, vr, vertical, paginated, topPad) {
+      if (paginated) {
+        return vertical ? (r.bottom < vr.top + 2) : (r.right < vr.left + 2);
+      }
+      if (vertical) return r.left >= vr.right - 2;
+      return r.bottom <= vr.top + topPad;
+    }
+
+    function rmReadAnchor() {
+      const part = rmState.part;
+      const item = rmState.files[rmState.partIndex];
+      const file = (part && part.file) || (item && item.file) || '';
+      if (!part) return null;
+      if (rmState.media === 'manga') {
+        const pages = part.pages || [];
+        let page = rmState.mangaPage || 1;
+        let pageFrac = 0;
+        const mStage = document.getElementById('rm-manga-stage');
+        if (mStage && mStage.classList.contains('rm-manga-strip')) {
+          const sr = mStage.getBoundingClientRect();
+          const els = mStage.querySelectorAll('[data-page]');
+          for (const el of els) {
+            const er = el.getBoundingClientRect();
+            if (er.bottom > sr.top + 8) {
+              page = parseInt(el.dataset.page || String(page), 10) || page;
+              pageFrac = Math.max(0, Math.min(1, (sr.top - er.top) / Math.max(1, er.height)));
+              break;
+            }
+          }
+        }
+        const ratio = pages.length > 1 ? Math.max(0, Math.min(1, (page - 1) / (pages.length - 1))) : 0;
+        return {
+          file,
+          anchor_v: 1,
+          char_offset: 0,
+          sec_index: 0,
+          quote: '',
+          scroll_ratio: Number(ratio.toFixed(5)),
+          page,
+          page_frac: Number(pageFrac.toFixed(5)),
+        };
+      }
+      const sc = rmScrollerEl();
+      const root = document.getElementById('rm-epub-root');
+      const fallbackRatio = rmReadScrollRatio();
+      const baseOff = (rmState.layout === 'paginated' && rmState.secCharStarts[rmState.secIndex]) || 0;
+      if (!sc || !root) {
+        return {
+          file, anchor_v: 1, char_offset: baseOff, sec_index: rmState.secIndex || 0,
+          quote: '', scroll_ratio: Number(fallbackRatio.toFixed(5)), page: rmState.pageIndex + 1,
+        };
+      }
+      const { nodes } = rmCollectAnchorNodes(root);
+      if (!nodes.length) {
+        return {
+          file, anchor_v: 1, char_offset: baseOff, sec_index: rmState.secIndex || 0,
+          quote: '', scroll_ratio: Number(fallbackRatio.toFixed(5)), page: rmState.pageIndex + 1,
+        };
+      }
+      const vr = sc.getBoundingClientRect();
+      const vertical = rmState.dir === 'vertical';
+      const paginated = rmState.layout === 'paginated';
+      const topPad = (!paginated && !vertical) ? rmAnchorTopPad() : 2;
+      const range = document.createRange();
+
+      let startIdx = 0;
+      if (nodes.length > 200) {
+        let lo = 0, hi = nodes.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          range.selectNodeContents(nodes[mid].node);
+          const mr = range.getBoundingClientRect();
+          if (rmRectBeforeStart(mr, vr, vertical, paginated, topPad)) lo = mid + 1;
+          else hi = mid;
+        }
+        startIdx = Math.max(0, lo - 4);
+      }
+
+      let hitIdx = -1;
+      let hitRaw = 0;
+      for (let i = startIdx; i < nodes.length; i++) {
+        const entry = nodes[i];
+        range.selectNodeContents(entry.node);
+        const nr = range.getBoundingClientRect();
+        if (rmRectBeforeStart(nr, vr, vertical, paginated, topPad)) continue;
+        const rects = range.getClientRects();
+        let anyVis = false;
+        for (let k = 0; k < rects.length; k++) {
+          if (rmRectInViewport(rects[k], vr, vertical, paginated, topPad)) { anyVis = true; break; }
+        }
+        if (!anyVis) {
+          if (!paginated && (vertical ? nr.right < vr.left : nr.top > vr.bottom)) break;
+          continue;
+        }
+        const txt = entry.text;
+        let lo = 0, hi = txt.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          // An Ext-B kanji or emoji is two code units: measured whole, never by one half
+          const at = mid > 0 && rmIsLowSurrogate(txt.charCodeAt(mid)) ? mid - 1 : mid;
+          range.setStart(entry.node, at);
+          range.setEnd(entry.node, Math.min(txt.length, at + (txt.codePointAt(at) > 0xffff ? 2 : 1)));
+          const cr = range.getBoundingClientRect();
+          if (rmRectBeforeStart(cr, vr, vertical, paginated, topPad)) lo = mid + 1;
+          else hi = mid;
+        }
+        let raw = lo > 0 && rmIsLowSurrogate(txt.charCodeAt(lo)) ? lo - 1 : lo;
+        while (raw < txt.length && RM_ANCHOR_WS_RE.test(txt[raw])) raw++;
+        if (raw >= txt.length) continue;
+        hitIdx = i;
+        hitRaw = raw;
+        break;
+      }
+
+      if (hitIdx < 0) {
+        hitIdx = Math.min(nodes.length - 1, startIdx);
+        hitRaw = rmRawIdxFromNonWs(nodes[hitIdx].text, 0);
+      }
+
+      const hitEntry = nodes[hitIdx];
+      const localNonWs = rmCountNonWs(hitEntry.text, hitRaw);
+      const charOffset = baseOff + hitEntry.cumStart + localNonWs;
+      const total = rmState.totalPlainChars || (part.char_count || 0);
+      const ratio = total > 0 ? Math.max(0, Math.min(1, charOffset / total)) : fallbackRatio;
+      const quote = rmExtractQuoteAt(nodes, hitIdx, hitRaw, 40);
+      // In a scrolled layout the anchor also keeps how far its character sat from the leading edge,
+      // so a return lands on the same pixel, not a column or line away.
+      let edge = null;
+      if (!paginated) {
+        range.setStart(hitEntry.node, hitRaw);
+        range.setEnd(hitEntry.node, Math.min(hitEntry.text.length, hitRaw + 1));
+        const hr = range.getBoundingClientRect();
+        if (hr.width > 0 || hr.height > 0) edge = Number((vertical ? vr.right - hr.right : hr.top - vr.top).toFixed(1));
+      }
+      let secIdx = rmState.secIndex || 0;
+      if (!paginated && rmState.secCharStarts.length > 1) {
+        for (let s = rmState.secCharStarts.length - 1; s >= 0; s--) {
+          if (charOffset >= rmState.secCharStarts[s]) { secIdx = s; break; }
+        }
+      }
+      return {
+        file,
+        anchor_v: 1,
+        char_offset: charOffset,
+        sec_index: secIdx,
+        quote,
+        scroll_ratio: Number(ratio.toFixed(5)),
+        page: rmState.pageIndex + 1,
+        ...(edge != null ? { edge } : {}),
+      };
+    }
+
+    function rmLocateAnchorOffset(root, localTarget, quote) {
+      const { nodes, total } = rmCollectAnchorNodes(root);
+      if (!nodes.length) return null;
+      const clamped = Math.max(0, Math.min(Math.max(0, total - 1), localTarget || 0));
+      let lo = 0, hi = nodes.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (nodes[mid].cumStart <= clamped) lo = mid;
+        else hi = mid - 1;
+      }
+      let entry = nodes[lo];
+      let rawIdx = rmRawIdxFromNonWs(entry.text, clamped - entry.cumStart);
+
+      const qClean = (quote || '').replace(/[\s\u3000\u200b]+/g, '');
+      if (qClean.length >= 6) {
+        const probe = rmExtractQuoteAt(nodes, lo, rawIdx, Math.max(24, qClean.length)).replace(/[\s\u3000\u200b]+/g, '');
+        const head = qClean.slice(0, 12);
+        if (!probe.startsWith(head)) {
+          const allNonWs = nodes.map(e => e.text.replace(/[\s\u3000\u200b]+/g, '')).join('');
+          const nearStart = Math.max(0, clamped - 400);
+          let found = allNonWs.indexOf(head, nearStart);
+          if (found < 0 || found > clamped + 600) found = allNonWs.indexOf(head);
+          if (found >= 0) {
+            let a = 0, b = nodes.length - 1;
+            while (a < b) {
+              const m = (a + b + 1) >> 1;
+              if (nodes[m].cumStart <= found) a = m;
+              else b = m - 1;
+            }
+            entry = nodes[a];
+            rawIdx = rmRawIdxFromNonWs(entry.text, found - entry.cumStart);
+          }
+        }
+      }
+      return { node: entry.node, rawIdx };
+    }
+
+    function rmAnchorTargetSection(anchor) {
+      const count = Math.max(1, rmState.sections.length);
+      if (count <= 1) return 0;
+      const off = Math.max(0, anchor.char_offset || 0);
+      if (rmState.secCharStarts.length === count) {
+        if (typeof anchor.sec_index === 'number' && anchor.sec_index >= 0 && anchor.sec_index < count) {
+          const s0 = rmState.secCharStarts[anchor.sec_index];
+          const l0 = rmState.secCharLens[anchor.sec_index] || 0;
+          if (l0 === 0 && off === s0) return anchor.sec_index;
+          if (off >= s0 && off < s0 + l0) return anchor.sec_index;
+        }
+        for (let s = count - 1; s >= 0; s--) {
+          if (off >= rmState.secCharStarts[s] && (rmState.secCharLens[s] > 0 || s === 0)) return s;
+        }
+      }
+      if (typeof anchor.sec_index === 'number' && anchor.sec_index >= 0 && anchor.sec_index < count) {
+        return anchor.sec_index;
+      }
+      return rmRatioToSection(anchor.scroll_ratio || 0, count).secIndex;
+    }
+
+    // A relayout (resize, a setting, a font or image load) lands on the page or scroll position that
+    // holds the anchor. Reading a new anchor from that landing would start at the page's first
+    // character, earlier than the old one, so every further relayout crept back a page. The landed
+    // anchor is kept until the reader moves.
+    let rmLanded = null;
+    function rmPositionKey() {
+      if (!rmState.part) return '';
+      const base = `${rmState.part.file || ''}|${rmState.media}|${rmState.dir}|${rmState.layout}`;
+      if (rmState.media === 'manga') {
+        const mStage = document.getElementById('rm-manga-stage');
+        const strip = mStage && mStage.classList.contains('rm-manga-strip');
+        return `${base}|${rmState.mangaPage || 0}|${strip ? Math.round(mStage.scrollTop) : ''}`;
+      }
+      if (rmState.layout === 'paginated') return `${base}|${rmState.secIndex || 0}|${rmState.pageIndex || 0}`;
+      const sc = rmScrollerEl();
+      if (!sc) return base;
+      return `${base}|${Math.round(rmState.dir === 'vertical' ? rmGetRtlDist(sc) : sc.scrollTop)}`;
+    }
+    function rmLayoutAnchor() {
+      if (rmLanded && rmLanded.key === rmPositionKey()) return rmLanded.anchor;
+      rmLanded = null;
+      return rmReadAnchor();
+    }
+
+    function rmRestoreAnchor(anchor) {
+      const ok = rmRestoreAnchorAt(anchor);
+      rmLanded = (ok && anchor && anchor.anchor_v) ? { anchor, key: rmPositionKey() } : null;
+      return ok;
+    }
+
+    // The page of the shown section that holds the anchor's character under the current layout.
+    // Strict: -1 when the character is in another section; otherwise the nearest page.
+    function rmAnchorPageInSection(anchor, root, strict = false) {
+      if (!anchor || !root || rmState.layout !== 'paginated') return -1;
+      const baseOff = rmState.secCharStarts[rmState.secIndex] || 0;
+      const secLen = rmState.secCharLens[rmState.secIndex];
+      const local = (anchor.char_offset || 0) - baseOff;
+      if (strict && (local < 0 || (rmState.sections.length > 1 && secLen != null && local >= Math.max(1, secLen)))) return -1;
+      const local0 = Math.max(0, local);
+      const loc = rmLocateAnchorOffset(root, local0, anchor.quote);
+      if (!loc) return -1;
+      const prevT = root.style.transform;
+      root.style.transform = '';
+      const range = document.createRange();
+      range.setStart(loc.node, loc.rawIdx);
+      range.setEnd(loc.node, Math.min(loc.node.nodeValue.length, loc.rawIdx + 1));
+      const cr = range.getBoundingClientRect();
+      const rr = root.getBoundingClientRect();
+      root.style.transform = prevT;
+      const vertical = rmState.dir === 'vertical';
+      const stride = Math.max(1, (vertical ? rmState.pageH : rmState.pageW) + RM_PAGE_GAP);
+      const axis = vertical ? ((cr.top + cr.bottom) * 0.5 - rr.top) : ((cr.left + cr.right) * 0.5 - rr.left);
+      return Math.max(0, Math.min(rmState.pageCount - 1, Math.floor((axis + RM_PAGE_GAP * 0.5) / stride)));
+    }
+
+    function rmRestoreAnchorAt(anchor) {
+      if (!anchor || !rmState.part) return false;
+      if (rmState.media === 'manga') {
+        const pno = Math.max(1, Math.min((rmState.part.pages || []).length || 1, anchor.page || 1));
+        const mStage = document.getElementById('rm-manga-stage');
+        if (mStage && mStage.classList.contains('rm-manga-strip')) {
+          const el = mStage.querySelector(`[data-page="${pno}"]`);
+          if (el) {
+            rmBarIgnoreScrollUntil = Date.now() + 200;
+            const targetTop = el.offsetTop + Math.round((anchor.page_frac || 0) * el.offsetHeight);
+            mStage.scrollTop = Math.max(0, targetTop);
+            rmBarLastPos = mStage.scrollTop;
+          }
+          rmState.mangaPage = pno;
+          rmUpdateProgressUI();
+          return true;
+        }
+        if (typeof rmGoMangaPage === 'function') rmGoMangaPage(pno);
+        return true;
+      }
+      if (!anchor.anchor_v) {
+        rmRestoreScrollRatio(anchor.scroll_ratio || 0);
+        return true;
+      }
+      const sc = rmScrollerEl();
+      const root = document.getElementById('rm-epub-root');
+      if (!sc || !root) return false;
+      if (rmState.totalPlainChars <= 0) {
+        if (rmState.layout === 'paginated' && rmState.sections.length > 1 && typeof anchor.sec_index === 'number') {
+          const sIdx = Math.max(0, Math.min(rmState.sections.length - 1, anchor.sec_index));
+          if (sIdx !== rmState.secIndex) rmRenderPaginatedSection(sIdx, { inSecRatio: 0 });
+          else rmApplyPaginatedOffset(0);
+          return true;
+        }
+        rmRestoreScrollRatio(anchor.scroll_ratio || 0);
+        return true;
+      }
+
+      if (rmState.layout === 'paginated') {
+        const targetSec = rmAnchorTargetSection(anchor);
+        if (rmState.sections.length > 1 && targetSec !== rmState.secIndex) {
+          rmRenderPaginatedSection(targetSec, { skipOffset: true });
+        }
+        const activeRoot = document.getElementById('rm-epub-root');
+        const activeSc = rmScrollerEl();
+        if (!activeRoot || !activeSc) return false;
+        rmApplyPaginatedOffset(Math.max(0, rmAnchorPageInSection(anchor, activeRoot)));
+        return true;
+      }
+
+      const loc = rmLocateAnchorOffset(root, anchor.char_offset || 0, anchor.quote);
+      if (!loc) {
+        rmRestoreScrollRatio(anchor.scroll_ratio || 0);
+        return true;
+      }
+      const range = document.createRange();
+      range.setStart(loc.node, loc.rawIdx);
+      range.setEnd(loc.node, Math.min(loc.node.nodeValue.length, loc.rawIdx + 1));
+      const cr = range.getBoundingClientRect();
+      const vr = sc.getBoundingClientRect();
+      rmBarIgnoreScrollUntil = Date.now() + 200;
+      if (rmState.dir === 'vertical') {
+        const curDist = rmGetRtlDist(sc);
+        const pad = typeof anchor.edge === 'number' ? anchor.edge : 20;
+        const delta = (vr.right - pad) - cr.right;
+        rmSetRtlDist(sc, curDist + delta, false);
+        rmBarLastPos = rmGetRtlDist(sc);
+      } else {
+        const pad = typeof anchor.edge === 'number' ? anchor.edge : rmAnchorTopPad();
+        const targetTop = Math.max(0, sc.scrollTop + (cr.top - vr.top) - pad);
+        sc.scrollTo({ top: targetTop, behavior: 'instant' });
+        rmBarLastPos = sc.scrollTop;
+      }
+      return true;
+    }
+
     function rmCapturePos() {
       const sc = rmScrollerEl();
       const item = rmState.files[rmState.partIndex];
+      const anchor = rmReadAnchor();
       return {
         partIndex: rmState.partIndex,
         file: (rmState.part && rmState.part.file) || (item && item.file) || '',
@@ -1696,6 +2317,7 @@
         scrollRatio: rmState.media === 'manga' ? 0 : rmReadScrollRatio(),
         scrollTop: sc ? sc.scrollTop : 0,
         rtlDist: (sc && rmState.dir === 'vertical') ? rmGetRtlDist(sc) : 0,
+        anchor,
       };
     }
 
@@ -1708,10 +2330,12 @@
       }
       if (idx < 0 || idx >= rmState.files.length) return;
       if (idx !== rmState.partIndex || !rmState.part) {
-        await rmLoadPart(idx, { restoreExactPos: pos, fromHistory: true });
+        await rmLoadPart(idx, { restoreExactPos: pos, targetAnchor: pos.anchor || null, fromHistory: true });
         return;
       }
-      if (rmState.layout === 'paginated') {
+      if (pos.anchor && pos.anchor.anchor_v) {
+        rmRestoreAnchor(pos.anchor);
+      } else if (rmState.layout === 'paginated') {
         if ((rmState.sections || []).length > 1 && pos.secIndex != null && pos.secIndex !== rmState.secIndex) {
           rmRenderPaginatedSection(pos.secIndex, { inSecRatio: 0 });
         }
@@ -1841,7 +2465,8 @@
       const p = rmGetPrefs();
       const partWm = (rmState.part && rmState.part.writing_mode) || 'horizontal';
       rmState.dir = (p.writing_mode === 'vertical' || p.writing_mode === 'horizontal') ? p.writing_mode : partWm;
-      rmState.layout = rmState.dir === 'vertical' ? p.v_layout : p.h_layout;
+      // The layout is one choice, the text direction another: changing one never changes the other.
+      rmState.layout = p.layout === 'continuous' ? 'continuous' : 'paginated';
     }
 
     let rmFallbackTimer = null;
@@ -1882,6 +2507,144 @@
       return I18N[LANG][key] ? t(key) : t('rm_fallback_other');
     }
 
+    let rmBarHidden = false;
+    let rmBarShownBy = 'init';
+    let rmBarHoverTimer = null;
+    let rmBarLastPos = 0;
+    let rmBarIgnoreScrollUntil = 0;
+
+    function rmHasOpenOverlay() {
+      const ids = ['rm-settings-panel', 'rm-toc-drawer', 'rm-bm-menu', 'rm-notes-panel'];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && !el.hidden) return true;
+      }
+      return !!rmFontPopupState;
+    }
+
+    function rmIsScrollableBarMode() {
+      if (rmState.media === 'manga') {
+        const p = rmGetPrefs();
+        return p.manga_layout === 'strip' || !!(rmState.part && (rmState.part.source === 'db' || rmMangaTextOnly(rmState.part)));
+      }
+      return rmState.layout !== 'paginated';
+    }
+
+    function rmReadTopbarScrollPos() {
+      if (rmState.media === 'manga') {
+        const ms = document.getElementById('rm-manga-stage');
+        return ms ? Math.max(0, ms.scrollTop) : 0;
+      }
+      const sc = rmScrollerEl();
+      if (!sc) return 0;
+      return rmState.dir === 'vertical' ? rmGetRtlDist(sc) : Math.max(0, sc.scrollTop);
+    }
+
+    function rmSyncBarHeight() {
+      const dlg = document.getElementById('reading-mode');
+      const bar = document.getElementById('rm-topbar');
+      if (!dlg || !bar) return;
+      const h = bar.offsetHeight;
+      if (h > 20) dlg.style.setProperty('--rm-bar-h', h + 'px');
+    }
+
+    function rmCanHoverTopbar() {
+      return !(window.matchMedia && window.matchMedia('(hover: none)').matches);
+    }
+
+    function rmBarAutoHideActive(p = rmGetPrefs()) {
+      return !!((p.auto_hide_bar && rmCanHoverTopbar()) || (p.hide_bar_scroll && rmIsScrollableBarMode()));
+    }
+
+    function rmSyncAutoHideClasses(p = rmGetPrefs()) {
+      const dlg = document.getElementById('reading-mode');
+      if (!dlg) return false;
+      const hoverOn = !!(p.auto_hide_bar && rmCanHoverTopbar());
+      const scrollable = rmIsScrollableBarMode();
+      const scrollOn = !!(p.hide_bar_scroll && scrollable);
+      const active = hoverOn || scrollOn;
+      dlg.classList.toggle('rm-autohide', active);
+      dlg.classList.toggle('rm-autohide-pad', scrollOn && !hoverOn);
+      rmSyncBarHeight();
+      if (!active) rmSetTopbarHidden(false, 'off');
+      return active;
+    }
+
+    function rmSetTopbarHidden(hidden, reason = '') {
+      clearTimeout(rmBarHoverTimer);
+      rmBarHoverTimer = null;
+      const dlg = document.getElementById('reading-mode');
+      if (!dlg) return;
+      const wantHidden = !!hidden && rmBarAutoHideActive() && !rmHasOpenOverlay();
+      rmBarHidden = wantHidden;
+      if (!wantHidden && reason) rmBarShownBy = reason;
+      dlg.classList.toggle('rm-bar-hidden', wantHidden);
+    }
+
+    function rmResetTopbarForMode() {
+      rmBarIgnoreScrollUntil = Date.now() + 200;
+      const p = rmGetPrefs();
+      if (!rmSyncAutoHideClasses(p)) return;
+      if (rmHasOpenOverlay()) {
+        rmSetTopbarHidden(false, 'overlay');
+        return;
+      }
+      if (p.auto_hide_bar && rmCanHoverTopbar()) {
+        if (rmIsScrollableBarMode()) rmBarLastPos = rmReadTopbarScrollPos();
+        rmSetTopbarHidden(true);
+        return;
+      }
+      const pos = rmReadTopbarScrollPos();
+      rmBarLastPos = pos;
+      rmSetTopbarHidden(pos > 24, 'scroll');
+    }
+
+    function rmOnBarScroll() {
+      const p = rmGetPrefs();
+      if (!isReadingModeOpen() || !p.hide_bar_scroll || rmHasOpenOverlay()) return;
+      if (!rmIsScrollableBarMode()) return;
+      const pos = rmReadTopbarScrollPos();
+      if (Date.now() < rmBarIgnoreScrollUntil) {
+        rmBarLastPos = pos;
+        return;
+      }
+      if (pos <= 12) {
+        rmSetTopbarHidden(false, 'scroll');
+        rmBarLastPos = pos;
+        return;
+      }
+      const delta = pos - rmBarLastPos;
+      if (delta > 8) {
+        rmSetTopbarHidden(true);
+        rmBarLastPos = pos;
+      } else if (delta < -8) {
+        rmSetTopbarHidden(false, 'scroll');
+        rmBarLastPos = pos;
+      }
+    }
+
+    function rmOnDialogMouseMove(e) {
+      const p = rmGetPrefs();
+      if (!isReadingModeOpen() || !p.auto_hide_bar || !rmCanHoverTopbar() || rmHasOpenOverlay()) return;
+      const bar = document.getElementById('rm-topbar');
+      const barH = (bar && bar.offsetHeight) || 46;
+      if (e.clientY <= barH + 4) {
+        clearTimeout(rmBarHoverTimer);
+        rmBarHoverTimer = null;
+        if (rmBarHidden) rmSetTopbarHidden(false, 'hover');
+      } else if (!rmBarHidden && (rmBarShownBy === 'hover' || !p.hide_bar_scroll) && e.clientY > barH + 24 && !e.target.closest('#rm-topbar, #rm-bm-menu')) {
+        if (!rmBarHoverTimer) {
+          rmBarHoverTimer = setTimeout(() => {
+            rmBarHoverTimer = null;
+            const cur = rmGetPrefs();
+            if (isReadingModeOpen() && cur.auto_hide_bar && !rmHasOpenOverlay() && (rmBarShownBy === 'hover' || !cur.hide_bar_scroll)) {
+              rmSetTopbarHidden(true);
+            }
+          }, 220);
+        }
+      }
+    }
+
     function rmEnsureDialogShell() {
       const dlg = document.getElementById('reading-mode');
       if (!dlg || dlg.dataset.built) return dlg;
@@ -1897,6 +2660,7 @@
           <div class="rm-bar-actions">
             <button type="button" class="sq-btn" id="rm-prev-btn" onclick="rmStepPart(-1)" title="${esc(t('rm_prev_part'))}" aria-label="${esc(t('rm_prev_part'))}">${svgIcon('<path d="M15 18l-6-6 6-6"/>')}</button>
             <button type="button" class="sq-btn" id="rm-next-btn" onclick="rmStepPart(1)" title="${esc(t('rm_next_part'))}" aria-label="${esc(t('rm_next_part'))}">${svgIcon('<path d="M9 6l6 6-6 6"/>')}</button>
+            <button type="button" class="sq-btn" id="rm-notes-btn" onpointerdown="if(typeof rmCaptureNotesSelection==='function')rmCaptureNotesSelection()" onclick="if(typeof rmToggleNotes==='function')rmToggleNotes()" title="${esc(t('rm_notes'))}" aria-label="${esc(t('rm_notes'))}">${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>')}</button>
             <button type="button" class="sq-btn" id="rm-bm-btn" onclick="rmOnBookmarkClick()" title="${esc(t('rm_bookmark_set'))}" aria-label="${esc(t('rm_bookmark_set'))}">${svgIcon('<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>')}</button>
             <button type="button" class="sq-btn" id="rm-settings-btn" onclick="rmToggleSettings()" title="${esc(t('rm_settings'))}" aria-label="${esc(t('rm_settings'))}">${svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>')}</button>
           </div>
@@ -1925,14 +2689,19 @@
         <div class="rm-settings-backdrop" id="rm-settings-panel" hidden onclick="if(event.target===this)rmToggleSettings(false)">
           <div class="rm-settings-card" id="rm-settings-card"></div>
         </div>
+        <div class="rm-notes-backdrop" id="rm-notes-panel" hidden onclick="if(event.target===this && typeof rmToggleNotes==='function')rmToggleNotes(false)">
+          <div class="rm-notes-card" id="rm-notes-card"></div>
+        </div>
         <style id="rm-epub-style"></style>`;
 
       dlg.addEventListener('click', e => {
         const bmMenu = document.getElementById('rm-bm-menu');
         if (bmMenu && !bmMenu.hidden && !e.target.closest('#rm-bm-menu, #rm-bm-btn')) {
           bmMenu.hidden = true;
+          rmResetTopbarForMode();
         }
       });
+      dlg.addEventListener('mousemove', rmOnDialogMouseMove, { passive: true });
 
       document.addEventListener('keydown', rmOnKeyDown);
       document.addEventListener('keyup', rmOnKeyUp);
@@ -1942,7 +2711,7 @@
       return dlg;
     }
 
-    async function openReadingMode({ media, folder, file, page = 0, explicitStart = false, fromRestore = false }) {
+    async function openReadingMode({ media, folder, file, page = 0, explicitStart = false, fromRestore = false, target = null, toast = '' }) {
       if (!rmSupportsMedia(media)) return;
       const dlg = rmEnsureDialogShell();
       const openGen = (rmState.openGen = (rmState.openGen || 0) + 1);
@@ -1985,10 +2754,20 @@
           return;
         }
         rmRenderToc();
-        await rmLoadPart(idx, {
-          restorePos: !explicitStart && (fromRestore || (rmState.work && rmState.work.file === rmState.files[idx].file)),
-          targetPage: page || (rmState.work && rmState.work.file === rmState.files[idx].file ? (rmState.work.page || 1) : 1),
-        });
+        if (typeof rmLoadWorkNotes === 'function') rmLoadWorkNotes();
+        // A place from the 保存 tab (a bookmark, a note) opens there, as the reader's own jumps do
+        const placed = target && rmState.files[idx].file === target.file;
+        await rmLoadPart(idx, placed
+          ? { targetAnchor: target.anchor_v ? target : null, targetRatio: target.scroll_ratio, targetPage: target.page || 1 }
+          : {
+            restorePos: !explicitStart && (fromRestore || (rmState.work && rmState.work.file === rmState.files[idx].file)),
+            targetPage: page || (rmState.work && rmState.work.file === rmState.files[idx].file ? (rmState.work.page || 1) : 1),
+          });
+        // A place whose part is gone (a re-index) opens where the work was left, and says so
+        if (openGen === rmState.openGen) {
+          if (target && !placed) rmToast(t('rm_place_gone'));
+          else if (toast) rmToast(toast);
+        }
         try {
           const base = (history.state && typeof history.state === 'object') ? history.state : {};
           history.replaceState({ ...base, rmSession: rmState.historySession, rmDepth: rmState.historyDepth || 0, rmPos: rmCapturePos() }, '');
@@ -2013,11 +2792,22 @@
       rmState.open = false;
       rmState.chunkGen++;
       clearTimeout(rmState.saveTimer);
+      // Nothing of this visit's place carries into the next opening
+      rmLanded = null;
+      rmClearDragAnchor();
+      clearTimeout(rmResizeTimer);
+      rmResizeTimer = null;
+      rmResizeAnchor = null;
+      rmLastWide = window.innerWidth > 720;
       const toc = document.getElementById('rm-toc-drawer');
       const setp = document.getElementById('rm-settings-panel');
+      const notesp = document.getElementById('rm-notes-panel');
       rmCloseFontPopup(false);
+      rmSetTopbarHidden(false, 'close');
       if (toc) toc.hidden = true;
       if (setp) setp.hidden = true;
+      if (notesp) notesp.hidden = true;
+      if (typeof rmResetNotesOnClose === 'function') rmResetNotesOnClose();
       dlg.hidden = true;
       document.documentElement.classList.remove('rm-open');
       document.body.classList.remove('rm-open');
@@ -2039,6 +2829,7 @@
 
     async function rmLoadPart(index, opts = {}) {
       if (index < 0 || index >= rmState.files.length) return;
+      rmLanded = null;
       rmState.partIndex = index;
       const item = rmState.files[index];
       const fullTitle = item.title || item.file;
@@ -2094,19 +2885,22 @@
       rmApplyPrefsToDom(false);
       rmRenderPartContent(opts);
       rmUpdateBookmarkBtn();
+      if (typeof rmOnNotesPartChange === 'function') rmOnNotesPartChange();
       saveMediaState();
       if (opts.fromHistory) rmSaveProgressNow(false);
       else rmScheduleSaveProgress();
     }
 
-    function rmApplyPrefsToDom(relayout = true, rebuildSettings = true) {
+    function rmApplyPrefsToDom(relayout = true, rebuildSettings = true, anchorOverride = null) {
       const dlg = document.getElementById('reading-mode');
       if (!dlg) return;
+      const prevAnchor = (relayout && rmState.part) ? (anchorOverride || rmLayoutAnchor()) : null;
       const p = rmGetPrefs();
       const effTheme = (p.theme && p.theme !== 'app') ? p.theme : currentTheme();
       dlg.setAttribute('data-rm-theme', effTheme);
       const edgePct = Math.max(5, Math.min(35, Number(p.edge_click_width) || 12));
       dlg.style.setProperty('--rm-edge-w', edgePct + '%');
+      rmSyncAutoHideClasses(p);
 
       const stage = document.getElementById('rm-stage');
       if (stage) {
@@ -2114,6 +2908,7 @@
         stage.style.setProperty('--rm-font-weight', String(p.font_weight || 400));
         stage.style.setProperty('--rm-line-height', String(p.line_height));
         stage.style.setProperty('--rm-max-w', p.max_width + 'em');
+        stage.style.setProperty('--rm-max-h', (p.max_height || 36) + 'em');
         stage.style.fontFamily = rmFontStack(p.font_family);
         stage.classList.toggle('rm-furi-off', p.furigana === 'off');
         stage.classList.toggle('rm-furi-hover', p.furigana === 'hover');
@@ -2129,31 +2924,31 @@
       if (relayout && rmState.part) {
         const prevDir = rmState.dir;
         const prevLayout = rmState.layout;
-        const prevRatio = rmState.media === 'manga' ? 0 : rmReadScrollRatio();
-        const prevSecIdx = rmState.secIndex;
-        const prevInSecRatio = rmReadSectionRatio();
         rmResolveDirAndLayout();
+        rmSyncAutoHideClasses(p);
         if (rmState.media === 'manga') {
           const curStrip = !!document.querySelector('#rm-manga-stage.rm-manga-strip');
           const wantStrip = p.manga_layout === 'strip' || rmState.part.source === 'db';
           if (curStrip !== wantStrip) {
-            rmRenderMangaPart({ restorePos: false, targetPage: rmState.mangaPage });
+            rmRenderMangaPart({ restorePos: false, targetPage: (prevAnchor && prevAnchor.page) || rmState.mangaPage, targetAnchor: prevAnchor });
           } else if (!wantStrip && typeof rmMangaFit === 'function') {
             requestAnimationFrame(() => rmMangaFit(false));
+          } else if (wantStrip && typeof rmResizeStripPages === 'function') {
+            rmResizeStripPages();
+            if (prevAnchor) rmRestoreAnchor(prevAnchor);
           }
         } else if (prevDir !== rmState.dir || prevLayout !== rmState.layout) {
-          rmRenderPartContent({ targetRatio: prevRatio });
+          rmRenderPartContent({ targetAnchor: prevAnchor, targetRatio: prevAnchor ? prevAnchor.scroll_ratio : 0 });
         } else if (rmState.layout === 'paginated') {
           rmApplyStageLayoutClasses();
           rmMeasurePagination();
-          rmState.secIndex = Math.max(0, Math.min(Math.max(0, rmState.sections.length - 1), prevSecIdx));
-          const pIdx = Math.min(rmState.pageCount - 1, Math.round(prevInSecRatio * Math.max(0, rmState.pageCount - 1)));
-          rmApplyPaginatedOffset(pIdx);
+          if (prevAnchor) rmRestoreAnchor(prevAnchor);
+          else rmApplyPaginatedOffset(rmState.pageIndex);
           rmUpdateProgressUI();
         } else {
           rmApplyStageLayoutClasses();
           rmMeasurePagination();
-          rmRestoreScrollRatio(prevRatio);
+          if (prevAnchor) rmRestoreAnchor(prevAnchor);
           rmUpdateProgressUI();
         }
       }
@@ -2262,6 +3057,71 @@
       }
     }
 
+    // Center the current page's visible block-axis content inside the viewport (vertical centering
+    // in horizontal writing, horizontal centering in vertical writing).
+    function rmCenterPaginatedPage(root, sc, vertical, tx, ty) {
+      const vr = sc.getBoundingClientRect();
+      if (vr.width < 40 || vr.height < 40) return;
+      let minB = Infinity;
+      let maxB = -Infinity;
+      const range = document.createRange();
+      const visit = (node) => {
+        if (node.nodeType === 3) {
+          if (!node.nodeValue || !node.nodeValue.trim()) return;
+          range.selectNodeContents(node);
+          const rects = range.getClientRects();
+          for (let i = 0; i < rects.length; i++) {
+            const r = rects[i];
+            if (r.width < 0.5 || r.height < 0.5) continue;
+            const c = vertical ? ((r.top + r.bottom) * 0.5) : ((r.left + r.right) * 0.5);
+            const lo = vertical ? vr.top : vr.left;
+            const hi = vertical ? vr.bottom : vr.right;
+            if (c < lo - 2 || c > hi + 2) continue;
+            const b0 = vertical ? r.left : r.top;
+            const b1 = vertical ? r.right : r.bottom;
+            if (b0 < minB) minB = b0;
+            if (b1 > maxB) maxB = b1;
+          }
+          return;
+        }
+        if (node.nodeType !== 1) return;
+        const tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || (node.classList && node.classList.contains('rm-sent-break'))) return;
+        if (tag === 'IMG' || tag === 'SVG' || tag === 'HR') {
+          const r = node.getBoundingClientRect();
+          if (r.width >= 0.5 && r.height >= 0.5) {
+            const c = vertical ? ((r.top + r.bottom) * 0.5) : ((r.left + r.right) * 0.5);
+            const lo = vertical ? vr.top : vr.left;
+            const hi = vertical ? vr.bottom : vr.right;
+            if (c >= lo - 2 && c <= hi + 2) {
+              const b0 = vertical ? r.left : r.top;
+              const b1 = vertical ? r.right : r.bottom;
+              if (b0 < minB) minB = b0;
+              if (b1 > maxB) maxB = b1;
+            }
+          }
+          return;
+        }
+        const br = node.getBoundingClientRect();
+        if (vertical ? (br.bottom < vr.top - 4 || br.top > vr.bottom + 4) : (br.right < vr.left - 4 || br.left > vr.right + 4)) return;
+        for (let k = node.firstChild; k; k = k.nextSibling) visit(k);
+      };
+      for (let k = root.firstChild; k; k = k.nextSibling) visit(k);
+      if (!(maxB > minB)) return;
+      const vpLo = vertical ? vr.left : vr.top;
+      const vpHi = vertical ? vr.right : vr.bottom;
+      const span = maxB - minB;
+      if (span >= (vpHi - vpLo) - 2) return;
+      let delta = Math.round(((vpLo + vpHi) - (minB + maxB)) * 0.5);
+      delta = Math.max(Math.ceil(vpLo - minB), Math.min(Math.floor(vpHi - maxB), delta));
+      if (!delta) return;
+      if (vertical) {
+        root.style.transform = ty ? `translate(${delta}px, ${ty}px)` : `translateX(${delta}px)`;
+      } else {
+        root.style.transform = tx ? `translate(${tx}px, ${delta}px)` : `translateY(${delta}px)`;
+      }
+    }
+
     function rmApplyPaginatedOffset(pageIdx) {
       const sc = rmScrollerEl();
       const root = document.getElementById('rm-epub-root');
@@ -2277,23 +3137,29 @@
       if (rmState.dir === 'vertical') {
         const stride = rmState.pageH + RM_PAGE_GAP;
         const pos = clamped * stride;
+        let ty = 0;
         if (pos + rmState.pageH <= sc.scrollHeight + 1) {
           root.style.transform = '';
           sc.scrollTo({ top: pos, behavior: 'instant' });
         } else {
           sc.scrollTo({ top: 0, behavior: 'instant' });
-          root.style.transform = `translateY(${-pos}px)`;
+          ty = -pos;
+          root.style.transform = `translateY(${ty}px)`;
         }
+        rmCenterPaginatedPage(root, sc, true, 0, ty);
       } else {
         const stride = rmState.pageW + RM_PAGE_GAP;
         const pos = clamped * stride;
+        let tx = 0;
         if (pos + rmState.pageW <= sc.scrollWidth + 1) {
           root.style.transform = '';
           sc.scrollTo({ left: pos, behavior: 'instant' });
         } else {
           sc.scrollTo({ left: 0, behavior: 'instant' });
-          root.style.transform = `translateX(${-pos}px)`;
+          tx = -pos;
+          root.style.transform = `translateX(${tx}px)`;
         }
+        rmCenterPaginatedPage(root, sc, false, tx, 0);
       }
     }
 
@@ -2303,10 +3169,15 @@
       const recalc = () => {
         if (!isReadingModeOpen() || rmState.layout !== 'paginated') return;
         if (rmState.secIndex !== secSnap || rmState.partIndex !== partSnap) return;
-        const prevFrac = rmState.pageCount > 1 ? rmState.pageIndex / (rmState.pageCount - 1) : 0;
+        const snap = keepAtEnd ? null : rmLayoutAnchor();
         rmMeasurePagination();
-        const target = keepAtEnd ? (rmState.pageCount - 1) : Math.min(rmState.pageCount - 1, Math.round(prevFrac * Math.max(0, rmState.pageCount - 1)));
-        rmApplyPaginatedOffset(target);
+        if (keepAtEnd) {
+          rmApplyPaginatedOffset(rmState.pageCount - 1);
+        } else if (snap) {
+          rmRestoreAnchor(snap);
+        } else {
+          rmApplyPaginatedOffset(Math.min(rmState.pageCount - 1, rmState.pageIndex));
+        }
         rmUpdateProgressUI();
       };
       root.querySelectorAll('img').forEach(img => {
@@ -2328,11 +3199,13 @@
       rmSetSafeHtml(root, rmState.sections[rmState.secIndex] || `<div class="status-line">${esc(t('rm_no_content'))}</div>`);
       rmNormalizePaginatedSection(root, scroller);
       rmMeasurePagination();
-      const targetPage = opts.atEnd
-        ? (rmState.pageCount - 1)
-        : Math.min(rmState.pageCount - 1, Math.round((opts.inSecRatio || 0) * Math.max(0, rmState.pageCount - 1)));
-      rmApplyPaginatedOffset(targetPage);
-      rmUpdateProgressUI();
+      if (!opts.skipOffset) {
+        const targetPage = opts.atEnd
+          ? (rmState.pageCount - 1)
+          : Math.min(rmState.pageCount - 1, Math.round((opts.inSecRatio || 0) * Math.max(0, rmState.pageCount - 1)));
+        rmApplyPaginatedOffset(targetPage);
+        rmUpdateProgressUI();
+      }
       rmWatchPaginatedAssets(root, !!opts.atEnd);
     }
 
@@ -2347,9 +3220,20 @@
       rmApplyStageLayoutClasses();
       rmState.sections = [];
       rmState.sectionMembers = [];
+      rmState.secCharStarts = [];
+      rmState.secCharLens = [];
+      rmState.totalPlainChars = 0;
       rmState.secIndex = 0;
       rmState.pageIndex = 0;
       rmState.pageCount = 1;
+
+      const resolveAnchor = () => {
+        if (opts.atEnd) return null;
+        if (opts.targetAnchor && opts.targetAnchor.anchor_v) return opts.targetAnchor;
+        if (opts.restoreExactPos && opts.restoreExactPos.anchor && opts.restoreExactPos.anchor.anchor_v) return opts.restoreExactPos.anchor;
+        if (opts.restorePos && rmState.work && rmState.work.anchor_v) return rmState.work;
+        return null;
+      };
 
       if (rmState.layout === 'paginated') {
         stage.innerHTML = '<div class="rm-page-viewport" id="rm-scroller"><div class="rm-body rm-epub-root rm-page-content" id="rm-epub-root"></div></div>';
@@ -2361,12 +3245,24 @@
           if (opts.restorePos && rmState.work && typeof rmState.work.scroll_ratio === 'number') return rmState.work.scroll_ratio;
           return 0;
         };
-        if (part.media === 'epub' && part.source === 'file') {
+        if (rmHtmlPart(part)) {
           const doc = rmParseSafeDoc(part.html || '');
           const spineEls = [...doc.body.querySelectorAll(':scope > section.rm-epub-spine')]
             .filter(sec => (sec.textContent || '').trim() || sec.querySelector('img, svg, hr, table'));
           rmState.sections = spineEls.length ? spineEls.map(sec => sec.innerHTML) : [doc.body.innerHTML];
           rmState.sectionMembers = spineEls.length ? spineEls.map(sec => sec.getAttribute('data-member') || '') : [''];
+          rmBuildPartCharIndex(root);
+          const anchor = resolveAnchor();
+          if (anchor) {
+            const sIdx = rmAnchorTargetSection(anchor);
+            rmBindStageInteractions();
+            rmRenderPaginatedSection(sIdx, { skipOffset: true });
+            rmRestoreAnchor(anchor);
+            rmUpdateProgressUI();
+            rmResetTopbarForMode();
+            rmFocusStage();
+            return;
+          }
           if (opts.restoreExactPos) {
             const ep = opts.restoreExactPos;
             const sIdx = Math.max(0, Math.min(rmState.sections.length - 1, ep.secIndex || 0));
@@ -2376,6 +3272,7 @@
               rmApplyPaginatedOffset(ep.pageIndex);
               rmUpdateProgressUI();
             }
+            rmResetTopbarForMode();
             rmFocusStage();
             return;
           }
@@ -2384,18 +3281,26 @@
             : rmRatioToSection(resolveRatio(), rmState.sections.length);
           rmBindStageInteractions();
           rmRenderPaginatedSection(target.secIndex, target);
+          rmResetTopbarForMode();
           rmFocusStage();
           return;
         }
         rmState.sections = [''];
         const finishPaginatedLines = () => {
+          rmBuildPartCharIndex(root);
           rmBindStageInteractions();
           rmNormalizePaginatedSection(root, scroller);
           rmMeasurePagination();
-          const r = resolveRatio();
-          const targetPage = opts.atEnd ? (rmState.pageCount - 1) : Math.min(rmState.pageCount - 1, Math.round(r * Math.max(0, rmState.pageCount - 1)));
-          rmApplyPaginatedOffset(targetPage);
+          const anchor = resolveAnchor();
+          if (anchor) {
+            rmRestoreAnchor(anchor);
+          } else {
+            const r = resolveRatio();
+            const targetPage = opts.atEnd ? (rmState.pageCount - 1) : Math.min(rmState.pageCount - 1, Math.round(r * Math.max(0, rmState.pageCount - 1)));
+            rmApplyPaginatedOffset(targetPage);
+          }
           rmUpdateProgressUI();
+          rmResetTopbarForMode();
           rmFocusStage();
         };
         const lines = part.lines || [];
@@ -2415,6 +3320,7 @@
         return;
       }
 
+      // Continuous mode (horizontal scroll or vertical RTL scroll)
       stage.innerHTML = rmState.dir === 'vertical'
         ? '<div class="rm-v-viewport" id="rm-scroller"><div class="rm-body rm-epub-root" id="rm-epub-root"></div></div>'
         : '<div class="rm-body rm-epub-root" id="rm-epub-root"></div>';
@@ -2430,9 +3336,13 @@
             <button type="button" class="btn primary" ${rmState.partIndex >= rmState.files.length - 1 ? 'disabled' : ''} onclick="rmStepPart(1)">${esc(t('rm_next_part'))}${vert ? '' : ' →'}</button>`;
           root.appendChild(nav);
         }
+        rmBuildPartCharIndex(root);
         rmBindStageInteractions();
         rmMeasurePagination();
-        if (opts.restoreExactPos) {
+        const anchor = resolveAnchor();
+        if (anchor) {
+          rmRestoreAnchor(anchor);
+        } else if (opts.restoreExactPos) {
           const ep = opts.restoreExactPos;
           const sc = rmScrollerEl();
           if (sc && rmState.dir === 'vertical' && ep.rtlDist != null) {
@@ -2452,10 +3362,11 @@
           rmRestoreScrollRatio(0);
         }
         rmUpdateProgressUI();
+        rmResetTopbarForMode();
         rmFocusStage();
       };
 
-      if (part.media === 'epub' && part.source === 'file') {
+      if (rmHtmlPart(part)) {
         rmSetSafeHtml(root, part.html || `<div class="status-line">${esc(t('rm_no_content'))}</div>`);
         finish();
       } else if (part.media === 'subs') {
@@ -2484,6 +3395,430 @@
       return document.getElementById('rm-scroller') || document.getElementById('rm-stage');
     }
 
+    const RM_SENT_OPEN = '「『（(';
+    const RM_SENT_CLOSE = '」』）)';
+    const RM_SENT_END = '。！？!?';
+    const RM_SPEECH_END = '。！？!?…‥―─';
+    const RM_SENT_WS_RE = /[\s\u3000\u200b]/;
+    const RM_SENT_INLINE_TAGS = new Set(['SPAN', 'RUBY', 'RB', 'A', 'EM', 'STRONG', 'B', 'I', 'SMALL', 'SUB', 'SUP', 'MARK', 'U', 'S', 'FONT', 'ABBR', 'CITE', 'Q']);
+
+    function rmClearSentenceBreaks(root) {
+      if (!root) return;
+      const parents = new Set();
+      root.querySelectorAll('.rm-sent-break').forEach(el => {
+        if (el.parentNode) parents.add(el.parentNode);
+        el.remove();
+      });
+      parents.forEach(p => { try { p.normalize(); } catch (_) {} });
+      root.querySelectorAll('.rm-page-push').forEach(el => el.classList.remove('rm-page-push'));
+    }
+
+    function rmCollectBlockSentences(block) {
+      const items = [];
+      (function walk(node) {
+        for (let c = node.firstChild; c; c = c.nextSibling) {
+          if (c.nodeType === 3) {
+            if (c.nodeValue) items.push({ type: 'text', node: c, text: c.nodeValue });
+          } else if (c.nodeType === 1) {
+            const tag = c.tagName;
+            if (tag === 'RT' || tag === 'RP' || tag === 'CODE' || tag === 'PRE' || tag === 'SVG' || tag === 'SCRIPT' || tag === 'STYLE') continue;
+            if (c.classList && c.classList.contains('rm-sent-break')) continue;
+            if (tag === 'BR') {
+              items.push({ type: 'br', node: c });
+            } else {
+              walk(c);
+            }
+          }
+        }
+      })(block);
+
+      const nextNonWs = (itemIdx, charIdx) => {
+        for (let k = itemIdx; k < items.length; k++) {
+          const it = items[k];
+          if (it.type === 'br') return '';
+          const s = it.text;
+          for (let j = (k === itemIdx ? charIdx : 0); j < s.length; j++) {
+            if (!RM_SENT_WS_RE.test(s[j])) return s[j];
+          }
+        }
+        return '';
+      };
+
+      const sentences = [];
+      let quoteDepth = 0;
+      let ended = false;
+      let prevChar = '';
+      let cur = null;
+
+      for (let k = 0; k < items.length; k++) {
+        const it = items[k];
+        if (it.type === 'br') {
+          if (quoteDepth === 0 && cur) ended = true;
+          continue;
+        }
+        const s = it.text;
+        for (let i = 0; i < s.length; i++) {
+          const ch = s[i];
+          const isWs = RM_SENT_WS_RE.test(ch);
+          if (ended) {
+            if (isWs) continue;
+            if (RM_SENT_END.includes(ch)) {
+              if (cur) { cur.endNode = it.node; cur.endOffset = i + 1; }
+              prevChar = ch;
+              continue;
+            }
+            if (quoteDepth > 0 && RM_SENT_CLOSE.includes(ch)) {
+              quoteDepth--;
+              if (cur) { cur.endNode = it.node; cur.endOffset = i + 1; }
+              prevChar = ch;
+              continue;
+            }
+            if (cur) sentences.push(cur);
+            cur = { startNode: it.node, startOffset: i, endNode: it.node, endOffset: i + 1 };
+            ended = false;
+          } else if (!isWs) {
+            if (!cur) cur = { startNode: it.node, startOffset: i, endNode: it.node, endOffset: i + 1 };
+            else { cur.endNode = it.node; cur.endOffset = i + 1; }
+          }
+
+          if (RM_SENT_OPEN.includes(ch)) {
+            quoteDepth++;
+          } else if (RM_SENT_CLOSE.includes(ch)) {
+            if (quoteDepth > 0) {
+              quoteDepth--;
+              if (quoteDepth === 0 && (ch === '」' || ch === '』') && RM_SPEECH_END.includes(prevChar)) {
+                const nxt = nextNonWs(k, i + 1);
+                if (nxt === '「' || nxt === '『') ended = true;
+              }
+            }
+          } else if (quoteDepth === 0 && RM_SENT_END.includes(ch)) {
+            ended = true;
+          }
+          if (!isWs) prevChar = ch;
+        }
+      }
+      if (cur) sentences.push(cur);
+      return sentences;
+    }
+
+    function rmIsFirstMeaningfulChild(node) {
+      for (let p = node.previousSibling; p; p = p.previousSibling) {
+        if (p.nodeType === 3 && !p.nodeValue.replace(/[\s\u3000\u200b]+/g, '')) continue;
+        if (p.nodeType === 1 && p.classList && p.classList.contains('rm-sent-break')) continue;
+        return false;
+      }
+      return true;
+    }
+
+    function rmInsertSentBreak(block, startNode, startOffset) {
+      let target = startNode;
+      if (startOffset > 0) {
+        if (startNode.parentElement && startNode.parentElement.closest('ruby')) return null;
+        target = startNode.splitText(startOffset);
+      }
+      while (target.parentNode && target.parentNode !== block &&
+             target.parentNode.nodeType === 1 && RM_SENT_INLINE_TAGS.has(target.parentNode.tagName) &&
+             rmIsFirstMeaningfulChild(target)) {
+        target = target.parentNode;
+      }
+      if (!target.parentNode) return null;
+      if (target.parentElement && target.parentElement.closest('ruby')) return null;
+      const brk = document.createElement('span');
+      brk.className = 'rm-sent-break';
+      brk.setAttribute('aria-hidden', 'true');
+      target.parentNode.insertBefore(brk, target);
+      return brk;
+    }
+
+    function rmSentenceSpanInfo(range, rootRect, vertical, pageSize, pageBlockSize) {
+      const stride = Math.max(1, pageSize + RM_PAGE_GAP);
+      const raw = range.getClientRects();
+      const pages = new Map();
+      let minPage = Infinity;
+      let maxPage = -Infinity;
+      for (let i = 0; i < raw.length; i++) {
+        const r = raw[i];
+        if (r.width < 0.5 || r.height < 0.5) continue;
+        const mid = vertical ? ((r.top + r.bottom) * 0.5 - rootRect.top) : ((r.left + r.right) * 0.5 - rootRect.left);
+        const pg = Math.max(0, Math.floor((mid + RM_PAGE_GAP * 0.5) / stride));
+        if (pg < minPage) minPage = pg;
+        if (pg > maxPage) maxPage = pg;
+        const lo = vertical ? r.left : r.top;
+        const hi = vertical ? r.right : r.bottom;
+        const b = pages.get(pg);
+        if (!b) pages.set(pg, { min: lo, max: hi });
+        else {
+          if (lo < b.min) b.min = lo;
+          if (hi > b.max) b.max = hi;
+        }
+      }
+      if (!pages.size) return null;
+      if (minPage >= maxPage) return { straddles: false, minPage, maxPage };
+      let totalBlockSpan = 0;
+      pages.forEach(b => { totalBlockSpan += Math.max(0, b.max - b.min); });
+      const firstB = pages.get(minPage);
+      const usedBefore = vertical ? (rootRect.right - firstB.max) : (firstB.min - rootRect.top);
+      return { straddles: true, minPage, maxPage, totalBlockSpan, usedBefore };
+    }
+
+    function rmApplySpacerFallback(block, brkEl, isBlockStart, sentRange, info, vertical, pageSize, pageBlockSize) {
+      let sp = brkEl;
+      if (isBlockStart) {
+        block.classList.remove('rm-page-push');
+        if (!block.parentNode) return null;
+        sp = document.createElement('span');
+        sp.className = 'rm-sent-break';
+        sp.setAttribute('aria-hidden', 'true');
+        block.parentNode.insertBefore(sp, block);
+      }
+      if (!sp) return null;
+      const root = block.closest('#rm-epub-root');
+      if (!root) return sp;
+      sp.style.width = '1px';
+      sp.style.height = '1px';
+      const rr = root.getBoundingClientRect();
+      const sr = sp.getBoundingClientRect();
+      const rem = vertical ? (sr.right - rr.left) : ((rr.top + pageBlockSize) - sr.top);
+      let sz = Math.max(1, Math.floor(rem) - 1);
+      if (vertical) sp.style.width = sz + 'px';
+      else sp.style.height = sz + 'px';
+      let check = rmSentenceSpanInfo(sentRange, root.getBoundingClientRect(), vertical, pageSize, pageBlockSize);
+      if (check && check.minPage <= info.minPage) {
+        sz = Math.max(1, Math.ceil(rem));
+        if (vertical) sp.style.width = sz + 'px';
+        else sp.style.height = sz + 'px';
+      }
+      return sp;
+    }
+
+    // Push a sentence that straddles a column edge onto the next page so EPUB pagination never
+    // cuts mid-sentence (quotes stay together; a sentence longer than one full page stays as is).
+    function rmApplySentencePageBreaks(root, scroller, pageW, pageH, vertical) {
+      rmClearSentenceBreaks(root);
+      if (!root || !scroller || root.classList.contains('rm-image-page')) return;
+      const actW = scroller.clientWidth || pageW;
+      const actH = scroller.clientHeight || pageH;
+      if (actW < 100 || actH < 100) return;
+      const pageSize = vertical ? actH : actW;
+      const pageBlockSize = vertical ? actW : actH;
+      const stride = Math.max(1, pageSize + RM_PAGE_GAP);
+      const linePx = Math.max(12, parseFloat(getComputedStyle(root).fontSize) || 18);
+      const skipAncestor = 'pre, code, table, figure, svg, h1, h2, h3, h4, h5, h6';
+      const childBlock = 'p, div, blockquote, ul, ol, li, table, pre, figure, h1, h2, h3, h4, h5, h6, section, article, hr';
+      const blocks = [...root.querySelectorAll('p, li, blockquote, dd, div')].filter(el =>
+        !el.classList.contains('rm-code-block') &&
+        !el.closest(skipAncestor) &&
+        !el.querySelector(childBlock) &&
+        (el.textContent || '').trim().length > 0
+      );
+      if (!blocks.length) return;
+
+      const range = document.createRange();
+      let rootRect = root.getBoundingClientRect();
+      let pushes = 0;
+      const MAX_PUSHES = 500;
+
+      const setSentRange = (sent) => {
+        try {
+          range.setStart(sent.startNode, sent.startOffset);
+          range.setEnd(sent.endNode, sent.endOffset);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
+
+      const pushSentence = (block, si, s, info) => {
+        let brkEl = null;
+        let ok = false;
+        if (si === 0) {
+          if (!block.classList.contains('rm-page-push')) {
+            block.classList.add('rm-page-push');
+            ok = true;
+          }
+        } else {
+          brkEl = rmInsertSentBreak(block, s.startNode, s.startOffset);
+          ok = !!brkEl;
+        }
+        if (!ok) return { pushed: false, brkEl: null };
+        rootRect = root.getBoundingClientRect();
+        const post = rmCollectBlockSentences(block);
+        const cur = post[si];
+        if (cur && setSentRange(cur)) {
+          const after = rmSentenceSpanInfo(range, rootRect, vertical, pageSize, pageBlockSize);
+          // Engines that ignore break-before: column (Gecko) leave the sentence on minPage;
+          // fill the remaining block space of minPage with a sized spacer instead.
+          if (after && after.minPage <= info.minPage) {
+            brkEl = rmApplySpacerFallback(block, brkEl, si === 0, range, info, vertical, pageSize, pageBlockSize);
+            rootRect = root.getBoundingClientRect();
+          }
+        }
+        return { pushed: true, brkEl };
+      };
+
+      for (let bi = 0; bi < blocks.length && pushes < MAX_PUSHES; bi++) {
+        const block = blocks[bi];
+        const br = block.getBoundingClientRect();
+        if (br.width < 0.5 || br.height < 0.5) continue;
+        const first = vertical ? (br.top - rootRect.top + 1) : (br.left - rootRect.left + 1);
+        const last = vertical ? (br.bottom - rootRect.top - 1) : (br.right - rootRect.left - 1);
+        const bStart = Math.max(0, Math.floor((first + RM_PAGE_GAP * 0.5) / stride));
+        const bEnd = Math.max(0, Math.floor((last + RM_PAGE_GAP * 0.5) / stride));
+        if (bStart >= bEnd) continue;
+
+        let sentFrom = 0;
+        let innerSteps = 0;
+        const tried = new Set();
+        while (pushes < MAX_PUSHES && innerSteps++ < 60) {
+          const sents = rmCollectBlockSentences(block);
+          if (sentFrom >= sents.length) break;
+          let pushed = false;
+          for (let si = sentFrom; si < sents.length; si++) {
+            const s = sents[si];
+            if (!setSentRange(s)) continue;
+            const info = rmSentenceSpanInfo(range, rootRect, vertical, pageSize, pageBlockSize);
+            if (!info || !info.straddles) continue;
+            const fitsOnePage = (info.maxPage - info.minPage === 1) && (info.totalBlockSpan <= pageBlockSize * 0.92);
+            const hasBefore = info.usedBefore >= Math.max(10, linePx * 0.75);
+            if (!fitsOnePage || !hasBefore) continue;
+
+            const step = pushSentence(block, si, s, info);
+            pushed = step.pushed;
+            const brkEl = step.brkEl;
+            if (pushed) {
+              rootRect = root.getBoundingClientRect();
+              // In vertical-rl, splitting a paragraph can pull an earlier sentence across the
+              // same column edge. If so, drop this break and push that earlier sentence instead.
+              let backIdx = -1;
+              let backInfo = null;
+              if (brkEl && si > 0 && !tried.has(si)) {
+                const post = rmCollectBlockSentences(block);
+                for (let pi = Math.max(0, si - 3); pi < si && pi < post.length; pi++) {
+                  if (tried.has(pi)) continue;
+                  const ps = post[pi];
+                  if (!setSentRange(ps)) continue;
+                  const pInfo = rmSentenceSpanInfo(range, rootRect, vertical, pageSize, pageBlockSize);
+                  if (pInfo && pInfo.straddles && (pInfo.maxPage - pInfo.minPage === 1) &&
+                      pInfo.totalBlockSpan <= pageBlockSize * 0.92 &&
+                      pInfo.usedBefore >= Math.max(10, linePx * 0.75)) {
+                    backIdx = pi;
+                    backInfo = pInfo;
+                    break;
+                  }
+                }
+              }
+              if (backIdx >= 0) {
+                tried.add(si);
+                const par = brkEl.parentNode;
+                brkEl.remove();
+                if (par) { try { par.normalize(); } catch (_) {} }
+                const fresh = rmCollectBlockSentences(block);
+                const bs = fresh[backIdx];
+                if (bs) {
+                  const backStep = pushSentence(block, backIdx, bs, backInfo);
+                  if (backStep.pushed) {
+                    tried.add(backIdx);
+                    pushes++;
+                    rootRect = root.getBoundingClientRect();
+                    sentFrom = backIdx + 1;
+                    break;
+                  }
+                }
+                rootRect = root.getBoundingClientRect();
+                sentFrom = si + 1;
+                break;
+              }
+              tried.add(si);
+              pushes++;
+              sentFrom = si + 1;
+              break;
+            }
+          }
+          if (!pushed) break;
+        }
+      }
+    }
+
+    // Scale EPUB illustrations in continuous scrolling modes using image_scale (25%–100% of stage),
+    // allowing images to break out of a narrow text column while leaving small inline icons untouched.
+    // An image that loads late, above or beside the place being read, keeps that place: the
+    // anchor is held across the resize, and images that land together are sized in one pass
+    let rmEpubImageTimer = 0;
+    function rmEpubImageLoaded() {
+      clearTimeout(rmEpubImageTimer);
+      rmEpubImageTimer = setTimeout(() => {
+        if (!isReadingModeOpen() || rmState.media !== 'epub' || rmState.layout !== 'continuous') return;
+        const snap = rmLayoutAnchor();
+        rmResizeEpubImages();
+        if (snap) rmRestoreAnchor(snap);
+        rmUpdateProgressUI();
+      }, 60);
+    }
+    function rmResizeEpubImages() {
+      if (rmState.media !== 'epub' || rmState.layout !== 'continuous') return;
+      const stage = document.getElementById('rm-stage');
+      const root = document.getElementById('rm-epub-root');
+      if (!stage || !root) return;
+      const p = rmGetPrefs();
+      const pct = Math.max(25, Math.min(100, Number(p.image_scale) || 80)) / 100;
+      const boxW = Math.max(120, Math.round((stage.clientWidth - 24) * pct));
+      const boxH = Math.max(120, Math.round((stage.clientHeight - 24) * pct));
+
+      const vert = rmState.dir === 'vertical';
+      const stRect = stage.getBoundingClientRect();
+      const applyBox = (el, natW, natH) => {
+        if (!(natW > 0 && natH > 0) || Math.max(natW, natH) < 120) {
+          el.classList.remove('rm-scaled-img');
+          el.style.removeProperty('width');
+          el.style.removeProperty('height');
+          el.style.removeProperty('max-width');
+          el.style.removeProperty('max-height');
+          el.style.removeProperty('transform');
+          return;
+        }
+        const s = Math.min(boxW / natW, boxH / natH, 3);
+        const w = Math.max(24, Math.round(natW * s));
+        const h = Math.max(24, Math.round(natH * s));
+        el.classList.add('rm-scaled-img');
+        el.style.setProperty('width', w + 'px', 'important');
+        el.style.setProperty('height', h + 'px', 'important');
+        el.style.setProperty('max-width', 'none', 'important');
+        el.style.setProperty('max-height', 'none', 'important');
+        if (vert) {
+          el.style.setProperty('transform', 'none', 'important');
+          const er = el.getBoundingClientRect();
+          const dy = Math.round(((stRect.top + stRect.bottom) - (er.top + er.bottom)) * 0.5);
+          if (dy) el.style.setProperty('transform', `translateY(${dy}px)`, 'important');
+        } else {
+          el.style.removeProperty('transform');
+        }
+      };
+
+      root.querySelectorAll('img:not(.gaiji):not([class*="gaiji"])').forEach(img => {
+        if (img.closest('svg, td, th')) return;
+        if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          applyBox(img, img.naturalWidth, img.naturalHeight);
+        } else if (!img.dataset.rmScaleBound) {
+          img.dataset.rmScaleBound = '1';
+          img.addEventListener('load', rmEpubImageLoaded, { once: true });
+        }
+      });
+
+      root.querySelectorAll('svg').forEach(svg => {
+        if (svg.closest('td, th')) return;
+        let vw = 0, vh = 0;
+        const vb = svg.viewBox && svg.viewBox.baseVal;
+        if (vb && vb.width > 0 && vb.height > 0) {
+          vw = vb.width; vh = vb.height;
+        } else {
+          const im = svg.querySelector('image');
+          vw = parseFloat((im && im.getAttribute('width')) || svg.getAttribute('width') || '0');
+          vh = parseFloat((im && im.getAttribute('height')) || svg.getAttribute('height') || '0');
+        }
+        if (vw > 0 && vh > 0) applyBox(svg, vw, vh);
+      });
+    }
+
     function rmMeasurePagination() {
       const stage = document.getElementById('rm-stage');
       const scroller = rmScrollerEl();
@@ -2494,41 +3829,48 @@
         const isPhone = window.innerWidth <= 720;
         const padY = isPhone ? 18 : 36;
         const p = rmGetPrefs();
-        const edgePx = rmEdgeNavActive()
-          ? Math.ceil(stage.clientWidth * (Math.max(5, Math.min(35, Number(p.edge_click_width) || 12)) / 100))
-          : 0;
+        const edgePx = Math.ceil(stage.clientWidth * RM_EDGE_ROOM);
         const padX = isPhone ? 18 : Math.max(56, edgePx * 2 + 16);
         const availW = Math.max(220, stage.clientWidth - padX);
         const availH = Math.max(200, stage.clientHeight - padY);
-        const maxPx = p.max_width * p.font_size;
+        const maxPx = (p.max_width || 44) * p.font_size;
+        const maxHPx = (p.max_height || 36) * p.font_size;
         const pageW = Math.max(220, Math.min(availW, maxPx));
-        const pageH = availH;
+        const pageH = Math.max(200, Math.min(availH, maxHPx));
         const imgW = Math.max(220, stage.clientWidth - (isPhone ? 12 : 32));
         const imgH = Math.max(200, stage.clientHeight - (isPhone ? 12 : 24));
         stage.style.setProperty('--rm-page-w', pageW + 'px');
         stage.style.setProperty('--rm-page-h', pageH + 'px');
         stage.style.setProperty('--rm-img-page-w', imgW + 'px');
         stage.style.setProperty('--rm-img-page-h', imgH + 'px');
-        rmState.pageW = pageW;
-        rmState.pageH = pageH;
+        const actW = scroller.clientWidth || pageW;
+        const actH = scroller.clientHeight || pageH;
+        rmState.pageW = actW;
+        rmState.pageH = actH;
         if (root.classList.contains('rm-image-page')) {
           rmState.pageCount = 1;
           return;
         }
         const prevT = root.style.transform;
         root.style.transform = '';
+        if (rmHtmlPart(rmState.part)) {
+          // While a slider is dragged the pages flow without sentence breaks; letting go lays them out.
+          if (rmDragAnchor) rmClearSentenceBreaks(root);
+          else rmApplySentencePageBreaks(root, scroller, actW, actH, rmState.dir === 'vertical');
+        }
         if (rmState.dir === 'vertical') {
-          const stride = pageH + RM_PAGE_GAP;
+          const stride = actH + RM_PAGE_GAP;
           const totalH = scroller.scrollHeight;
           rmState.pageCount = Math.max(1, Math.ceil((totalH - 4 + RM_PAGE_GAP) / Math.max(1, stride)));
         } else {
-          const stride = pageW + RM_PAGE_GAP;
+          const stride = actW + RM_PAGE_GAP;
           const totalW = scroller.scrollWidth;
           rmState.pageCount = Math.max(1, Math.ceil((totalW - 4 + RM_PAGE_GAP) / Math.max(1, stride)));
         }
         root.style.transform = prevT;
       } else {
         rmState.pageCount = 1;
+        rmResizeEpubImages();
       }
     }
 
@@ -2576,6 +3918,7 @@
       const sc = rmScrollerEl();
       if (!sc) return;
       if (rmState.layout === 'paginated') {
+        if (rmBarAutoHideActive()) rmSetTopbarHidden(true);
         const nxt = rmState.pageIndex + delta;
         if (nxt < 0) {
           if (rmState.secIndex > 0) {
@@ -2626,7 +3969,7 @@
 
     function rmGoToAnchorInPart(member, frag, allowMemberFallback = false) {
       const part = rmState.part;
-      if (!part || part.media !== 'epub' || part.source !== 'file') return false;
+      if (!rmHtmlPart(part)) return false;
       if (rmState.layout === 'paginated') {
         let secIdx = rmState.secIndex;
         if (member) {
@@ -2718,8 +4061,9 @@
 
       sc.onscroll = () => {
         if (rmState.layout !== 'paginated') {
-          rmUpdateProgressUI();
+          rmScheduleProgressUI();
           rmScheduleSaveProgress();
+          rmOnBarScroll();
         }
       };
 
@@ -2806,6 +4150,17 @@
       };
     }
 
+    // Scrolling fires every frame and the progress line reads the anchor from the whole chapter's
+    // text, so it updates at most every 120 ms.
+    let rmProgressTimer = null;
+    function rmScheduleProgressUI() {
+      if (rmProgressTimer) return;
+      rmProgressTimer = setTimeout(() => {
+        rmProgressTimer = null;
+        if (isReadingModeOpen()) rmUpdateProgressUI();
+      }, 120);
+    }
+
     function rmUpdateProgressUI() {
       const leftEl = document.getElementById('rm-foot-left');
       const rightEl = document.getElementById('rm-foot-right');
@@ -2820,10 +4175,11 @@
         fillEl.style.width = pct + '%';
         return;
       }
-      const ratio = rmReadScrollRatio();
+      const anchor = rmReadAnchor();
+      const totalChars = rmState.totalPlainChars || rmState.part.char_count || 0;
+      const ratio = (anchor && totalChars > 0) ? anchor.scroll_ratio : rmReadScrollRatio();
       const pct = Math.round(ratio * 100);
-      const chars = rmState.part.char_count || 0;
-      const readChars = Math.round(chars * ratio);
+      const readChars = (anchor && totalChars > 0) ? Math.min(totalChars, anchor.char_offset || 0) : Math.round(totalChars * ratio);
       if (rmState.layout === 'paginated') {
         const sCount = Math.max(1, rmState.sections.length);
         if (sCount > 1 && rmState.pageCount === 1) {
@@ -2834,7 +4190,7 @@
           leftEl.textContent = t('rm_page_of', { a: fmt(rmState.pageIndex + 1), b: fmt(rmState.pageCount) });
         }
       } else {
-        leftEl.textContent = chars ? `${t('rm_chars', { n: fmt(readChars) })} / ${t('rm_chars', { n: fmt(chars) })}` : '';
+        leftEl.textContent = totalChars ? `${t('rm_chars', { n: fmt(readChars) })} / ${t('rm_chars', { n: fmt(totalChars) })}` : '';
       }
       rightEl.textContent = `${t('rm_part_of', { a: fmt(rmState.partIndex + 1), b: fmt(rmState.files.length) })} · ${pct}%`;
       fillEl.style.width = pct + '%';
@@ -2854,17 +4210,26 @@
       if (!rmState.part || !rmState.media || !rmState.folder) return;
       if (!isReadingModeOpen() && !useKeepalive) return;
       if (rmState.part.file !== (rmState.files[rmState.partIndex] || {}).file) return;
-      const ratio = rmState.media === 'manga'
-        ? (rmState.mangaPage - 1) / Math.max(1, (rmState.part.pages || []).length - 1)
-        : rmReadScrollRatio();
-      const chars = Math.round((rmState.part.char_count || 0) * ratio);
+      const anchor = rmLayoutAnchor();
+      const ratio = anchor
+        ? anchor.scroll_ratio
+        : (rmState.media === 'manga'
+          ? (rmState.mangaPage - 1) / Math.max(1, (rmState.part.pages || []).length - 1)
+          : rmReadScrollRatio());
       const patch = {
         file: rmState.part.file,
         part_index: rmState.partIndex,
+        anchor_v: 1,
         scroll_ratio: ratio,
-        char_offset: chars,
-        page: rmState.media === 'manga' ? rmState.mangaPage : (rmState.pageIndex + 1),
+        char_offset: anchor ? (anchor.char_offset || 0) : Math.round((rmState.part.char_count || 0) * ratio),
+        sec_index: anchor ? (anchor.sec_index || 0) : (rmState.secIndex || 0),
+        quote: anchor ? (anchor.quote || '') : '',
+        page: rmState.media === 'manga' ? ((anchor && anchor.page) || rmState.mangaPage) : (rmState.pageIndex + 1),
       };
+      // Each save names its own page_frac and edge, null for none, so one from another layout
+      // is not left behind.
+      patch.page_frac = (anchor && anchor.page_frac != null) ? anchor.page_frac : null;
+      patch.edge = (rmState.layout !== 'paginated' && anchor && typeof anchor.edge === 'number') ? anchor.edge : null;
       rmState.work = { ...(rmState.work || {}), ...patch };
       const payload = JSON.stringify({ media: rmState.media, folder: rmState.folder, work: patch });
       try {
@@ -2884,13 +4249,13 @@
 
     function rmSetLayout(layout) {
       if (layout !== 'paginated' && layout !== 'continuous') return;
-      const key = rmState.dir === 'vertical' ? 'v_layout' : 'h_layout';
-      return rmUpdatePrefs({ [key]: layout });
+      return rmUpdatePrefs({ layout });
     }
 
     async function rmSaveWorkOverride(patch) {
       rmState.work = { ...(rmState.work || {}), ...patch };
-      rmApplyPrefsToDom(true);
+      const needsRelayout = patch && ('writing_mode' in patch || 'layout' in patch);
+      if (needsRelayout) rmApplyPrefsToDom(true);
       await apiPost('/api/reading/state', { media: rmState.media, folder: rmState.folder, work: patch }).catch(() => null);
     }
 
@@ -2912,15 +4277,21 @@
 
     async function rmSetBookmarkNow() {
       if (!rmState.part) return;
-      const curRatio = rmState.media === 'manga' ? 0 : rmReadScrollRatio();
+      const anchor = rmReadAnchor();
       const item = rmState.files[rmState.partIndex] || {};
+      const curRatio = anchor ? anchor.scroll_ratio : (rmState.media === 'manga' ? 0 : rmReadScrollRatio());
       const nextBm = {
         file: rmState.part.file,
+        anchor_v: 1,
         scroll_ratio: curRatio,
-        page: rmState.media === 'manga' ? rmState.mangaPage : (rmState.pageIndex + 1),
-        char_offset: Math.round((rmState.part.char_count || 0) * curRatio),
+        page: rmState.media === 'manga' ? ((anchor && anchor.page) || rmState.mangaPage) : (rmState.pageIndex + 1),
+        char_offset: anchor ? (anchor.char_offset || 0) : Math.round((rmState.part.char_count || 0) * curRatio),
+        sec_index: anchor ? (anchor.sec_index || 0) : (rmState.secIndex || 0),
+        quote: anchor ? (anchor.quote || '') : '',
         label: item.title || rmState.part.file,
       };
+      if (anchor && anchor.page_frac != null) nextBm.page_frac = anchor.page_frac;
+      if (anchor && typeof anchor.edge === 'number') nextBm.edge = anchor.edge;
       await rmSaveWorkOverride({ bookmark: nextBm });
       rmUpdateBookmarkBtn();
       rmRenderToc();
@@ -2935,16 +4306,16 @@
       if (bmMenu) bmMenu.hidden = true;
       if (!bm) return;
       const idx = rmState.files.findIndex(f => f.file === bm.file);
-      if (idx < 0) return;
+      if (idx < 0) { rmToast(t('rm_place_gone')); return; }
       if (idx !== rmState.partIndex) {
-        await rmLoadPart(idx, { targetRatio: bm.scroll_ratio, targetPage: bm.page || 1 });
-      } else if (rmState.media === 'manga' && typeof rmGoMangaPage === 'function') {
-        rmGoMangaPage(bm.page || 1);
+        await rmLoadPart(idx, { targetAnchor: bm.anchor_v ? bm : null, targetRatio: bm.scroll_ratio, targetPage: bm.page || 1 });
+      } else if (rmState.media === 'manga') {
+        rmRestoreAnchor(bm);
       } else {
-        rmRestoreScrollRatio(bm.scroll_ratio || 0);
+        rmRestoreAnchor(bm);
         rmUpdateProgressUI();
       }
-      rmToast(t('rm_bookmark_go'));
+      rmToast(t('rm_bookmark_jumped'));
     }
 
     async function rmClearBookmark() {
@@ -2958,11 +4329,13 @@
 
     function rmOnBookmarkClick() {
       rmCloseFontPopup(false);
+      const notesp = document.getElementById('rm-notes-panel');
+      if (notesp && !notesp.hidden && typeof rmToggleNotes === 'function') rmToggleNotes(false);
       const bm = rmState.work && rmState.work.bookmark;
       if (!bm) { rmSetBookmarkNow(); return; }
       const menu = document.getElementById('rm-bm-menu');
       if (!menu) return;
-      if (!menu.hidden) { menu.hidden = true; return; }
+      if (!menu.hidden) { menu.hidden = true; rmResetTopbarForMode(); return; }
       menu.innerHTML = `
         <div class="rm-bm-where">${esc(rmFormatBookmarkPlace(bm))}</div>
         <div class="rm-bm-actions">
@@ -2971,6 +4344,7 @@
           <button type="button" class="btn" onclick="rmClearBookmark()">${esc(t('rm_bookmark_clear'))}</button>
         </div>`;
       menu.hidden = false;
+      rmSetTopbarHidden(false, 'overlay');
     }
 
     function rmCycleFurigana() {
@@ -3037,11 +4411,15 @@
         rmCloseFontPopup(false);
         const setp = document.getElementById('rm-settings-panel');
         if (setp) setp.hidden = true;
+        const notesp = document.getElementById('rm-notes-panel');
+        if (notesp) notesp.hidden = true;
         const bmMenu = document.getElementById('rm-bm-menu');
         if (bmMenu) bmMenu.hidden = true;
+        rmSetTopbarHidden(false, 'overlay');
         const active = el.querySelector('.rm-toc-item.active');
         if (active) active.scrollIntoView({ block: 'center' });
       } else {
+        rmResetTopbarForMode();
         rmFocusStage();
       }
     }
@@ -3054,11 +4432,15 @@
       if (show) {
         const toc = document.getElementById('rm-toc-drawer');
         if (toc) toc.hidden = true;
+        const notesp = document.getElementById('rm-notes-panel');
+        if (notesp) notesp.hidden = true;
         const bmMenu = document.getElementById('rm-bm-menu');
         if (bmMenu) bmMenu.hidden = true;
+        rmSetTopbarHidden(false, 'overlay');
         rmRenderSettingsPanel();
       } else {
         rmCloseFontPopup(false);
+        rmResetTopbarForMode();
         rmFocusStage();
       }
     }
@@ -3073,7 +4455,7 @@
       const dirVal = p.writing_mode || 'auto';
       const layoutVal = rmState.layout;
       const themes = [
-        ['app', t('rm_theme_app')], ['paper', t('theme_paper')], ['haze', t('theme_haze')],
+        ['app', t('rm_theme_app')], ['haze', t('theme_haze')], ['paper', t('theme_paper')],
         ['sepia', t('rm_theme_sepia')], ['night', t('theme_night')], ['midnight', t('theme_midnight')],
       ];
       const isManga = rmState.media === 'manga';
@@ -3117,7 +4499,15 @@
               <button type="button" class="seg-btn ${p.manga_boxes === 'always' ? 'active' : ''}" onclick="rmUpdatePrefs({manga_boxes:'always'})">${esc(t('rm_manga_boxes_always'))}</button>
               <button type="button" class="seg-btn ${p.manga_boxes === 'off' ? 'active' : ''}" onclick="rmUpdatePrefs({manga_boxes:'off'})">${esc(t('rm_manga_boxes_off'))}</button>
             </div>
-          </div>` : ''}`}
+          </div>
+          ${p.manga_layout === 'strip' ? `
+          <div class="rm-set-row">
+            <span class="rm-set-label">${esc(t('rm_image_scale'))}</span>
+            <div class="rm-range-row">
+              <input type="range" min="25" max="100" step="5" value="${p.image_scale || 80}" oninput="rmLiveRangePref('image_scale', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({image_scale:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.image_scale || 80}%</span>
+            </div>
+          </div>` : ''}` : ''}`}
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_theme'))}</span>
             <div class="rm-theme-grid">${themes.map(([v, lbl]) =>
@@ -3140,31 +4530,46 @@
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_font_weight'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="200" max="900" step="100" value="${p.font_weight || 400}" oninput="rmLiveRangePref('font_weight', Number(this.value), this.nextElementSibling, this.value)" onchange="rmUpdatePrefs({font_weight:Number(this.value)}, {rebuildSettings:false})">
+              <input type="range" min="200" max="900" step="100" value="${p.font_weight || 400}" oninput="rmLiveRangePref('font_weight', Number(this.value), this.nextElementSibling, this.value)" onchange="rmUpdatePrefs({font_weight:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${p.font_weight || 400}</span>
             </div>
           </div>
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_font_size'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="12" max="36" step="1" value="${p.font_size}" oninput="rmLiveRangePref('font_size', Number(this.value), this.nextElementSibling, this.value + 'px')" onchange="rmUpdatePrefs({font_size:Number(this.value)}, {rebuildSettings:false})">
+              <input type="range" min="12" max="36" step="1" value="${p.font_size}" oninput="rmLiveRangePref('font_size', Number(this.value), this.nextElementSibling, this.value + 'px')" onchange="rmUpdatePrefs({font_size:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${p.font_size}px</span>
             </div>
           </div>
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_line_height'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="1" max="2.6" step="0.05" value="${p.line_height}" oninput="rmLiveRangePref('line_height', Number(this.value), this.nextElementSibling, Number(this.value).toFixed(2))" onchange="rmUpdatePrefs({line_height:Number(this.value)}, {rebuildSettings:false})">
+              <input type="range" min="1" max="2.6" step="0.05" value="${p.line_height}" oninput="rmLiveRangePref('line_height', Number(this.value), this.nextElementSibling, Number(this.value).toFixed(2))" onchange="rmUpdatePrefs({line_height:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${Number(p.line_height).toFixed(2)}</span>
             </div>
           </div>
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_max_width'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="10" max="72" step="2" value="${p.max_width}" oninput="rmLiveRangePref('max_width', Number(this.value), this.nextElementSibling, this.value + 'em')" onchange="rmUpdatePrefs({max_width:Number(this.value)}, {rebuildSettings:false})">
+              <input type="range" min="10" max="72" step="2" value="${p.max_width}" oninput="rmLiveRangePref('max_width', Number(this.value), this.nextElementSibling, this.value + 'em')" onchange="rmUpdatePrefs({max_width:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${p.max_width}em</span>
             </div>
-          </div>` : ''}
+          </div>
+          <div class="rm-set-row">
+            <span class="rm-set-label">${esc(t('rm_max_height'))}</span>
+            <div class="rm-range-row">
+              <input type="range" min="10" max="72" step="2" value="${p.max_height || 36}" oninput="rmLiveRangePref('max_height', Number(this.value), this.nextElementSibling, this.value + 'em')" onchange="rmUpdatePrefs({max_height:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.max_height || 36}em</span>
+            </div>
+          </div>
+          ${rmState.media === 'epub' && layoutVal === 'continuous' ? `
+          <div class="rm-set-row">
+            <span class="rm-set-label">${esc(t('rm_image_scale'))}</span>
+            <div class="rm-range-row">
+              <input type="range" min="25" max="100" step="5" value="${p.image_scale || 80}" oninput="rmLiveRangePref('image_scale', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({image_scale:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.image_scale || 80}%</span>
+            </div>
+          </div>` : ''}` : ''}
           ${isSubs ? `
           <div class="rm-set-row-inline">
             <span class="rm-set-label">${esc(t('rm_sub_timestamps'))}</span>
@@ -3185,7 +4590,7 @@
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_edge_click_width'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="5" max="35" step="1" value="${p.edge_click_width || 12}" oninput="rmLiveRangePref('edge_click_width', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({edge_click_width:Number(this.value)}, {rebuildSettings:false})">
+              <input type="range" min="5" max="35" step="1" value="${p.edge_click_width || 12}" oninput="rmLiveRangePref('edge_click_width', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({edge_click_width:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${p.edge_click_width || 12}%</span>
             </div>
           </div>` : ''}` : ''}
@@ -3196,6 +4601,22 @@
               <button type="button" class="seg-btn ${!p.show_progress ? 'active' : ''}" onclick="rmUpdatePrefs({show_progress:false})">${esc(t('lib_cache_off'))}</button>
             </div>
           </div>
+          ${rmCanHoverTopbar() ? `
+          <div class="rm-set-row-inline">
+            <span class="rm-set-label">${esc(t('rm_auto_hide_bar'))}</span>
+            <div class="seg seg-fit">
+              <button type="button" class="seg-btn ${p.auto_hide_bar ? 'active' : ''}" onclick="rmUpdatePrefs({auto_hide_bar:true})">${esc(t('lib_cache_on'))}</button>
+              <button type="button" class="seg-btn ${!p.auto_hide_bar ? 'active' : ''}" onclick="rmUpdatePrefs({auto_hide_bar:false})">${esc(t('lib_cache_off'))}</button>
+            </div>
+          </div>` : ''}
+          ${rmIsScrollableBarMode() ? `
+          <div class="rm-set-row-inline">
+            <span class="rm-set-label">${esc(t('rm_hide_bar_scroll'))}</span>
+            <div class="seg seg-fit">
+              <button type="button" class="seg-btn ${p.hide_bar_scroll ? 'active' : ''}" onclick="rmUpdatePrefs({hide_bar_scroll:true})">${esc(t('lib_cache_on'))}</button>
+              <button type="button" class="seg-btn ${!p.hide_bar_scroll ? 'active' : ''}" onclick="rmUpdatePrefs({hide_bar_scroll:false})">${esc(t('lib_cache_off'))}</button>
+            </div>
+          </div>` : ''}
           ${isManga && !mangaText && p.manga_layout !== 'strip' ? `
           <div class="rm-set-row-inline">
             <button type="button" class="btn" onclick="rmMangaFit(false); rmToggleSettings(false)">${esc(t('rm_zoom_reset'))}</button>
@@ -3226,31 +4647,46 @@
     }
 
     let rmLastWide = window.innerWidth > 720;
+    let rmResizeAnchor = null;
+    let rmResizeTimer = null;
+    // A paginated relayout of a long chapter takes about a second (the sentence page breaks), and
+    // dragging a window edge fires dozens of resize events: lay out once, when the size settles.
     function rmOnResize() {
+      if (!isReadingModeOpen()) {
+        rmLastWide = window.innerWidth > 720;
+        return;
+      }
+      if (rmState.part && !rmResizeAnchor) rmResizeAnchor = rmLayoutAnchor();
+      clearTimeout(rmResizeTimer);
+      rmResizeTimer = setTimeout(rmRelayoutAfterResize, 160);
+    }
+
+    function rmRelayoutAfterResize() {
+      rmResizeTimer = null;
+      const anchor = rmResizeAnchor;
+      rmResizeAnchor = null;
       const wide = window.innerWidth > 720;
       const crossed = wide !== rmLastWide;
       rmLastWide = wide;
       if (!isReadingModeOpen()) return;
       if (crossed) {
         rmSetEdgeHint(null);
-        rmApplyPrefsToDom(true, true);
+        rmApplyPrefsToDom(true, true, anchor);
+        rmResetTopbarForMode();
         return;
       }
       if (rmState.media === 'manga') {
-        if (typeof rmMangaFit === 'function') rmMangaFit(false);
+        const mStage = document.getElementById('rm-manga-stage');
+        if (mStage && mStage.classList.contains('rm-manga-strip')) {
+          rmResizeStripPages();
+          if (anchor) rmRestoreAnchor(anchor);
+        } else if (typeof rmMangaFit === 'function') {
+          rmMangaFit(false);
+        }
         return;
       }
-      if (rmState.layout === 'paginated') {
-        const frac = rmReadSectionRatio();
-        rmMeasurePagination();
-        const pIdx = Math.min(rmState.pageCount - 1, Math.round(frac * Math.max(0, rmState.pageCount - 1)));
-        rmApplyPaginatedOffset(pIdx);
-        rmUpdateProgressUI();
-        return;
-      }
-      const ratio = rmReadScrollRatio();
       rmMeasurePagination();
-      rmRestoreScrollRatio(ratio);
+      if (anchor) rmRestoreAnchor(anchor);
       rmUpdateProgressUI();
     }
 
@@ -3328,10 +4764,18 @@
       if (!isReadingModeOpen()) return;
       if (e.isComposing || e.keyCode === 229 || isComposing || justConfirmed) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+      const scModal = document.getElementById('shortcuts-modal');
+      const isHelpKey = e.key === '?' || (e.shiftKey && (e.code === 'Slash' || e.key === '/'));
+      if (scModal && scModal.classList.contains('open')) {
+        if (e.key === 'Escape' || isHelpKey) { e.preventDefault(); toggleShortcutsModal(); }
+        return;
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         const bmMenu = document.getElementById('rm-bm-menu');
         if (bmMenu && !bmMenu.hidden) { bmMenu.hidden = true; rmFocusStage(); return; }
+        const notesp = document.getElementById('rm-notes-panel');
+        if (notesp && !notesp.hidden && typeof rmToggleNotes === 'function') { rmToggleNotes(false); rmFocusStage(); return; }
         const setp = document.getElementById('rm-settings-panel');
         const toc = document.getElementById('rm-toc-drawer');
         if (setp && !setp.hidden) { rmToggleSettings(false); rmFocusStage(); return; }
@@ -3346,6 +4790,7 @@
 
       const tag = document.activeElement ? document.activeElement.tagName : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (isHelpKey) { e.preventDefault(); rmStopGlide(); toggleShortcutsModal(); return; }
 
       const glideDelta = rmGlideDelta(e);
       if (glideDelta) {
@@ -3401,6 +4846,7 @@
       if (e.key === ']') { e.preventDefault(); rmStepPart(1); return; }
       if ((e.key === 't' || e.key === 'T') && !e.shiftKey) { e.preventDefault(); rmToggleToc(); return; }
       if ((e.key === 'b' || e.key === 'B') && !e.shiftKey) { e.preventDefault(); rmOnBookmarkClick(); return; }
+      if ((e.key === 'n' || e.key === 'N') && !e.shiftKey && typeof rmToggleNotes === 'function') { e.preventDefault(); rmCaptureNotesSelection(); rmToggleNotes(); return; }
       if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) { e.preventDefault(); rmCycleFurigana(); return; }
       if ((e.key === 's' || e.key === 'S') && !e.shiftKey) { e.preventDefault(); rmToggleSettings(); return; }
       if (e.key === '0' && rmState.media === 'manga') { e.preventDefault(); rmMangaFit(false); return; }
@@ -3504,11 +4950,8 @@
         rmSyncZoomPill();
         return;
       }
-      const p = rmGetPrefs();
-      const useEdgeInset = window.innerWidth > 720 && p.edge_click_nav !== false;
-      const edgePx = useEdgeInset
-        ? Math.ceil(mStage.clientWidth * (Math.max(5, Math.min(35, Number(p.edge_click_width) || 12)) / 100))
-        : 0;
+      const useEdgeInset = window.innerWidth > 720;
+      const edgePx = useEdgeInset ? Math.ceil(mStage.clientWidth * RM_EDGE_ROOM) : 0;
       const padX = (useEdgeInset && mStage.clientWidth - edgePx * 2 >= 260) ? (edgePx * 2 + 12) : 4;
       const sw = Math.max(100, mStage.clientWidth - padX);
       const sh = Math.max(100, mStage.clientHeight - 4);
@@ -3544,11 +4987,14 @@
     function rmResizeStripPages() {
       const mStage = document.getElementById('rm-manga-stage');
       if (!mStage) return;
-      const maxW = Math.min(960, Math.max(200, mStage.clientWidth - 16));
+      const p = rmGetPrefs();
+      const pct = Math.max(25, Math.min(100, Number(p.image_scale) || 80)) / 100;
+      const availW = Math.max(200, mStage.clientWidth - 16);
+      const targetW = Math.max(120, Math.round(availW * pct));
       mStage.querySelectorAll('.rm-mokuro-strip-item').forEach(wrap => {
         const iw = parseFloat(wrap.dataset.iw || '1000');
         const ih = parseFloat(wrap.dataset.ih || '1400');
-        const s = Math.min(1, maxW / iw);
+        const s = Math.min(4, targetW / Math.max(1, iw));
         wrap.style.width = Math.round(iw * s) + 'px';
         wrap.style.height = Math.round(ih * s) + 'px';
         const pgEl = wrap.firstElementChild;
@@ -3621,7 +5067,10 @@
         }, { root: mStage, threshold: [0.25, 0.6] });
         mStage.querySelectorAll('[data-page]').forEach(el => rmMangaStripObs.observe(el));
         const targetEl = mStage.querySelector(`[data-page="${pno}"]`);
-        if (targetEl) targetEl.scrollIntoView({ block: 'start' });
+        const frac = (opts.targetAnchor && opts.targetAnchor.page_frac) || (opts.restorePos && rmState.work && rmState.work.page_frac) || 0;
+        if (pno <= 1 && !frac) mStage.scrollTop = 0;
+        else if (targetEl) mStage.scrollTop = Math.max(0, targetEl.offsetTop + Math.round(frac * targetEl.offsetHeight));
+        mStage.addEventListener('scroll', rmOnBarScroll, { passive: true });
       } else {
         rmDrawSingleMangaPage(pno);
       }
@@ -3748,6 +5197,7 @@
       };
 
       rmUpdateProgressUI();
+      rmResetTopbarForMode();
       saveMediaState();
       rmFocusStage();
     }
@@ -3823,6 +5273,7 @@
         if (mStage) mStage.scrollBy({ top: delta * Math.round(mStage.clientHeight * 0.85), behavior: 'smooth' });
         return;
       }
+      if (rmBarAutoHideActive(p)) rmSetTopbarHidden(true);
       const nxt = rmState.mangaPage + delta;
       if (nxt < 1) {
         if (rmState.partIndex > 0) rmLoadPart(rmState.partIndex - 1, { atEnd: true });

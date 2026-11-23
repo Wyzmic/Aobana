@@ -5,6 +5,7 @@
     python release/build.py bundle       only release/build/app/ (the install image)
     python release/build.py installer    bundle, then ISCC -> release/dist/Aobana-Setup-<ver>.exe
     python release/build.py check        release/repo/ carries no comments but the kept ones
+    python release/build.py ci           on a fresh Windows (GitHub's runner): fetch the tools, installer
 
 Run it with a Python 3.14 that has pip and Pillow (for the icon); it also needs Chrome or Edge
 (the icon), Inno Setup 7 (the installer) and the .NET Framework 4 compiler every Windows has.
@@ -23,6 +24,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import urllib.request
 import zipfile
 
 RELEASE = os.path.dirname(os.path.abspath(__file__))
@@ -69,7 +71,7 @@ APP_FILES = [
     "Aobana.bat", "aobana.sh", "requirements.txt", "constraints.txt",
     "data/ruby/ruby.tsv", "data/ruby/kanji_readings.tsv",
     "static/app.css", "static/i18n.js", "static/core.js", "static/search.js", "static/cards.js",
-    "static/media.js", "static/custom.js", "static/settings.js",
+    "static/media.js", "static/reader_notes.js", "static/saved.js", "static/custom.js", "static/settings.js",
     "static/library.js", "static/guide.js", "static/notices.js", "static/learn.js", "static/app.js",
     "static/aobana.svg", "static/fonts/NotoSansJP.ttf", "static/fonts/OFL.txt",
 ]
@@ -165,6 +167,9 @@ def check_whitelist():
         for dirpath, dirs, files in os.walk(os.path.join(ROOT, folder)):
             dirs[:] = [d for d in dirs if d != "__pycache__"]
             for f in files:
+                # Finder's folder settings on a Mac, made again whenever a folder is opened
+                if f == ".DS_Store":
+                    continue
                 rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace("\\", "/")
                 if (re.match(pattern, f) and rel not in listed and rel not in NOT_EXPORTED
                         and rel not in DEV_ONLY and not rel.startswith(tuple(NOT_EXPORTED_DIRS))):
@@ -836,6 +841,40 @@ def installer(ico):
     print(f"  {out}: {os.path.getsize(out) / 2**20:.0f} MB, sha256 {sha256(out)}")
 
 
+PY_ZIP_URL = "https://www.python.org/ftp/python/3.14.8/python-3.14.8-embed-amd64.zip"
+INNO_URL = "https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe"
+INNO_SHA256 = "8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0"
+
+
+def fetch_checked(url, path, digest):
+    if not (os.path.isfile(path) and sha256(path) == digest):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        print(f"  download {url}", flush=True)
+        urllib.request.urlretrieve(url, path + ".part")
+        os.replace(path + ".part", path)
+    if sha256(path) != digest:
+        sys.exit(f"build: {os.path.basename(path)} does not match its pinned SHA-256")
+    return path
+
+
+def ci():
+    if sys.platform != "win32":
+        sys.exit("build: ci builds the Windows installer, on Windows")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    step("ci: the embeddable Python, the wheels, Inno Setup")
+    fetch_checked(PY_ZIP_URL, PY_ZIP, PY_ZIP_SHA256)
+    rmtree(WHEELS)
+    run([sys.executable, "-m", "pip", "download", "--disable-pip-version-check", "--only-binary=:all:",
+         "--platform", "win_amd64", "--python-version", "3.14", "--implementation", "cp",
+         "-d", WHEELS, "-r", os.path.join(ROOT, "requirements.txt"),
+         "-c", os.path.join(ROOT, "constraints.txt")])
+    if not os.path.isfile(ISCC):
+        setup = fetch_checked(INNO_URL, os.path.join(VENDOR, INNO_URL.rsplit("/", 1)[1]), INNO_SHA256)
+        run([setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER",
+             f"/DIR={os.path.dirname(ISCC)}"])
+    installer(bundle())
+
+
 def check_release_notes():
     path = os.path.join(RELEASE, f"notes-{VERSION}.md")
     if not os.path.isfile(path):
@@ -879,8 +918,11 @@ def check_reibun_code():
 
 def main(argv):
     what = argv[1] if len(argv) > 1 else "all"
-    if what not in ("all", "export", "bundle", "installer", "check"):
+    if what not in ("all", "export", "bundle", "installer", "check", "ci"):
         sys.exit(__doc__)
+    if what == "ci":
+        ci()
+        return
     if what == "check":
         check_published(REPO)
         check_reibun_code()

@@ -38,10 +38,15 @@ def api_custom_folder():
     args = request.args
     # The query as /api/search reads it: `ー` the minus, `- ない` one word, 者 (U+FA5B) as 者
     q = server.fold_compat(server.normalize_query(args.get('q', '')))
+    sort = args.get('sort', 'default')
+    read_at = None
+    if sort == 'read_desc':
+        from aobana.server.routes_reader import last_read_times
+        read_at = last_read_times()
     return _media_request(conn, lambda stop: folder_page(
         conn, args.get('path', ''), q, args.get('mode', 'title'),
         max(0, args.get('offset', 0, type=int)), max(1, min(500, args.get('limit', 500, type=int))),
-        args.get('exact') == 'on', args.get('ruby_only') == 'on', args.get('sort', 'default'), stop), 'Unknown folder')
+        args.get('exact') == 'on', args.get('ruby_only') == 'on', sort, stop, read_at), 'Unknown folder')
 
 
 @app.route('/api/custom/file')
@@ -73,12 +78,17 @@ def api_media():
     needle = server.normalize_query(request.args.get("q", ""))
     # A filter finds the names inside the works too, after them; while those are prepared, the works and the time left
     inner, inner_wait = inner_names_now(dbs) if needle.strip() and folder is None else (None, None)
+    sort = request.args.get("sort", "name")
+    read_at = None
+    if sort == "read_desc":
+        from aobana.server.routes_reader import last_read_times
+        read_at = last_read_times()
     page = media_page(get_media_library(dbs),
                       media=request.args.get("media", "all"),
                       needle=needle,
                       offset=max(0, request.args.get("offset", 0, type=int)),
                       limit=max(0, request.args.get("limit", 0, type=int)),
-                      folder=folder, sort=request.args.get("sort", "name"), inner=inner)
+                      folder=folder, sort=sort, inner=inner, read_at=read_at)
     page["ready"] = True
     if inner_wait:
         page["inner_pending"] = inner_wait

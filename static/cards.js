@@ -296,15 +296,7 @@
       }
       store.set('savedSentences', JSON.stringify(savedSentences));
 
-      if (TAB === 'saved') document.getElementById('saved-meta').textContent = t('saved_count', { n: fmt(savedSentences.length) });
-    }
-
-    function initSavedTab() {
-      setTitle(t('tab_saved'));
-      document.getElementById('saved-head').after(document.getElementById('empty-state'), document.getElementById('results'));
-      showSavedSentences();
-      // After the relocation, which draws the list again
-      relocateSaved().catch(() => {}).finally(restoreSearchReturn);
+      if (TAB === 'saved') updateSavedMeta();
     }
 
     async function relocateSaved() {
@@ -333,7 +325,7 @@
 
     function showSavedSentences() {
       allResults = savedSentences;
-      document.getElementById('saved-meta').textContent = t('saved_count', { n: fmt(savedSentences.length) });
+      updateSavedMeta();
       const empty = document.getElementById('empty-state');
       empty.dataset.i18n = 'no_saved';
       empty.textContent = t('no_saved');

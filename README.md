@@ -29,10 +29,10 @@ and offer the release page, or download an update when you choose to update.
 - **Known words and i+1:** load the words you already know under **Known words** in the Settings tab: a list with one word per line, an Anki export, a Jiten or Migaku export, or your Anki decks through Aobana Reibun 1.2 or later. Then **i+1 first** or **i+1 only** puts forward the sentences where the word you searched is the only one you do not know, and each result shows how many of its words you know.
 - **Furigana:** readings above Japanese text, from the author's own ruby where the book has it. One click turns it off.
 - **Context:** open the lines around any sentence, or open it in the Media tab and read the whole episode or chapter in order. The Media tab's **Content** searches the lines of every work it lists, and **Titles** finds the works and the episodes, chapters and files inside them by name, the match in bold. **Open folder** shows where a file is on your computer.
-- **Reading mode:** open any show, book or manga in the Media tab to read from the original file (`.srt`, `.ass`, `.ssa`, `.epub`, `.mokuro`). Vertical or horizontal text, by page or scrolling, with furigana, themes, a bookmark and your place kept in each work; manga shows the page images with the OCR text on top, one page at a time or as a vertical strip.
+- **Reading mode:** open any show, book or manga in the Media tab, or a folder of Custom `.txt` and `.md` files, to read from the original file (`.srt`, `.ass`, `.ssa`, `.epub`, `.mokuro`, `.txt`, `.md`). Vertical or horizontal text, by page or scrolling, with furigana, themes, a bookmark, notes you can copy as Markdown, and your place kept in each work; manga shows the page images with the OCR text on top, one page at a time or as a vertical strip.
 - **Copy for Anki:** copy any sentence with its furigana and the searched word in bold, ready to paste into a card.
-- **Favorites, sorting and filters:** save sentences; sort them by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
-- **Japanese and English UI**, four themes, keyboard shortcuts.
+- **Saved, sorting and filters:** the Saved tab keeps your favorite sentences, the works to continue reading and your reading notes; sort results by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
+- **Japanese and English UI**, four themes that can follow your device's light or dark mode, eight accent colors or your device's own, keyboard shortcuts.
 
 ## Anki add-on: Aobana Reibun
 [Aobana Reibun](https://ankiweb.net/shared/info/1429349152) fills your Anki cards with Japanese example sentences. With Aobana it picks them from your own subtitles, books, manga and Custom files, with furigana, the title they come from, the lines around them, and for manga the page's image; it also takes sentences with screenshots and audio from Nadeshiko and Immersion Kit. It backfills a whole deck at once, or the card you are reviewing with one hotkey.
@@ -40,9 +40,9 @@ and offer the release page, or download an update when you choose to update.
 To install it, open **Tools → Add-ons** in Anki, press **Get Add-ons...** and enter the code **1429349152**. Its source and guide: [Wyzmic/Aobana-Reibun](https://github.com/Wyzmic/Aobana-Reibun).
 
 ## Screenshots
-Searching subtitles for 構う with **i+1 first**: the sentences where 構う is the only word you don't know come first, in any of its forms:
+Searching subtitles for 構う with **i+1 first**: the sentences where 構う is the only word you don't know come first, in any of its forms, with the red accent color:
 
-![Search results for 構う with i+1 first](assets/search-iplus1.en.png)
+![Search results for 構う with i+1 first, with the red accent color](assets/search-iplus1.en.png)
 
 The Media tab: a show's episodes by season, one opened to read its lines in order, in the Night theme:
 

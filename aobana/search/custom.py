@@ -314,7 +314,7 @@ def _content_where(needle, exact, ruby_only, conn=None, stop=None):
 
 
 def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exact=False, ruby_only=False, sort='default',
-                stop=None):
+                stop=None, read_at=None):
     path = name_key(path).strip('/')
     if any(p in ('.', '..') for p in path.split('/')):
         return None
@@ -384,9 +384,27 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             rows.sort(key=lambda r: (r.get('order_key', ''), r['path']))
         if path and '/' not in path and not any(s['kind'] == 'md' for s in scoped):
             rows.sort(key=lambda r: get_sort_key(r['title']))
+    unread_from = None
     if mode != 'content' and sort in FOLDER_SORTS:
         # A title search keeps its folders above its files, each sorted
         rows.sort(key=lambda r: (bool(needle) and r['type'] != 'folder', FOLDER_SORTS[sort](r)))
+    elif mode != 'content' and sort == 'read_desc' and read_at:
+        # The folders last read in Reading mode first, a read anywhere inside one counting for it
+        read = [(f, at) for (m, f), at in read_at.items() if m == 'custom']
+
+        def last_read(r):
+            if r['type'] != 'folder':
+                return 0
+            return max((at for f, at in read if f == r['path'] or f.startswith(r['path'] + '/')), default=0)
+        rows.sort(key=lambda r: (bool(needle) and r['type'] != 'folder', -last_read(r)))
+        # The 未読 line, as in the Media list; a title search's files keep their own heading below.
+        # A folder's own files are read with the folder, not one by one: where they stand beside
+        # subfolders, no line.
+        folders = sum(r['type'] == 'folder' for r in rows)
+        listed = folders if needle else len(rows)
+        read = sum(1 for r in rows if last_read(r) > 0)
+        if 0 < read < listed and (needle or folders == len(rows)):
+            unread_from = read
     # The 収録数 sorts are offered only where they reorder something: two counts or more in the list
     parts_vary = mode != 'content' and len({FOLDER_SORTS['parts_asc'](r) for r in rows}) > 1
     page = rows[offset:offset + limit]
@@ -399,7 +417,10 @@ def folder_page(conn, path='', needle='', mode='title', offset=0, limit=500, exa
             item['relative_title'] = relative_title(item)
     return {'path': path, 'parent': path.rpartition('/')[0], 'folder': dict(folder),
             'items': page, 'total': len(rows), 'has_more': offset + limit < len(rows), 'parts_vary': parts_vary,
+            'unread_from': unread_from,
             'folders': sum(r['type'] == 'folder' for r in rows) if needle and mode != 'content' else 0,
+            # Reading mode opens a folder of .txt and .md files only
+            'readable': bool(scoped) and all(s['kind'] in PAGED_KINDS for s in scoped),
             'page': file_page(conn, introduction['file']) if introduction and not needle else None}
 
 

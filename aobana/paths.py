@@ -289,12 +289,12 @@ def load_config():
 def _load_config():
     cfg = _read_json(CONFIG_PATH)
     if not INSTALLED:
-        return _migrate_media_config(cfg)
+        return cfg
     seed = _read_json(MARKER_PATH)
     stamp = seed.get("installed_at")
     new_install = stamp is not None and cfg.get("installed_at") != stamp
     if not new_install:
-        return _migrate_media_config(cfg)
+        return cfg
     before = dict(cfg)
     if "subs_dir" in seed or "books_dir" in seed:
         cfg.update(subs_dirs=root_list(seed.get('subs_dir')), books_dirs=root_list(seed.get('books_dir')))
@@ -329,23 +329,7 @@ def _load_config():
                 cfg = now
     except OSError:
         pass
-    return _migrate_media_config(cfg)
-
-
-def _migrate_media_config(cfg):
-    if not any(key in cfg for key in MEDIA_DIR_KEYS.values()):
-        return cfg
-    with _CONFIG_LOCK:
-        now = _read_json(CONFIG_PATH)
-        for key in MEDIA_DIR_KEYS.values():
-            if key in now:
-                value = now.pop(key)
-                now.setdefault(key + 's', [value] if value else [])
-        try:
-            save_config(now)
-        except OSError:
-            pass
-        return now
+    return cfg
 
 
 MEDIA_KINDS = ("subs", "books", "manga", "custom")

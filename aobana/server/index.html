@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
+  <meta name="theme-color" content="#181a1b">
   <meta name="aobana-boot" content="{{ boot }}">
   <meta name="aobana-version" content="{{ version }}">
   <meta name="aobana-handoff-pending" content="{{ '1' if handoff_pending else '' }}">
@@ -40,21 +41,44 @@
     })();
     (function () {
       var get = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+      var put = function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} };
       var theme = get('theme');
       if (theme === 'dark') theme = 'night';
-      if (['paper', 'haze', 'night', 'midnight'].indexOf(theme) < 0) {
-        theme = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'paper' : 'night';
+      var light = ['haze', 'paper'], dark = ['night', 'midnight'];
+      var mode = get('theme_mode');
+      if (mode !== 'device' && mode !== 'light' && mode !== 'dark') {
+        if (light.indexOf(theme) >= 0 && !get('theme_light')) put('theme_light', theme);
+        if (dark.indexOf(theme) >= 0 && !get('theme_dark')) put('theme_dark', theme);
+        mode = 'device';
+        put('theme_mode', mode);
       }
+      var isLight = mode === 'device' ? !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) : mode === 'light';
+      var fam = isLight ? light : dark, slot = get(isLight ? 'theme_light' : 'theme_dark');
+      theme = fam.indexOf(slot) >= 0 ? slot : (isLight ? 'paper' : 'night');
+      put('theme', theme);
+      var bar = document.querySelector('meta[name="theme-color"]');
+      if (bar) bar.setAttribute('content', { paper: '#f7f7f5', haze: '#e4eaf1', night: '#181a1b', midnight: '#000000' }[theme]);
       document.documentElement.setAttribute('data-theme', theme);
+      var accent = get('accent');
+      if (['teal', 'green', 'purple', 'pink', 'red', 'orange', 'gray'].indexOf(accent) >= 0) document.documentElement.setAttribute('data-accent', accent);
+      else if (accent === 'device' && window.CSS && CSS.supports && CSS.supports('color', 'AccentColor')) {
+        try {
+          var vars = JSON.parse(get('accent_device') || 'null');
+          if (vars) {
+            for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
+            document.documentElement.setAttribute('data-accent', 'device');
+          }
+        } catch (e) {}
+      }
       var lang = get('lang');
       if (lang !== 'ja' && lang !== 'en') lang = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
       document.documentElement.setAttribute('lang', lang);
       if (get('furigana') === 'off') document.documentElement.classList.add('no-furigana');
       try {
         var nav = (performance.getEntriesByType('navigation')[0] || {}).type;
-        if ((nav === 'reload' || nav === 'back_forward') && sessionStorage.getItem('aobana_rm_open') === '1'
-            && /[?&]tab=media\b/.test(location.search) && /[?&]folder=[^&]/.test(location.search)
-            && !/[?&]media=custom\b/.test(location.search)) {
+        var rmReopen = (nav === 'reload' || nav === 'back_forward') && sessionStorage.getItem('aobana_rm_open') === '1';
+        if ((rmReopen || sessionStorage.getItem('aobana_rm_jump'))
+            && /[?&]tab=media\b/.test(location.search) && /[?&]folder=[^&]/.test(location.search)) {
           document.documentElement.classList.add('rm-booting');
           setTimeout(function () { document.documentElement.classList.remove('rm-booting'); }, 3000);
         }
@@ -80,6 +104,8 @@
   <script src="/static/search.js?v={{ asset_v }}"></script>
   <script src="/static/cards.js?v={{ asset_v }}"></script>
   <script src="/static/media.js?v={{ asset_v }}"></script>
+  <script src="/static/reader_notes.js?v={{ asset_v }}"></script>
+  <script src="/static/saved.js?v={{ asset_v }}"></script>
   <script src="/static/custom.js?v={{ asset_v }}"></script>
   <script src="/static/settings.js?v={{ asset_v }}"></script>
   <script src="/static/library.js?v={{ asset_v }}"></script>
@@ -91,7 +117,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/" draggable="false" onclick="cancelServerSearch(1); clearPins(); store.del('aobana_last_search'); store.del('aobana_last_media')">
-      <img src="/static/aobana.svg?v={{ asset_v }}" alt="" draggable="false">
+      <svg class="brand-icon" id="brand-icon" viewBox="0 0 1024 1024" aria-hidden="true"><rect class="ic-bg" width="1024" height="1024"/><path class="ic-petal" d="M 512 432 C 524 360 575 262 665 230 C 735 212 815 228 844 276 C 864 314 856 420 830 488 C 798 566 730 606 646 612 C 575 616 525 605 512 602 C 499 605 449 616 378 612 C 294 606 226 566 194 488 C 168 420 160 314 180 276 C 209 228 289 212 359 230 C 449 262 500 360 512 432 Z"/><g class="ic-stalk" stroke-width="7.5" stroke-linecap="round"><line x1="512" y1="594" x2="438" y2="520"/><line x1="512" y1="594" x2="460" y2="458"/><line x1="512" y1="594" x2="500" y2="478"/><line x1="512" y1="594" x2="546" y2="486"/><line x1="512" y1="594" x2="568" y2="520"/></g><g class="ic-tip"><circle cx="438" cy="520" r="11"/><circle cx="460" cy="458" r="11"/><circle cx="500" cy="478" r="11"/><circle cx="546" cy="486" r="11"/><circle cx="568" cy="520" r="11"/></g><path class="ic-sepal" d="M 470 575 C 455 558 438 552 416 552 C 375 552 350 590 345 648 C 342 684 344 708 348 716 C 356 717 385 710 415 703 C 438 697 455 692 460 690 Z"/><path class="ic-sepal" d="M 554 575 C 569 558 586 552 608 552 C 649 552 674 590 679 648 C 682 684 680 708 676 716 C 668 717 639 710 609 703 C 586 697 569 692 564 690 Z"/><path class="ic-white" d="M 512 592 C 555 592 594 625 594 668 C 594 705 560 742 512 774 C 464 742 430 705 430 668 C 430 625 469 592 512 592 Z"/></svg>
       <span class="brand-name"><ruby>露草<rt>あおばな</rt></ruby></span>
     </a>
     <nav class="nav-tabs">
@@ -104,8 +130,8 @@
         <span data-i18n="tab_media">メディア</span>
       </a>
       <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-        <span data-i18n="tab_saved">お気に入り</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
+        <span data-i18n="tab_saved">保存</span>
       </a>
       <a class="nav-tab" data-tab="library" href="/?tab=library" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5L12 16l2.5-2.5"/></svg>
@@ -124,8 +150,6 @@
       <button type="button" id="shortcuts-btn" class="dd-btn top-btn" onclick="toggleShortcutsModal()" data-i18n-title="shortcuts" data-i18n-aria="shortcuts" title="ショートカット (?)" aria-label="ショートカット (?)">
         <span class="dd-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/></svg></span>
       </button>
-      <div id="lang-dd"></div>
-      <div id="theme-dd"></div>
     </div>
     <button type="button" class="menu-btn" id="menu-btn" onclick="toggleMenu(event)" aria-expanded="false" aria-controls="topbar-menu" data-i18n-title="menu" title="メニュー">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -213,9 +237,15 @@
 
   <div class="page" data-tab-panel="saved" hidden>
     <div class="media-detail-head" id="saved-head">
-      <h1 data-i18n="tab_saved">お気に入り</h1>
-      <div class="muted" id="saved-meta"></div>
+      <div class="saved-head-row">
+        <h1 data-i18n="tab_saved">保存</h1>
+        <div class="muted" id="saved-meta"></div>
+      </div>
+      <div class="set-tabs saved-tabs" id="saved-tabs" role="tablist"></div>
     </div>
+    <div class="saved-pane" data-saved-pane="favorites"></div>
+    <div class="saved-pane" data-saved-pane="reading" hidden></div>
+    <div class="saved-pane" data-saved-pane="notes" hidden></div>
   </div>
 
   <div class="page" data-tab-panel="media" hidden>
@@ -325,50 +355,58 @@
   <div class="page doc" data-tab-panel="settings" hidden>
     <div class="panel">
       <h1 data-i18n="tab_settings">設定</h1>
-      <div class="lib-card" id="set-media"></div>
-      <div class="lib-card" id="set-known-words" style="margin-top:1em;"></div>
-      <div class="lib-card" id="set-reader" style="margin-top:1em;"></div>
-      <div class="lib-card" id="lib-data" style="margin-top:1em;"></div>
-      <div class="lib-card" id="search-workers-card" style="margin-top:1em;">
-        <h3 data-i18n="search_workers_title">検索の並列処理</h3>
-        <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <details class="workers-compare" id="search-workers-table-box" hidden>
-          <summary data-i18n="workers_table_summary">ワーカー数ごとの速さ</summary>
-          <p class="workers-caption" data-i18n="workers_table_caption">おすすめの数と比べた速さと CPU 使用率の目安（24 スレッドのパソコンで測った値）</p>
-          <table class="summary-table workers-table" id="search-workers-table"></table>
-        </details>
-        <div class="btns">
-          <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
-          <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
-          <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
-          <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
-        </div>
-        <div class="notice" id="search-workers-note" hidden style="margin:0.8em 0 0;"></div>
+      <div class="set-tabs" id="set-tabs" role="tablist"></div>
+      <div class="set-pane" data-set-pane="general" data-set-label="set_tab_general">
+        <div class="lib-card" id="set-look"></div>
+        <div class="lib-card" id="set-media"></div>
+        <div class="lib-card" id="set-known-words"></div>
       </div>
-      <div class="lib-card" id="lib-favorites" style="margin-top:1em;">
-        <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
-        <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <button class="btn" onclick="exportFavorites()" data-i18n="fav_export">書き出す</button>
-          <button class="btn" onclick="document.getElementById('fav-file').click()" data-i18n="fav_import">読み込む</button>
-          <input type="file" id="fav-file" accept=".json,application/json" hidden onchange="importFavorites(this)">
-        </div>
-        <div class="notice" id="fav-note" hidden style="margin:0.8em 0 0;"></div>
+      <div class="set-pane" data-set-pane="reader" data-set-label="set_tab_reader" hidden>
+        <div class="lib-card" id="set-reader"></div>
       </div>
-      <div class="lib-card" id="lib-port" style="margin-top:1em;">
-        <h3 data-i18n="port_title">ポート</h3>
-        <p class="muted" id="port-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <input type="number" id="port-input" min="1024" max="65535">
-          <button class="btn" onclick="savePort()" data-i18n="port_save">保存</button>
+      <div class="set-pane" data-set-pane="advanced" data-set-label="set_tab_advanced" hidden>
+        <div class="lib-card" id="lib-data"></div>
+        <div class="lib-card" id="lib-favorites">
+          <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
+          <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+          <div class="btns">
+            <button class="btn" onclick="exportFavorites()" data-i18n="fav_export">書き出す</button>
+            <button class="btn" onclick="document.getElementById('fav-file').click()" data-i18n="fav_import">読み込む</button>
+            <input type="file" id="fav-file" accept=".json,application/json" hidden onchange="importFavorites(this)">
+          </div>
+          <div class="notice" id="fav-note" hidden style="margin:0.8em 0 0;"></div>
         </div>
-        <div class="notice" id="port-note" hidden style="margin:0.8em 0 0;"></div>
-      </div>
-      <div class="lib-card" id="lib-reset" style="margin-top:1em;">
-        <h3 data-i18n="reset_title">設定の初期化</h3>
-        <p class="muted" data-i18n="reset_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
-        <div class="btns">
-          <button class="btn" onclick="openReset()" data-i18n="reset_btn">初期化</button>
+        <div class="lib-card" id="search-workers-card">
+          <h3 data-i18n="search_workers_title">検索の並列処理</h3>
+          <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+          <details class="workers-compare" id="search-workers-table-box" hidden>
+            <summary data-i18n="workers_table_summary">ワーカー数ごとの速さ</summary>
+            <p class="workers-caption" data-i18n="workers_table_caption">おすすめの数と比べた速さと CPU 使用率の目安（24 スレッドのパソコンで測った値）</p>
+            <table class="summary-table workers-table" id="search-workers-table"></table>
+          </details>
+          <div class="btns">
+            <label for="search-workers-input" data-i18n="search_workers_count">検索で使う処理の数</label>
+            <input type="number" id="search-workers-input" min="1" step="1" oninput="searchWorkersHint()" onblur="searchWorkersHint(true)">
+            <button class="btn" onclick="saveSearchWorkers()" data-i18n="workers_save">保存</button>
+            <button class="btn" onclick="saveSearchWorkers(true)" data-i18n="workers_auto">おすすめに戻す</button>
+          </div>
+          <div class="notice" id="search-workers-note" hidden style="margin:0.8em 0 0;"></div>
+        </div>
+        <div class="lib-card" id="lib-port">
+          <h3 data-i18n="port_title">ポート</h3>
+          <p class="muted" id="port-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+          <div class="btns">
+            <input type="number" id="port-input" min="1024" max="65535">
+            <button class="btn" onclick="savePort()" data-i18n="port_save">保存</button>
+          </div>
+          <div class="notice" id="port-note" hidden style="margin:0.8em 0 0;"></div>
+        </div>
+        <div class="lib-card" id="lib-reset">
+          <h3 data-i18n="reset_title">設定の初期化</h3>
+          <p class="muted" data-i18n="reset_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+          <div class="btns">
+            <button class="btn" onclick="openReset()" data-i18n="reset_btn">初期化</button>
+          </div>
         </div>
       </div>
     </div>
@@ -384,14 +422,44 @@
         <h3 class="modal-title" data-i18n="sc_title">ショートカット</h3>
         <button type="button" class="modal-close" onclick="toggleShortcutsModal()" data-i18n-title="close" title="閉じる">✕</button>
       </div>
-      <div class="shortcut-row"><span data-i18n="sc_focus"></span><div class="shortcut-keys"><span class="kbd-key">Q</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_next"></span><div class="shortcut-keys"><span class="kbd-key">D</span> / <span class="kbd-key">↓</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_prev"></span><div class="shortcut-keys"><span class="kbd-key">A</span> / <span class="kbd-key">↑</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_context"></span><div class="shortcut-keys"><span class="kbd-key">C</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_save"></span><div class="shortcut-keys"><span class="kbd-key">S</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_furigana"></span><div class="shortcut-keys"><span class="kbd-key">F</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_help"></span><div class="shortcut-keys"><span class="kbd-key">?</span></div></div>
-      <div class="shortcut-row"><span data-i18n="sc_close"></span><div class="shortcut-keys"><span class="kbd-key">Esc</span></div></div>
+      <div class="seg seg-fit sc-tabs" role="tablist">
+        <button type="button" class="seg-btn" role="tab" data-sc-tab="app" onclick="showShortcutsTab('app')" data-i18n="sc_tab_app"></button>
+        <button type="button" class="seg-btn" role="tab" data-sc-tab="reader" onclick="showShortcutsTab('reader')" data-i18n="sc_tab_reader"></button>
+      </div>
+      <div class="sc-pane" data-sc-pane="app">
+        <h4 class="sc-group" data-i18n="sc_group_general"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_focus"></span><div class="shortcut-keys"><span class="kbd-key">Q</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_help"></span><div class="shortcut-keys"><span class="kbd-key">?</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_close"></span><div class="shortcut-keys"><span class="kbd-key">Esc</span></div></div>
+        <h4 class="sc-group" data-i18n="sc_group_cards"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_next"></span><div class="shortcut-keys"><span class="kbd-key">D</span> / <span class="kbd-key">↓</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_prev"></span><div class="shortcut-keys"><span class="kbd-key">A</span> / <span class="kbd-key">↑</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_context"></span><div class="shortcut-keys"><span class="kbd-key">C</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_save"></span><div class="shortcut-keys"><span class="kbd-key">S</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_furigana"></span><div class="shortcut-keys"><span class="kbd-key">F</span></div></div>
+      </div>
+      <div class="sc-pane" data-sc-pane="reader" hidden>
+        <h4 class="sc-group" data-i18n="sc_group_move"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_rm_turn"></span><div class="shortcut-keys"><span class="kbd-key">←</span> / <span class="kbd-key">→</span> / <span class="kbd-key">A</span> / <span class="kbd-key">D</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_next"></span><div class="shortcut-keys"><span class="kbd-key">Space</span> / <span class="kbd-key">PageDown</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_prev"></span><div class="shortcut-keys"><span class="kbd-key">Shift+Space</span> / <span class="kbd-key">PageUp</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_glide"></span><div class="shortcut-keys"><span data-i18n="sc_key_hold"></span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_part"></span><div class="shortcut-keys"><span class="kbd-key">[</span> / <span class="kbd-key">]</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_part_vertical"></span><div class="shortcut-keys"><span class="kbd-key">↑</span> / <span class="kbd-key">↓</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_part_scroll"></span><div class="shortcut-keys"><span class="kbd-key">←</span> / <span class="kbd-key">→</span></div></div>
+        <h4 class="sc-group" data-i18n="sc_group_panels"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_rm_toc"></span><div class="shortcut-keys"><span class="kbd-key">T</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_bookmark"></span><div class="shortcut-keys"><span class="kbd-key">B</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_notes"></span><div class="shortcut-keys"><span class="kbd-key">N</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_settings"></span><div class="shortcut-keys"><span class="kbd-key">S</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_furigana"></span><div class="shortcut-keys"><span class="kbd-key">F</span></div></div>
+        <h4 class="sc-group" data-i18n="sc_group_manga"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_rm_fit"></span><div class="shortcut-keys"><span class="kbd-key">0</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_rm_pan"></span><div class="shortcut-keys"><span class="kbd-key">↑</span> / <span class="kbd-key">↓</span></div></div>
+        <h4 class="sc-group" data-i18n="sc_group_general"></h4>
+        <div class="shortcut-row"><span data-i18n="sc_rm_close"></span><div class="shortcut-keys"><span class="kbd-key">Esc</span></div></div>
+        <div class="shortcut-row"><span data-i18n="sc_help"></span><div class="shortcut-keys"><span class="kbd-key">?</span></div></div>
+      </div>
     </div>
   </div>
 

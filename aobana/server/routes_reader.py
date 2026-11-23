@@ -545,8 +545,9 @@ from bs4 import BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableSt
 from flask import Response
 from aobana import paths
 
-_READER_ALLOWED_MEDIA = ("epub", "subs", "manga")
+_READER_ALLOWED_MEDIA = ("epub", "subs", "manga", "custom")
 _READER_STATE_LOCK = threading.Lock()
+_READER_NOTES_LOCK = threading.Lock()
 _EPUB_META_LOCK = threading.Lock()
 _EPUB_META_CACHE = OrderedDict()
 _EPUB_META_MAX = 12
@@ -590,16 +591,19 @@ _READER_PREFS_DEFAULT = {
     "line_height": 1.85,
     "font_family": "",
     "max_width": 44,
+    "max_height": 36,
+    "image_scale": 80,
     "furigana": "on",
     "writing_mode": "auto",
-    "v_layout": "paginated",
-    "h_layout": "continuous",
+    "layout": "paginated",
     "sub_timestamps": False,
     "manga_boxes": "hover",
     "manga_layout": "single",
     "edge_click_nav": True,
     "edge_click_width": 12,
     "show_progress": True,
+    "auto_hide_bar": False,
+    "hide_bar_scroll": False,
 }
 
 _READER_THEMES = ("app", "paper", "haze", "sepia", "night", "midnight")
@@ -613,6 +617,10 @@ _READER_MANGA_LAYOUTS = ("single", "strip")
 
 def _reader_state_path():
     return os.path.join(paths.STORE_DIR, "reader-state.json")
+
+
+def _reader_notes_path():
+    return os.path.join(paths.STORE_DIR, "reader-notes.json")
 
 
 def _log_reader_fallback(media, file_key, reason, detail=""):
@@ -648,8 +656,10 @@ def _clamp_font_family(val):
     return val
 
 
-def _clamp_prefs(raw):
+def _clamp_prefs(raw, media=""):
     out = dict(_READER_PREFS_DEFAULT)
+    if media == "subs":
+        out["layout"] = "continuous"
     if not isinstance(raw, dict):
         return out
     if raw.get("theme") in _READER_THEMES:
@@ -659,10 +669,15 @@ def _clamp_prefs(raw):
         out["furigana"] = raw["furigana"]
     if raw.get("writing_mode") in _READER_PREF_DIRS:
         out["writing_mode"] = raw["writing_mode"]
-    if raw.get("v_layout") in _READER_LAYOUTS:
-        out["v_layout"] = raw["v_layout"]
-    if raw.get("h_layout") in _READER_LAYOUTS:
-        out["h_layout"] = raw["h_layout"]
+    # One layout, whatever the text direction. Before, each direction had its own; the one
+    # the media reads in carries over (subtitles and Custom horizontal, books vertical).
+    layout = raw.get("layout")
+    if layout not in _READER_LAYOUTS:
+        wm = raw.get("writing_mode")
+        horizontal = wm == "horizontal" or (wm != "vertical" and media in ("subs", "custom"))
+        layout = raw.get("h_layout" if horizontal else "v_layout")
+    if layout in _READER_LAYOUTS:
+        out["layout"] = layout
     if raw.get("manga_boxes") in _READER_MANGA_BOXES:
         out["manga_boxes"] = raw["manga_boxes"]
     if raw.get("manga_layout") in _READER_MANGA_LAYOUTS:
@@ -672,6 +687,8 @@ def _clamp_prefs(raw):
         ("font_weight", 200, 900, int),
         ("line_height", 1.0, 2.6, float),
         ("max_width", 10, 72, int),
+        ("max_height", 10, 72, int),
+        ("image_scale", 25, 100, int),
         ("edge_click_width", 5, 35, int),
     ):
         if key in raw:
@@ -681,19 +698,60 @@ def _clamp_prefs(raw):
                     out[key] = round(val, 2) if cast is float else val
             except (TypeError, ValueError):
                 pass
-    for bkey in ("sub_timestamps", "show_progress", "edge_click_nav"):
+    for bkey in ("sub_timestamps", "show_progress", "edge_click_nav", "auto_hide_bar", "hide_bar_scroll"):
         if isinstance(raw.get(bkey), bool):
             out[bkey] = raw[bkey]
     return out
 
 
 def _clamp_media_prefs(raw):
-    # Subtitles, books and manga keep their own display settings. A flat
-    # dict from before the split seeds all three.
+    # Each media keeps its own display settings. A flat dict from before the split seeds them
+    # all; Custom, new later, starts from the books' settings and is its own after that.
     if not isinstance(raw, dict):
         raw = {}
     nested = any(isinstance(raw.get(m), dict) for m in _READER_ALLOWED_MEDIA)
-    return {m: _clamp_prefs(raw.get(m) if nested else raw) for m in _READER_ALLOWED_MEDIA}
+    out = {}
+    # Custom without its own settings is seeded from books' as they are now (books come first),
+    # so a 2.6 file's horizontal layout of books does not become Custom's one layout.
+    for m in _READER_ALLOWED_MEDIA:
+        src = raw.get(m) if nested else raw
+        if m == "custom" and not (nested and isinstance(src, dict)):
+            src = out["epub"]
+        out[m] = _clamp_prefs(src, m)
+    return out
+
+
+def _clean_anchor_fields(src):
+    out = {}
+    for ikey in ("anchor_v", "sec_index", "char_offset", "page"):
+        if ikey in src and src[ikey] is not None:
+            try:
+                out[ikey] = max(0, int(src[ikey]))
+            except (TypeError, ValueError):
+                pass
+    if "scroll_ratio" in src and src["scroll_ratio"] is not None:
+        try:
+            r = float(src["scroll_ratio"])
+            out["scroll_ratio"] = max(0.0, min(1.0, round(r, 5)))
+        except (TypeError, ValueError):
+            pass
+    if "page_frac" in src and src["page_frac"] is not None:
+        try:
+            pf = float(src["page_frac"])
+            out["page_frac"] = max(0.0, min(1.0, round(pf, 5)))
+        except (TypeError, ValueError):
+            pass
+    if "edge" in src and src["edge"] is not None:
+        try:
+            ed = float(src["edge"])
+            if ed == ed:
+                out["edge"] = max(-4000.0, min(4000.0, round(ed, 1)))
+        except (TypeError, ValueError):
+            pass
+    if "quote" in src and isinstance(src["quote"], str):
+        q = src["quote"].replace("\r", " ").replace("\n", " ").strip()
+        out["quote"] = q[:120]
+    return out
 
 
 def _clean_work_state(raw, existing=None):
@@ -702,18 +760,16 @@ def _clean_work_state(raw, existing=None):
         return out
     if isinstance(raw.get("file"), str):
         out["file"] = raw["file"]
-    for ikey in ("part_index", "char_offset", "page"):
-        if ikey in raw and raw[ikey] is not None:
-            try:
-                out[ikey] = max(0, int(raw[ikey]))
-            except (TypeError, ValueError):
-                pass
-    if "scroll_ratio" in raw and raw["scroll_ratio"] is not None:
+    if "part_index" in raw and raw["part_index"] is not None:
         try:
-            r = float(raw["scroll_ratio"])
-            out["scroll_ratio"] = max(0.0, min(1.0, round(r, 5)))
+            out["part_index"] = max(0, int(raw["part_index"]))
         except (TypeError, ValueError):
             pass
+    # A place saved without page_frac or edge (null) drops the one an earlier place left.
+    for key in ("page_frac", "edge"):
+        if key in raw and raw[key] is None:
+            out.pop(key, None)
+    out.update(_clean_anchor_fields(raw))
     if "writing_mode" in raw:
         wm = raw["writing_mode"]
         out["writing_mode"] = wm if wm in _READER_DIRS else None
@@ -725,25 +781,17 @@ def _clean_work_state(raw, existing=None):
         if bm is None:
             out["bookmark"] = None
         elif isinstance(bm, dict) and isinstance(bm.get("file"), str):
-            try:
-                ratio = max(0.0, min(1.0, float(bm.get("scroll_ratio", 0.0))))
-            except (TypeError, ValueError):
-                ratio = 0.0
-            try:
-                page = max(0, int(bm.get("page", 0)))
-            except (TypeError, ValueError):
-                page = 0
-            try:
-                coff = max(0, int(bm.get("char_offset", 0)))
-            except (TypeError, ValueError):
-                coff = 0
+            cleaned = _clean_anchor_fields(bm)
             out["bookmark"] = {
                 "file": bm["file"],
-                "scroll_ratio": round(ratio, 5),
-                "page": page,
-                "char_offset": coff,
+                "scroll_ratio": cleaned.get("scroll_ratio", 0.0),
+                "page": cleaned.get("page", 0),
+                "char_offset": cleaned.get("char_offset", 0),
                 "label": str(bm.get("label") or "")[:120],
             }
+            for extra in ("anchor_v", "sec_index", "quote", "page_frac", "edge"):
+                if extra in cleaned:
+                    out["bookmark"][extra] = cleaned[extra]
     out["updated_at"] = int(datetime.datetime.now().timestamp())
     return out
 
@@ -768,6 +816,26 @@ def _read_reader_state():
     prefs = _clamp_media_prefs(data.get("prefs"))
     works = data.get("works") if isinstance(data.get("works"), dict) else {}
     return {"prefs": prefs, "works": works}
+
+
+def last_read_times():
+    with _READER_STATE_LOCK:
+        works = _read_reader_state()["works"]
+    out = {}
+    for wkey, st in works.items():
+        media, sep, folder = str(wkey).partition(":")
+        if not sep or not isinstance(st, dict):
+            continue
+        try:
+            at = int(st.get("updated_at") or 0)
+        except (TypeError, ValueError):
+            continue
+        out[(media, folder)] = max(at, out.get((media, folder), 0))
+        if media == "custom" and "/" in folder:
+            # The Media list shows Custom by its top folders: one read anywhere inside counts there
+            top = ("custom", folder.split("/")[0])
+            out[top] = max(at, out.get(top, 0))
+    return out
 
 
 def _write_reader_state(doc):
@@ -817,6 +885,10 @@ _EPUB_ALLOW_TAGS = {
     "figure", "figcaption", "img", "a",
     "svg", "g", "image", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "defs", "clippath",
 }
+# Any character that shows: a paragraph without one is blank (a scene break)
+_EPUB_INK_RE = re.compile(r"[^\s\u3000\xa0\u200b\ufeff]")
+
+
 _EPUB_ALLOW_ATTRS = {
     "class", "id", "lang", "xml:lang", "dir", "title", "alt",
     "colspan", "rowspan", "scope", "headers", "start", "reversed",
@@ -1210,6 +1282,8 @@ def _sanitize_epub_css(raw_css_list, scope="#rm-epub-root"):
                     continue
                 if is_root_sel and prop in _CSS_ROOT_STRIP_PROPS:
                     continue
+                if prop == "line-height":
+                    continue
                 if prop in ("font-family", "font") and "monospace" not in val.lower():
                     continue
                 if _css_value_dangerous(val) or _css_value_dangerous(prop):
@@ -1317,6 +1391,20 @@ def _sanitize_epub_fragment(root_tag, source_id, page_dir, zip_names, cur_member
             cls = p.get("class") or []
             cls = cls.split() if isinstance(cls, str) else list(cls)
             p["class"] = cls + ["rm-code-block"]
+            continue
+        # A blank line the book wrote as a paragraph (`<p><br/></p>`, `<p>　</p>`): a scene break,
+        # drawn 1em tall so it doesn't add a line and two paragraph gaps; an empty anchor is left alone.
+        # The text first: most paragraphs have some, and then no search for images is needed
+        text = p.get_text()
+        if _EPUB_INK_RE.search(text):
+            continue
+        if p.find(["img", "svg", "image", "hr", "table", "object", "video"]):
+            continue
+        brs = len(p.find_all("br"))
+        if brs == 1 or (not brs and re.search(r"[　\xa0]", text)):
+            cls = p.get("class") or []
+            cls = cls.split() if isinstance(cls, str) else list(cls)
+            p["class"] = cls + ["rm-blank-p"]
     for br in list(root_tag.find_all("br")):
         nxt = br.next_sibling
         if isinstance(nxt, NavigableString) and type(nxt) is NavigableString and br.find_parent(["pre", "code"]):
@@ -1986,9 +2074,16 @@ def api_reading_chapters():
     media = (request.args.get("media") or "").strip().lower()
     folder = request.args.get("folder") or ""
     if media not in _READER_ALLOWED_MEDIA:
-        return jsonify({"error": "Reading mode supports epub, subs, and manga only"}), 400
+        return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
     if not folder:
         return jsonify({"error": "Missing folder"}), 400
+    if media == "custom":
+        conn = server.get_custom_db()
+        files = _custom_reader_files(conn, folder) if conn is not None else []
+        with _READER_STATE_LOCK:
+            st = _read_reader_state()
+        return jsonify({"media": media, "folder": folder, "files": files,
+                        "prefs": st["prefs"][media], "work": st["works"].get(f"{media}:{folder}")})
     with app.test_request_context(f"/api/episodes?folder={urllib.parse.quote(folder)}&media={urllib.parse.quote(media)}"):
         ep_resp = api_episodes()
     if isinstance(ep_resp, tuple):
@@ -2355,7 +2450,7 @@ def api_reading_part():
     folder = request.args.get("folder") or ""
     file_key = request.args.get("file") or ""
     if media not in _READER_ALLOWED_MEDIA:
-        return jsonify({"error": "Reading mode supports epub, subs, and manga only"}), 400
+        return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
     if not file_key:
         return jsonify({"error": "Missing file"}), 400
     try:
@@ -2396,7 +2491,144 @@ def _reading_part(media, folder, file_key):
         res = _load_manga_volume(db_manga, folder, file_key)
         return jsonify(res)
 
+    if media == "custom":
+        conn = server.get_custom_db()
+        if conn is None:
+            return jsonify({"error": "Custom database unavailable"}), 404
+        res = _load_custom_file(conn, folder, file_key)
+        if res is None:
+            return jsonify({"error": "Only .txt and .md files open in Reading mode"}), 400
+        return jsonify(res)
+
     return jsonify({"error": "Unsupported media"}), 400
+
+
+# Custom in Reading mode: its .txt and .md files, read from custom.db, where the .md parse and
+# the author's readings are. A folder is the work, each file under it a part, in the folder
+# page's order (a page that stands for its folder first).
+_CUSTOM_READER_KINDS = ("txt", "md")
+# A long file is laid out a section at a time, as a book's chapter is: a section ends at the
+# first paragraph past this many lines, or here at the latest.
+_CUSTOM_SECTION_LINES = 1500
+_CUSTOM_SECTION_MAX = 3000
+
+
+def _custom_reader_files(conn, folder):
+    from aobana.search.custom import all_sources
+    from aobana.search.titles import format_custom_title
+    from aobana.utils import name_key
+    folder = name_key(folder).strip("/")
+    if not folder:
+        return []
+    metadata, sources = all_sources(conn)
+    files = []
+    for s in sources:
+        below = s["path"].startswith(folder + "/")
+        if not (below or (s["category"] == folder and "/" not in s["path"])):
+            continue
+        if s["kind"] not in _CUSTOM_READER_KINDS or metadata.get(s["relpath"], {}).get("folder_page"):
+            continue
+        rel = s["path"][len(folder) + 1:] if below else s["path"]
+        parts = rel.split("/")
+        item = {"file": s["relpath"], "title": format_custom_title(parts[-1])}
+        if len(parts) > 1:
+            item["book_folder"] = "｜".join(parts[:-1])
+        files.append(item)
+    return files
+
+
+def _load_custom_file(conn, folder, file_key):
+    from aobana.search.custom import file_page
+    page = file_page(conn, file_key)
+    if page is None:
+        return {"media": "custom", "folder": folder, "file": file_key, "source": "file",
+                "fallback_reason": None, "writing_mode": "horizontal", "css": "",
+                "html": "", "lines": [], "char_count": 0}
+    if page["kind"] not in _CUSTOM_READER_KINDS:
+        return None
+    headings = {s["section_no"]: s["heading"] for s in page["sections"] if s.get("heading")} if page["kind"] == "md" else {}
+    blocks, cur, para, count, chars = [], [], [], 0, 0
+    last_sec = None
+
+    def close_para():
+        if para:
+            cur.append('<p class="rm-custom-p">' + "<br>".join(para) + "</p>")
+            para.clear()
+
+    def close_section():
+        close_para()
+        if cur:
+            blocks.append(f'<section class="rm-epub-spine" data-member="sec-{len(blocks)}">' + "".join(cur) + "</section>")
+            cur.clear()
+
+    for row in page["lines"]:
+        _part_check()
+        sec = row.get("section_no")
+        new_heading = sec != last_sec and sec in headings
+        if new_heading or (count >= _CUSTOM_SECTION_LINES and row.get("gap_before")) or count >= _CUSTOM_SECTION_MAX:
+            close_section()
+            count = 0
+        if new_heading:
+            cur.append(f"<h2>{_html_mod.escape(headings[sec])}</h2>")
+        elif row.get("gap_before"):
+            close_para()
+        last_sec = sec
+        para.append(row["display_line"])
+        count += 1
+        chars += len(row.get("line") or "")
+    close_section()
+    return {"media": "custom", "folder": folder, "file": page["file"], "source": "file",
+            "fallback_reason": None, "writing_mode": "horizontal", "css": "",
+            "html": "\n".join(blocks), "lines": [], "char_count": chars}
+
+
+def _part_label(media, file_key, folder):
+    if not file_key:
+        return ""
+    try:
+        if media == "epub":
+            _, db_epub = server.get_db()
+            title = server.format_book_title(file_key, db_epub=db_epub)
+        elif media == "subs":
+            db_subs, _ = server.get_db()
+            title = server.get_formatted_title(db_subs, file_key) if db_subs is not None else file_key
+        elif media == "manga":
+            from aobana.search.titles import format_manga_title
+            title = format_manga_title(file_key)
+        else:
+            from aobana.search.titles import format_custom_title
+            title = format_custom_title(file_key.replace(chr(92), "/").split("/")[-1])
+    except Exception:
+        title = file_key
+    cut = title.find(folder + "｜") if folder else -1
+    if cut >= 0 and cut + len(folder) + 1 < len(title):
+        title = title[cut + len(folder) + 1:]
+    return title
+
+
+def _reading_works_remove_restore(body):
+    removed, restored = {}, []
+    with _READER_STATE_LOCK:
+        st = _read_reader_state()
+        for wkey in body.get("remove") or []:
+            if isinstance(wkey, str) and wkey in st["works"]:
+                removed[wkey] = st["works"].pop(wkey)
+        for wkey, entry in (body.get("restore") or {}).items() if isinstance(body.get("restore"), dict) else []:
+            media_k, sep, folder_k = str(wkey).partition(":")
+            if not sep or not folder_k or media_k not in _READER_ALLOWED_MEDIA or not isinstance(entry, dict):
+                continue
+            if wkey in st["works"]:
+                continue
+            clean = _clean_work_state(entry)
+            try:
+                clean["updated_at"] = int(entry.get("updated_at") or clean["updated_at"])
+            except (TypeError, ValueError):
+                pass
+            st["works"][wkey] = clean
+            restored.append(wkey)
+        if removed or restored:
+            _write_reader_state(st)
+    return jsonify({"ok": True, "removed": removed, "restored": restored})
 
 
 @app.route("/api/reading/state", methods=["GET", "POST"])
@@ -2405,26 +2637,41 @@ def api_reading_state():
         media = (request.args.get("media") or "").strip().lower()
         folder = request.args.get("folder") or ""
         if media and media not in _READER_ALLOWED_MEDIA:
-            return jsonify({"error": "Reading mode supports epub, subs, and manga only"}), 400
+            return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
         with _READER_STATE_LOCK:
             st = _read_reader_state()
         if media and folder:
             return jsonify({"prefs": st["prefs"][media], "work": st["works"].get(f"{media}:{folder}")})
         if media:
             return jsonify({"prefs": st["prefs"][media]})
-        return jsonify({"prefs_by_media": st["prefs"], "works": st["works"]})
+        if request.args.get("titles") != "1":
+            return jsonify({"prefs_by_media": st["prefs"], "works": st["works"]})
+        # The 保存 tab names each work's part and its bookmark's part, as Reading mode's contents do
+        works = {}
+        for wkey, w in st["works"].items():
+            media_k, sep, folder_k = str(wkey).partition(":")
+            if not sep or media_k not in _READER_ALLOWED_MEDIA or not isinstance(w, dict):
+                continue
+            item = dict(w)
+            item["part_title"] = _part_label(media_k, item.get("file") or "", folder_k)
+            if isinstance(item.get("bookmark"), dict):
+                item["bookmark"] = dict(item["bookmark"], part_title=_part_label(media_k, item["bookmark"].get("file") or "", folder_k))
+            works[wkey] = item
+        return jsonify({"prefs_by_media": st["prefs"], "works": works})
 
     server._require_page()
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         return jsonify({"error": "Invalid payload"}), 400
+    if isinstance(body.get("remove"), list) or isinstance(body.get("restore"), dict):
+        return _reading_works_remove_restore(body)
     media = body.get("media") or ""
     folder = body.get("folder") or ""
     if not isinstance(media, str) or not isinstance(folder, str):
         return jsonify({"error": "Invalid payload"}), 400
     media = media.strip().lower()
     if media and media not in _READER_ALLOWED_MEDIA:
-        return jsonify({"error": "Reading mode supports epub, subs, and manga only"}), 400
+        return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
     with _READER_STATE_LOCK:
         st = _read_reader_state()
         if isinstance(body.get("prefs"), dict):
@@ -2432,7 +2679,7 @@ def api_reading_state():
                 return jsonify({"error": "Display settings need a media"}), 400
             merged = dict(st["prefs"][media])
             merged.update(body["prefs"])
-            st["prefs"][media] = _clamp_prefs(merged)
+            st["prefs"][media] = _clamp_prefs(merged, media)
         work_out = None
         if media and folder and isinstance(body.get("work"), dict):
             wkey = f"{media}:{folder}"
@@ -2440,3 +2687,195 @@ def api_reading_state():
             work_out = st["works"][wkey]
         _write_reader_state(st)
     return jsonify({"ok": True, "prefs": st["prefs"][media] if media else None, "work": work_out})
+
+
+def _read_reader_notes():
+    path = _reader_notes_path()
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = _json.load(fh)
+        if not isinstance(data, dict):
+            data = {}
+    except OSError:
+        data = {}
+    except ValueError:
+        data = {}
+        bad = f"{path}.bad"
+        if not os.path.exists(bad):
+            try:
+                os.replace(path, bad)
+            except OSError:
+                pass
+    works = data.get("works") if isinstance(data.get("works"), dict) else {}
+    return {"works": works}
+
+
+def _write_reader_notes(doc):
+    path = _reader_notes_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        _json.dump(doc, fh, ensure_ascii=False, indent=2)
+        fh.flush()
+        os.fsync(fh.fileno())
+    for attempt in range(20):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 19:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                raise
+            _time.sleep(0.05)
+
+
+def _clean_note_entry(raw, existing=None):
+    import uuid
+    now = int(datetime.datetime.now().timestamp())
+    base = dict(existing) if isinstance(existing, dict) else {}
+    text = raw.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return None
+    base["text"] = text.strip()[:10000]
+    if not base.get("id"):
+        base["id"] = f"n_{uuid.uuid4().hex[:12]}"
+    if isinstance(raw.get("file"), str) and raw["file"]:
+        base["file"] = raw["file"]
+    if not base.get("file"):
+        return None
+    if isinstance(raw.get("part_title"), str):
+        base["part_title"] = raw["part_title"].strip()[:200]
+    elif "part_title" not in base:
+        base["part_title"] = ""
+    cleaned = _clean_anchor_fields(raw)
+    if "quote" in raw and isinstance(raw["quote"], str):
+        cleaned["quote"] = raw["quote"].replace("\r", " ").replace("\n", " ").strip()[:400]
+    base.update(cleaned)
+    if "quote_furi" in raw and isinstance(raw["quote_furi"], str):
+        base["quote_furi"] = raw["quote_furi"].replace("\r", " ").replace("\n", " ").strip()[:800]
+    elif "quote_furi" not in base:
+        base["quote_furi"] = ""
+    if "char_total" in raw and raw["char_total"] is not None:
+        try:
+            base["char_total"] = max(0, int(raw["char_total"]))
+        except (TypeError, ValueError):
+            pass
+    elif "char_total" not in base:
+        base["char_total"] = 0
+    if isinstance(raw.get("selected"), bool):
+        base["selected"] = raw["selected"]
+    elif "selected" not in base:
+        base["selected"] = False
+    base.setdefault("anchor_v", 1)
+    base.setdefault("char_offset", 0)
+    base.setdefault("sec_index", 0)
+    base.setdefault("scroll_ratio", 0.0)
+    base.setdefault("page", 0)
+    base.setdefault("quote", "")
+    base.setdefault("created_at", now)
+    base["updated_at"] = now
+    return base
+
+
+def _note_file_order(file_key):
+    # Numbers in a part's name compare as numbers: 11 before 100.
+    return [(0, int(p), "") if p.isdigit() else (1, 0, p) for p in re.split(r"(\d+)", str(file_key or "")) if p]
+
+
+def _note_number(n, key):
+    try:
+        return int(n.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _sorted_work_notes(items):
+    # By part, then place in it: text by character, manga (char_offset 0) by page.
+    return sorted(
+        items,
+        key=lambda n: (
+            _note_file_order(n.get("file")),
+            _note_number(n, "char_offset"),
+            _note_number(n, "page"),
+            _note_number(n, "created_at"),
+        ),
+    )
+
+
+@app.route("/api/reading/notes", methods=["GET", "POST", "DELETE"])
+def api_reading_notes():
+    if request.method == "GET":
+        media = (request.args.get("media") or "").strip().lower()
+        folder = request.args.get("folder") or ""
+        file_filter = request.args.get("file") or ""
+        if not media and not folder:
+            # Every work's notes, for the 保存 tab
+            with _READER_NOTES_LOCK:
+                doc = _read_reader_notes()
+            works = {}
+            for k, v in doc["works"].items():
+                if not isinstance(v, list) or not v or ":" not in k:
+                    continue
+                media_k, folder_k = k.split(":", 1)
+                # A note saved without its part's name gets it, so no file path shows in its place
+                works[k] = [n if n.get("part_title") else dict(n, part_title=_part_label(media_k, n.get("file") or "", folder_k))
+                            for n in _sorted_work_notes(v)]
+            return jsonify({"works": works})
+        if media not in _READER_ALLOWED_MEDIA:
+            return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
+        if not folder:
+            return jsonify({"error": "Missing folder"}), 400
+        with _READER_NOTES_LOCK:
+            doc = _read_reader_notes()
+            items = list(doc["works"].get(f"{media}:{folder}") or [])
+        if file_filter:
+            items = [n for n in items if n.get("file") == file_filter]
+        return jsonify({"notes": _sorted_work_notes(items)})
+
+    server._require_page()
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid payload"}), 400
+    media = body.get("media") or request.args.get("media") or ""
+    folder = body.get("folder") or request.args.get("folder") or ""
+    if not isinstance(media, str) or media.strip().lower() not in _READER_ALLOWED_MEDIA:
+        return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
+    media = media.strip().lower()
+    if not isinstance(folder, str) or not folder:
+        return jsonify({"error": "Missing folder"}), 400
+    wkey = f"{media}:{folder}"
+
+    if request.method == "DELETE":
+        nid = body.get("id") or request.args.get("id") or ""
+        if not isinstance(nid, str) or not nid:
+            return jsonify({"error": "Missing note id"}), 400
+        with _READER_NOTES_LOCK:
+            doc = _read_reader_notes()
+            cur = list(doc["works"].get(wkey) or [])
+            nxt = [n for n in cur if n.get("id") != nid]
+            if nxt:
+                doc["works"][wkey] = nxt
+            else:
+                doc["works"].pop(wkey, None)
+            _write_reader_notes(doc)
+        return jsonify({"ok": True, "notes": _sorted_work_notes(nxt)})
+
+    note_raw = body.get("note") if isinstance(body.get("note"), dict) else body
+    nid = note_raw.get("id") if isinstance(note_raw.get("id"), str) else ""
+    with _READER_NOTES_LOCK:
+        doc = _read_reader_notes()
+        cur = list(doc["works"].get(wkey) or [])
+        existing_idx = next((i for i, n in enumerate(cur) if nid and n.get("id") == nid), -1)
+        cleaned = _clean_note_entry(note_raw, cur[existing_idx] if existing_idx >= 0 else None)
+        if cleaned is None:
+            return jsonify({"error": "Note requires file and non-empty text"}), 400
+        if existing_idx >= 0:
+            cur[existing_idx] = cleaned
+        else:
+            cur.append(cleaned)
+        doc["works"][wkey] = cur
+        _write_reader_notes(doc)
+    return jsonify({"ok": True, "note": cleaned, "notes": _sorted_work_notes(cur)})

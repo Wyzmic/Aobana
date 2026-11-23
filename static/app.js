@@ -32,14 +32,17 @@
       if (!e.target.closest('.topbar')) setMenu(false);
     });
 
-    const LABEL_STAGES = ['c-lang', 'c-theme', 'c-guide', 'c-settings', 'c-library', 'c-saved', 'c-media', 'c-search'];
+    const LABEL_STAGES = ['c-guide', 'c-settings', 'c-library', 'c-saved', 'c-media', 'c-search'];
     const TAB_ORDER = ['search', 'media', 'saved', 'library', 'settings', 'guide'];
-    const SETTINGS = ['shortcuts-btn', 'lang-dd', 'theme-dd'];
+    const SETTINGS = ['shortcuts-btn'];
     const DRAWER_STAGE = LABEL_STAGES.length + 1;
-    const TABS_STAGE = DRAWER_STAGE + 1;
+    const TABS_STAGE = DRAWER_STAGE;
     const LAST_STAGE = TABS_STAGE + TAB_ORDER.length;
     let topbarThresholds = [];
     let currentTopbarStage = -1;
+    // A touch screen has no keyboard to press ? on: the shortcuts button goes, the Guide keeps one
+    const topbarTouch = matchMedia('(hover: none) and (pointer: coarse)');
+    const topbarNoShortcuts = () => ON_PHONE || topbarTouch.matches;
 
     function applyTopbarStage(stage) {
       const bar = document.querySelector('.topbar');
@@ -48,15 +51,14 @@
       const menuTabs = menu.querySelector('.menu-tabs');
       const menuRight = menu.querySelector('.menu-right');
       const right = bar.querySelector(':scope > .topbar-right');
-      const settingsIn = stage < DRAWER_STAGE ? 0 : stage === DRAWER_STAGE ? 2 : 3;
+      const noShortcuts = topbarNoShortcuts();
+      const settingsIn = noShortcuts || stage < DRAWER_STAGE ? 0 : SETTINGS.length;
       const tabsIn = Math.max(0, stage - TABS_STAGE);
       const inDrawer = [...SETTINGS.slice(0, settingsIn), ...TAB_ORDER.slice(TAB_ORDER.length - tabsIn)];
-      bar.classList.toggle('compact', stage >= DRAWER_STAGE);
+      // Without the shortcuts button the ☰ comes only once a tab goes into it
+      bar.classList.toggle('compact', noShortcuts ? tabsIn > 0 : stage >= DRAWER_STAGE);
       LABEL_STAGES.forEach((c, idx) => {
         let on = idx < stage;
-        if (c === 'c-lang' || c === 'c-theme') on = true;
-        if (c === 'c-lang' && inDrawer.includes('lang-dd')) on = false;
-        if (c === 'c-theme' && inDrawer.includes('theme-dd')) on = false;
         if (inDrawer.includes(c.slice(2))) on = false;
         bar.classList.toggle(c, on);
       });
@@ -66,9 +68,12 @@
       });
       SETTINGS.forEach(id => {
         const el = document.getElementById(id);
-        if (el) (inDrawer.includes(id) ? menuRight : right).appendChild(el);
+        if (!el) return;
+        el.hidden = noShortcuts;
+        (inDrawer.includes(id) ? menuRight : right).appendChild(el);
       });
-      right.classList.toggle('is-empty', settingsIn === SETTINGS.length);
+      right.classList.toggle('is-empty', noShortcuts || settingsIn === SETTINGS.length);
+      menuRight.classList.toggle('is-empty', noShortcuts || !settingsIn);
     }
 
     function topbarGap() {
@@ -76,12 +81,16 @@
       const last = bar.querySelector('.nav-tabs').lastElementChild;
       if (!last) return Infinity;
       const right = bar.querySelector(':scope > .topbar-right');
-      const next = right.classList.contains('is-empty') ? document.getElementById('menu-btn') : right;
-      return next.getBoundingClientRect().left - last.getBoundingClientRect().right;
+      if (!right.classList.contains('is-empty')) return right.getBoundingClientRect().left - last.getBoundingClientRect().right;
+      if (bar.classList.contains('compact')) return document.getElementById('menu-btn').getBoundingClientRect().left - last.getBoundingClientRect().right;
+      // Nothing after the tabs (a touch screen, no ☰ yet): the bar's own inner edge
+      const edge = bar.getBoundingClientRect().right - (parseFloat(getComputedStyle(bar).paddingRight) || 0);
+      return edge - last.getBoundingClientRect().right;
     }
 
     const topbarPhone = matchMedia('(max-width: 720px)');
     let topbarMeasuredPhone = null;
+    let topbarMeasuredTouch = null;
     function updateTopbarThresholds() {
       const bar = document.querySelector('.topbar');
       if (!bar) return;
@@ -97,6 +106,7 @@
       }
       topbarThresholds = thresholds;
       topbarMeasuredPhone = topbarPhone.matches;
+      topbarMeasuredTouch = topbarNoShortcuts();
       bar.classList.toggle('is-sticky', wasSticky);
       applyTopbarStage(Math.max(0, currentTopbarStage));
       if (!hadNoAnim) {
@@ -108,7 +118,7 @@
     function fitTopbar(measuredWidth) {
       const bar = document.querySelector('.topbar');
       if (!bar) return;
-      if (!topbarThresholds.length || topbarMeasuredPhone !== topbarPhone.matches) updateTopbarThresholds();
+      if (!topbarThresholds.length || topbarMeasuredPhone !== topbarPhone.matches || topbarMeasuredTouch !== topbarNoShortcuts()) updateTopbarThresholds();
       const cs = getComputedStyle(bar);
       const stickyOffset = -(parseFloat(cs.marginLeft) + parseFloat(cs.marginRight)) || 0;
       const rawW = measuredWidth !== undefined ? measuredWidth : Math.round(bar.offsetWidth);
@@ -118,7 +128,7 @@
       while (stage < topbarThresholds.length && w < topbarThresholds[stage]) stage++;
       applyTopbarStage(stage);
       while (stage < LAST_STAGE && topbarGap() < 8) applyTopbarStage(++stage);
-      if (stage < DRAWER_STAGE) setMenu(false);
+      if (!bar.classList.contains('compact')) setMenu(false);
       const changed = stage !== currentTopbarStage;
       currentTopbarStage = stage;
       if (changed) fitSidebar();
@@ -138,6 +148,7 @@
     });
     if (document.fonts) document.fonts.ready.then(() => { updateTopbarThresholds(); fitTopbar(); });
     window.matchMedia('(max-width: 720px)').addEventListener('change', () => { updateTopbarThresholds(); fitTopbar(); });
+    topbarTouch.addEventListener('change', () => { updateTopbarThresholds(); fitTopbar(); });
 
     document.addEventListener('DOMContentLoaded', () => {
       const bar = document.querySelector('.topbar');
@@ -168,10 +179,7 @@
       setMenu(!document.querySelector('.topbar').classList.contains('open'));
     }
 
-    const ICON_LANG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M6 5c.8 3.2 3 5.6 6 7M11 5c-.9 3.6-3.4 6.4-7 8"/><path d="M13 21l4-9 4 9M14.4 18h5.2"/></svg>';
-    const ICON_SUN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
     const ICON_ROWS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>';
-    const ICON_MOON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
     const SORT_ICONS = {
       recommended: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16v4M17 18h4"/>',
@@ -182,18 +190,6 @@
     };
     const sortIcon = v => svgIcon(SORT_ICONS[v], 'class="dd-ico" width="16" height="16"');
     function renderTopbarControls() {
-      makeDropdown(document.getElementById('lang-dd'), {
-        options: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English' }],
-        value: LANG, icon: ICON_LANG, title: 'Language / 言語', onChange: setLang,
-        labelFor: o => `<span class="dd-text-optional">${esc(o.label)}</span>`,
-      });
-      const theme = currentTheme();
-      makeDropdown(document.getElementById('theme-dd'), {
-        options: THEMES.map(v => ({ value: v, label: t('theme_' + v), pre: `<span class="swatch ${v}"></span>` })),
-        value: theme, icon: (theme === 'paper' || theme === 'haze') ? ICON_SUN : ICON_MOON,
-        title: t('theme_label'), onChange: setTheme,
-        labelFor: o => `<span class="dd-text-optional">${esc(o.label)}</span>`,
-      });
       updateTopbarThresholds();
       fitTopbar();
     }
@@ -419,7 +415,7 @@
 
     function getVisibleCards() {
       return Array.from(document.querySelectorAll('#results .card, #results .media-subfolder > summary'))
-        .filter(el => !(el.matches('summary') ? el.parentElement.parentElement : el).closest('details:not([open])'));
+        .filter(el => !el.closest('[hidden]') && !(el.matches('summary') ? el.parentElement.parentElement : el).closest('details:not([open])'));
     }
 
     function updateActiveCard(newIndex) {
@@ -436,11 +432,22 @@
       }
     }
 
+    // Two lists: the app's keys and Reading mode's. It opens on the one in use.
+    function showShortcutsTab(name) {
+      document.querySelectorAll('#shortcuts-modal [data-sc-tab]').forEach(b => {
+        const on = b.dataset.scTab === name;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.querySelectorAll('#shortcuts-modal [data-sc-pane]').forEach(p => { p.hidden = p.dataset.scPane !== name; });
+    }
     function toggleShortcutsModal() {
       const modal = document.getElementById('shortcuts-modal');
       if (modal) {
+        const reading = typeof isReadingModeOpen === 'function' && isReadingModeOpen();
+        if (!modal.classList.contains('open')) showShortcutsTab(reading ? 'reader' : 'app');
         const isOpen = modal.classList.toggle('open');
-        document.documentElement.style.overflow = isOpen ? 'hidden' : '';
+        if (!reading) document.documentElement.style.overflow = isOpen ? 'hidden' : '';
       }
     }
 

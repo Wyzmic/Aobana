@@ -12,20 +12,27 @@
 
     async function initSettingsTab() {
       setTitle(t('tab_settings'));
+      renderLookCard();
+      renderSettingsTabs();
       try {
         const cached = await fetch('/api/library/settings-snapshot').then(r => r.json());
-        if (cached.settings) renderSettings(cached.settings);
+        if (cached.settings) { renderSettings(cached.settings); renderSettingsTabs(); }
       } catch (e) {}
       if (typeof rmFetchPrefs === 'function') await rmFetchPrefs().catch(() => null);
       await refreshSettings();
+      const target = settingsHashTarget();
+      if (target && !target.matches('[data-set-pane]') && target.id !== 'set-reader') settingsScrollTo(target);
       if (window.location.hash === '#set-reader') {
+        // From Reading mode's "More in Settings": the media it was showing, and for manga shown
+        // as text, that part of manga's settings.
         const from = store.get('reader_settings_media');
         store.del('reader_settings_media');
-        const el = document.getElementById(`set-reader-${from}`) || document.getElementById('set-reader');
-        // Measured against the bar itself: --bar-h may not be set yet on a fresh load.
-        const bar = document.querySelector('.topbar');
-        const under = (bar ? bar.getBoundingClientRect().height : 0) + 12;
-        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - under, behavior: 'instant' });
+        if (from) {
+          store.set('set_reader_media', from === 'manga-text' ? 'manga' : from);
+          renderReaderSettings();
+        }
+        const el = from === 'manga-text' && document.getElementById('set-reader-manga-text');
+        if (el) settingsScrollTo(el);
       }
     }
 
@@ -37,6 +44,87 @@
         return;
       }
       renderSettings(lib);
+      renderSettingsTabs();
+    }
+
+    // The theme and the language, side by side. A light theme and a dark theme, and which to
+    // use: the device's light or dark, or always one (core.js themeChoice).
+    function renderLookCard() {
+      const card = document.getElementById('set-look');
+      if (!card) return;
+      const choice = themeChoice();
+      const seg = (items, on, set) => `<div class="seg seg-fit">${items.map(([value, label, pre]) =>
+        `<button type="button" class="seg-btn ${value === on ? 'active' : ''}" onclick="${set}('${value}')">${pre || ''}${esc(label)}</button>`).join('')}</div>`;
+      const row = (label, body) => `<div class="set-look-row"><span class="set-look-label">${esc(label)}</span>${body}</div>`;
+      const themes = list => list.map(v => [v, t('theme_' + v), `<span class="swatch ${v}"></span>`]);
+      card.innerHTML = `
+        <h3>${esc(t('set_look_title'))}</h3>
+        <div class="set-look">
+          ${row(t('theme_label'), seg([['device', t('set_theme_device')], ['light', t('set_theme_light')], ['dark', t('set_theme_dark')]], choice.mode, 'setLookMode'))}
+          ${row(t('set_theme_light'), seg(themes(THEMES_LIGHT), choice.light, 'setLookLight'))}
+          ${row(t('set_theme_dark'), seg(themes(THEMES_DARK), choice.dark, 'setLookDark'))}
+          ${row(t('set_accent'), '<div id="set-accent-dd"></div>')}
+          ${row(t('set_lang'), seg([['ja', '日本語'], ['en', 'English']], LANG, 'setLang'))}
+        </div>`;
+      makeDropdown(document.getElementById('set-accent-dd'), {
+        options: ACCENTS.filter(([name]) => name !== 'device' || deviceAccentSupported()).map(([name, color]) => ({ value: name, label: t('accent_' + name), pre: `<span class="accent-dot" style="background:${color}"></span>` })),
+        value: currentAccent(), left: true, title: t('set_accent'),
+        onChange: v => { setAccent(v); renderLookCard(); },
+      });
+    }
+    function setLookMode(v) { setThemeChoice('theme_mode', v); renderLookCard(); }
+    function setLookLight(v) { setThemeChoice('theme_light', v); renderLookCard(); }
+    function setLookDark(v) { setThemeChoice('theme_dark', v); renderLookCard(); }
+
+    // One pane at a time, picked in a row like the bar's tabs, General first. A pane whose cards
+    // are all hidden (its media off) has no tab. The open pane is kept in the address,
+    // #set-reader, so a reload or a link lands on it.
+    let setPaneOpen = '';
+    function settingsHashTarget() {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!id) return null;
+      return document.querySelector(`[data-set-pane="${CSS.escape(id.replace(/^set-/, ''))}"]`) || document.getElementById(id);
+    }
+    function settingsScrollTo(el) {
+      // Measured against the bar itself: --bar-h may not be set yet on a fresh load.
+      const bar = document.querySelector('.topbar');
+      const under = (bar ? bar.getBoundingClientRect().height : 0) + 12;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - under, behavior: 'instant' });
+    }
+    function settingsPaneShown(pane) {
+      return [...pane.children].some(card => getComputedStyle(card).display !== 'none');
+    }
+    function renderSettingsTabs() {
+      const bar = document.getElementById('set-tabs');
+      if (!bar) return;
+      const panes = [...document.querySelectorAll('[data-set-pane]')];
+      if (!setPaneOpen) {
+        const target = settingsHashTarget();
+        const pane = target && target.closest('[data-set-pane]');
+        setPaneOpen = pane ? pane.dataset.setPane : 'general';
+      }
+      const shown = panes.filter(settingsPaneShown);
+      if (!shown.some(p => p.dataset.setPane === setPaneOpen)) setPaneOpen = 'general';
+      bar.innerHTML = shown.map(p => {
+        const on = p.dataset.setPane === setPaneOpen;
+        return `<button type="button" role="tab" class="nav-tab set-tab ${on ? 'active' : ''}" aria-selected="${on}" onclick="openSettingsPane('${p.dataset.setPane}')">${esc(t(p.dataset.setLabel))}</button>`;
+      }).join('');
+      bar.hidden = shown.length < 2;
+      panes.forEach(p => { p.hidden = p.dataset.setPane !== setPaneOpen; });
+    }
+    window.addEventListener('hashchange', () => {
+      if (!document.getElementById('set-tabs') || TAB !== 'settings') return;
+      setPaneOpen = '';
+      renderSettingsTabs();
+      const target = settingsHashTarget();
+      if (target && !target.matches('[data-set-pane]')) settingsScrollTo(target);
+    });
+    function openSettingsPane(name) {
+      setPaneOpen = name;
+      renderSettingsTabs();
+      const url = window.location.pathname + window.location.search + (name === 'general' ? '' : `#set-${name}`);
+      history.replaceState(history.state, '', url);
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
     const MEDIA_DB = { subs: 'subs.db', books: 'epub.db', manga: 'manga.db', custom: 'custom.db' };
@@ -791,7 +879,7 @@
     }
 
     // Subtitles, books and manga each have their own section and settings, shared in no way.
-    const READER_SETTINGS_MEDIA = [['subs', 'media_subs'], ['epub', 'media_epub'], ['manga', 'media_manga']];
+    const READER_SETTINGS_MEDIA = [['subs', 'media_subs'], ['epub', 'media_epub'], ['manga', 'media_manga'], ['custom', 'media_custom']];
     function readerSettingsSection(media) {
       const p = rmGetPrefs(media);
       const seg = (key, opts) => `<div class="seg seg-fit">${opts.map(([val, lbl]) => {
@@ -804,7 +892,7 @@
               <span class="rm-range-val">${shown}</span>
             </div>`;
       const themes = [
-        ['app', t('rm_theme_app')], ['paper', t('theme_paper')], ['haze', t('theme_haze')],
+        ['app', t('rm_theme_app')], ['haze', t('theme_haze')], ['paper', t('theme_paper')],
         ['sepia', t('rm_theme_sepia')], ['night', t('theme_night')], ['midnight', t('theme_midnight')],
       ];
       const textRows = [
@@ -814,6 +902,7 @@
         row(t('rm_font_size'), range('font_size', 12, 36, 1, p.font_size, "this.value+'px'", `${p.font_size}px`)),
         row(t('rm_line_height'), range('line_height', 1, 2.6, 0.05, p.line_height, 'Number(this.value).toFixed(2)', Number(p.line_height).toFixed(2))),
         row(t('rm_max_width'), range('max_width', 10, 72, 2, p.max_width, "this.value+'em'", `${p.max_width}em`)),
+        row(t('rm_max_height'), range('max_height', 10, 72, 2, p.max_height || 36, "this.value+'em'", `${p.max_height || 36}em`)),
       ].join('');
       const rows = [row(t('rm_theme'), `<div class="rm-theme-grid">${themes.map(([v, lbl]) =>
         `<button type="button" class="btn rm-theme-chip ${p.theme === v ? 'active' : ''}" onclick="setReaderPref('${media}', 'theme', '${v}')">${esc(lbl)}</button>`
@@ -821,14 +910,17 @@
       if (media === 'manga') {
         rows.push(row(t('rm_manga_layout'), seg('manga_layout', [['single', t('rm_manga_single')], ['strip', t('rm_manga_strip')]])));
         rows.push(row(t('rm_manga_boxes'), seg('manga_boxes', [['hover', t('rm_manga_boxes_hover')], ['always', t('rm_manga_boxes_always')], ['off', t('rm_manga_boxes_off')]])));
+        rows.push(row(t('rm_image_scale'), range('image_scale', 25, 100, 5, p.image_scale || 80, "this.value+'%'", `${p.image_scale || 80}%`)));
       } else {
         rows.push(row(t('rm_dir'), seg('writing_mode', [['auto', t('rm_dir_auto')], ['vertical', t('rm_dir_vertical')], ['horizontal', t('rm_dir_horizontal')]])));
-        rows.push(row(t('rm_v_layout'), seg('v_layout', [['paginated', t('rm_layout_paginated')], ['continuous', t('rm_layout_continuous')]])));
-        rows.push(row(t('rm_h_layout'), seg('h_layout', [['continuous', t('rm_layout_continuous')], ['paginated', t('rm_layout_paginated')]])));
+        rows.push(row(t('rm_layout'), seg('layout', [['paginated', t('rm_layout_paginated')], ['continuous', t('rm_layout_continuous')]])));
         rows.push(textRows);
+        if (media === 'epub') rows.push(row(t('rm_image_scale'), range('image_scale', 25, 100, 5, p.image_scale || 80, "this.value+'%'", `${p.image_scale || 80}%`)));
       }
       if (media === 'subs') rows.push(row(t('rm_sub_timestamps'), seg('sub_timestamps', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_progress_show'), seg('show_progress', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(t('rm_auto_hide_bar'), seg('auto_hide_bar', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(t('rm_hide_bar_scroll'), seg('hide_bar_scroll', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_edge_click'), seg('edge_click_nav', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_edge_click_width'), range('edge_click_width', 5, 35, 1, p.edge_click_width || 12, "this.value+'%'", `${p.edge_click_width || 12}%`)));
       let html = `<div class="rm-set-grid">${rows.join('')}</div>`;
@@ -839,8 +931,16 @@
           <div class="rm-set-grid">${textRows}</div>
         </div>`;
       }
-      const label = READER_SETTINGS_MEDIA.find(([m]) => m === media)[1];
-      return `<section class="set-reader-media" id="set-reader-${media}"><h4>${esc(t(label))}</h4>${html}</section>`;
+      return `<section class="set-reader-media" id="set-reader-${media}">${html}</section>`;
+    }
+    // One media's settings at a time, picked in a row of buttons; the last pick is kept.
+    function readerSettingsMedia(shown) {
+      const kept = store.get('set_reader_media');
+      return shown.some(([m]) => m === kept) ? kept : shown[0][0];
+    }
+    function pickReaderSettingsMedia(media) {
+      store.set('set_reader_media', media);
+      renderReaderSettings();
     }
     function renderReaderSettings(msg = '', media = '') {
       const card = document.getElementById('set-reader');
@@ -848,10 +948,14 @@
       // Only the media that are on in Settings, in the app's order: subtitles, books, manga.
       const shown = READER_SETTINGS_MEDIA.filter(([m]) => MEDIA_ON[m]);
       card.hidden = !shown.length;
+      if (!shown.length) { card.innerHTML = ''; return; }
+      const open = readerSettingsMedia(shown);
+      const picker = shown.length > 1 ? `<div class="seg seg-fit set-reader-pick">${shown.map(([m, label]) =>
+        `<button type="button" class="seg-btn ${m === open ? 'active' : ''}" onclick="pickReaderSettingsMedia('${m}')">${esc(t(label))}</button>`).join('')}</div>` : '';
       card.innerHTML = `
         <h3>${esc(t('set_reader_title'))}</h3>
         <p class="muted" style="margin:0 0 0.7em; font-size:0.9em;">${esc(t('set_reader_lead'))}</p>
-        ${shown.map(([m]) => readerSettingsSection(m)).join('')}`;
+        ${picker}${readerSettingsSection(open)}`;
       if (msg && media) {
         const sec = document.getElementById(`set-reader-${media}`);
         if (sec) sec.insertAdjacentHTML('beforeend', `<div class="notice ok" style="margin:0.8em 0 0;">${esc(msg)}</div>`);

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.7: Reading notes, the Saved tab, and Appearance
+
+### Enhancements
+
+- **Notes in Reading mode.** **Notes** (or `N`) writes a note or a question at your place in the work, with the selected text as its quote when you select some first. Notes can be jumped to, edited, deleted and listed for the part or the whole work. Copy buttons copy the notes as Markdown with or without quotes, the part's full text, or the current page or area, with or without furigana.
+- **Saved tab.** **Favorites** became **Saved**, with **Favorites** (saved sentences, as before), **Continue reading** (every work opened in Reading mode, latest first, with its place and bookmark, filtered by media; ✕ removes a work and **Undo** brings it back) and **Reading notes** (every work's notes, to jump to, copy, edit or delete).
+- **Appearance.** **Settings → General → Appearance** sets the theme mode (**Match device**, **Light**, **Dark**), the light and dark theme, an accent color (**Default (blue)**, teal, green, purple, pink, red, orange, gray, or **Match device**) and the language. The accent colors buttons, links, the active tab, search hits and the app icon. The language and theme menus moved out of the top bar.
+
+**Reading mode**
+
+- Custom folders of `.txt` and `.md` files, and those files, have a **Reading mode** button: pages or scrolling, vertical or horizontal text, furigana, bookmarks and notes, as for books.
+- One **Layout** setting (**Paginated** or **Scroll**), separate from the writing direction; subtitles default to **Scroll**, other media to **Paginated**. 2.6's settings carry over.
+- New settings: **Content height**, **Image size** (books and manga strips), **Hide top bar (hover top)** and **Hide top bar on scroll**.
+- The reading position is kept to the character across setting changes, window resizes, layout and direction switches, **Continue reading**, bookmarks, notes and links, and to the line in scrolling layouts, also when pictures load late.
+- **Click zone width** and **Click edges to turn page** no longer change which text is on the page.
+- A book's blank line is drawn as one blank line in both directions.
+- A bookmark or note whose part no longer exists after re-indexing opens at the last place read, with a notice.
+- The keyboard shortcuts window has **App** and **Reading mode** tabs and opens on the Reading mode keys while reading; the Guide has a button for it, on phones too.
+
+**Media and Custom**
+
+- **Recently read** sorts the Media list and a Custom folder's subfolders by when each work was last read in Reading mode, with an **Unread** line above the first work not read yet.
+
+**Settings**
+
+- **Settings** has **General**, **Reading mode** and **Advanced** subtabs, and Reading mode's settings show one media at a time.
+
+**Updates**
+
+- Updating from inside Aobana works from 2.2 or newer. The code that only moved settings from before 2.0 and removed files installed by 1.0–1.6 is removed; on an older version, install 2.7 from the release page.
+
+### Bug Fixes
+
+- Books that set their own line height ignored **Line height**. It now applies to every book.
+- Vertical text had no gap between paragraphs. It now matches horizontal text.
+- Reading mode's font list could include Chinese and Korean fonts. It now lists Japanese fonts only.
+
 ## 2.6: Reading mode
 
 ### Enhancements

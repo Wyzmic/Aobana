@@ -1,4 +1,4 @@
-name: Build macOS and Linux
+name: Build Windows, macOS and Linux
 
 on:
   release:
@@ -19,6 +19,30 @@ env:
   TAG: ${{ inputs.tag || github.event.release.tag_name }}
 
 jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Build (the embeddable Python, the wheels and Inno Setup 7 are fetched and checked)
+        run: |
+          python -m pip install --disable-pip-version-check pillow
+          python release/build.py ci
+      - uses: actions/upload-artifact@v7
+        with:
+          name: aobana-windows
+          path: release/dist/*.exe
+      - name: Attach to the release
+        if: env.TAG != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" release/dist/*.exe --clobber
+
   macos:
     runs-on: macos-15
     steps:
@@ -95,7 +119,7 @@ jobs:
         run: gh release upload "$TAG" release/dist/*.AppImage release/dist/*.tar.gz --clobber
 
   publish:
-    needs: [macos, linux]
+    needs: [windows, macos, linux]
     if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
     runs-on: ubuntu-latest
     steps:

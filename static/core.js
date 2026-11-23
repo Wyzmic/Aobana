@@ -109,13 +109,208 @@
     }
     document.documentElement.style.setProperty('--no-more', JSON.stringify(t('no_more')));
 
-    const THEMES = ['paper', 'haze', 'night', 'midnight'];
+    // Settings, General: a light theme and a dark theme, and which to use: the device's light or
+    // dark, or always one. The device's choice reaches the page through the browser
+    // (prefers-color-scheme), so a browser set to light or dark on its own wins over the system.
+    // index.html paints the same.
+    // In each pair the tinted theme comes first, as shown in Settings; Paper and Night are the defaults.
+    const THEMES = ['haze', 'paper', 'night', 'midnight'];
+    const THEMES_LIGHT = ['haze', 'paper'];
+    const THEMES_DARK = ['night', 'midnight'];
+    // Each theme's page colour, for the phone browser's bar (meta theme-color).
+    const THEME_COLORS = { paper: '#f7f7f5', haze: '#e4eaf1', night: '#181a1b', midnight: '#000000' };
     function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'night'; }
-    function setTheme(name) {
-      document.documentElement.setAttribute('data-theme', name);
-      store.set('theme', name);
-      renderTopbarControls();
+    function deviceScheme() {
+      return (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
     }
+    function themeChoice() {
+      const mode = store.get('theme_mode'), light = store.get('theme_light'), dark = store.get('theme_dark');
+      return {
+        mode: ['device', 'light', 'dark'].includes(mode) ? mode : 'device',
+        light: THEMES_LIGHT.includes(light) ? light : 'paper',
+        dark: THEMES_DARK.includes(dark) ? dark : 'night',
+      };
+    }
+    function themeFor(choice) {
+      const side = choice.mode === 'device' ? deviceScheme() : choice.mode;
+      return side === 'light' ? choice.light : choice.dark;
+    }
+    function applyTheme(name) {
+      document.documentElement.setAttribute('data-theme', name);
+      updateThemeColorMeta();
+      if (typeof isReadingModeOpen === 'function' && isReadingModeOpen()) rmApplyPrefsToDom(false, false);
+    }
+    function syncTheme() {
+      const name = themeFor(themeChoice());
+      store.set('theme', name);
+      if (name !== currentTheme()) applyTheme(name);
+      if (store.get('accent') === 'device') applyAccent();
+    }
+    // key: theme_mode (device, light or dark), theme_light or theme_dark.
+    function setThemeChoice(key, value) {
+      store.set(key, value);
+      syncTheme();
+    }
+    // The accent colour, over every theme (app.css, Accent). 'default' is the themes' own blue;
+    // the colour is the dot shown beside each name.
+    const ACCENTS = [['default', '#2b72e7'], ['device', 'AccentColor'], ['teal', '#0d7f79'], ['green', '#2b8a3e'],
+      ['purple', '#6f42c1'], ['pink', '#c2255c'], ['red', '#c92a2a'], ['orange', '#c2540a'], ['gray', '#4f5b69']];
+    const ACCENT_VARS = ['--ac-h', '--ac-k', '--ac-c1', '--ac-c2', '--ac-c3', '--ac-c4', '--ac-c5', '--ac-c6'];
+    // The themes' strong colours by band of lightness: [OKLCH L, hue offset from the blue]
+    // (app.css, Accent), to cap the device's accent where sRGB runs out at its hue.
+    const ACCENT_BANDS = {
+      c1: [[0.435, 1], [0.474, 0], [0.477, 1]],
+      c2: [[0.505, 0], [0.516, 0], [0.533, -10], [0.536, 0], [0.558, 0], [0.569, -2], [0.575, 0], [0.586, -8]],
+      c3: [[0.647, -2]],
+      c4: [[0.723, -2], [0.755, -22], [0.795, -11]],
+      c5: [[0.816, 1], [0.863, -9], [0.876, -34]],
+      c6: [[0.82, 0]],
+    };
+    // The system's accent colour reaches a page only as CSS AccentColor: Firefox and Safari give
+    // it; Chrome and Edge keep it off on every system, Android too, and a Chrome that knows the
+    // word answers its own fixed blue, #0075ff (Chrome 156 on a Mac), which is not the device's.
+    const ACCENT_FIXED = 'rgb(0, 117, 255)';
+    function deviceAccentRgb() {
+      if (!(window.CSS && CSS.supports && CSS.supports('color', 'AccentColor')) || !document.body) return null;
+      const probe = document.createElement('span');
+      probe.style.cssText = 'display:none;color:AccentColor';
+      document.body.appendChild(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      const m = (color.match(/[\d.]+/g) || []).map(Number);
+      return color === ACCENT_FIXED || m.length < 3 ? null : m;
+    }
+    function deviceAccentSupported() {
+      return !!deviceAccentRgb();
+    }
+    function rgbToOklch(r, g, b) {
+      const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      const [R, G, B] = [lin(r), lin(g), lin(b)];
+      const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+      const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+      const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+      const a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+      const bb = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+      return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, Math.hypot(a, bb), (Math.atan2(bb, a) * 180 / Math.PI + 360) % 360];
+    }
+    function oklchInSrgb(L, C, h) {
+      const a = C * Math.cos(h * Math.PI / 180), b = C * Math.sin(h * Math.PI / 180);
+      const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+      const m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+      const s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+      return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].every(x => x >= -1e-4 && x <= 1 + 1e-4);
+    }
+    function oklchMaxChroma(L, h) {
+      let lo = 0, hi = 0.4;
+      for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (oklchInSrgb(L, mid, h)) lo = mid; else hi = mid; }
+      return lo;
+    }
+    function deviceAccentVars() {
+      const m = deviceAccentRgb();
+      if (!m) return null;
+      const [, C, h] = rgbToOklch(m[0], m[1], m[2]);
+      // A grey accent tints as Gray does.
+      const grey = C < 0.04;
+      const vars = { '--ac-h': h.toFixed(1), '--ac-k': grey ? '0.35' : '1' };
+      for (const [band, pts] of Object.entries(ACCENT_BANDS)) {
+        let cap = Math.min(...pts.map(([l, off]) => oklchMaxChroma(l, h + off))) - 0.002;
+        if (grey) cap = Math.min(cap, 0.033);
+        vars['--ac-' + band] = cap.toFixed(3);
+      }
+      return vars;
+    }
+    function currentAccent() {
+      const v = store.get('accent');
+      if (v === 'device') return deviceAccentSupported() ? v : 'default';
+      return ACCENTS.some(([name]) => name === v) ? v : 'default';
+    }
+    function applyAccent() {
+      const root = document.documentElement;
+      let name = currentAccent();
+      ACCENT_VARS.forEach(v => root.style.removeProperty(v));
+      if (name === 'device') {
+        const vars = deviceAccentVars();
+        if (vars) {
+          Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+          store.set('accent_device', JSON.stringify(vars));
+        } else name = 'default';
+      }
+      if (name === 'default') root.removeAttribute('data-accent');
+      else root.setAttribute('data-accent', name);
+      updateThemeColorMeta();
+    }
+    function setAccent(value) {
+      if (value === 'default') store.del('accent');
+      else store.set('accent', value);
+      applyAccent();
+    }
+    // The phone browser's bar takes the page's background, the accent's tint included.
+    function updateThemeColorMeta() {
+      const bar = document.querySelector('meta[name="theme-color"]');
+      if (!bar) return;
+      let color = THEME_COLORS[currentTheme()] || THEME_COLORS.night;
+      if (document.documentElement.hasAttribute('data-accent')) {
+        try {
+          const ctx = document.createElement('canvas').getContext('2d');
+          ctx.fillStyle = '#010203';
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-body').trim();
+          if (ctx.fillStyle !== '#010203') {
+            ctx.fillRect(0, 0, 1, 1);
+            const d = ctx.getImageData(0, 0, 1, 1).data;
+            color = '#' + [d[0], d[1], d[2]].map(x => x.toString(16).padStart(2, '0')).join('');
+          }
+        } catch (e) {}
+      }
+      bar.setAttribute('content', color);
+      updateFavicon();
+    }
+    // The tab's icon is the bar's icon in the accent's colours: aobana.svg when no accent is set,
+    // else the icon on the page with its colours written in, as a data: URL.
+    function updateFavicon() {
+      const link = document.querySelector('link[rel="icon"]');
+      const icon = document.getElementById('brand-icon');
+      if (!link || !icon) return;
+      if (!link.dataset.plain) link.dataset.plain = link.getAttribute('href');
+      if (!document.documentElement.hasAttribute('data-accent')) {
+        if (link.getAttribute('href') !== link.dataset.plain) link.setAttribute('href', link.dataset.plain);
+        return;
+      }
+      try {
+        const ctx = document.createElement('canvas').getContext('2d');
+        const hex = c => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = '#000000';
+          ctx.fillStyle = c;
+          ctx.fillRect(0, 0, 1, 1);
+          const d = ctx.getImageData(0, 0, 1, 1).data;
+          return '#' + [d[0], d[1], d[2]].map(x => x.toString(16).padStart(2, '0')).join('');
+        };
+        const svg = icon.cloneNode(true);
+        ['class', 'id', 'aria-hidden'].forEach(a => svg.removeAttribute(a));
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const live = icon.querySelectorAll('[class]');
+        svg.querySelectorAll('[class]').forEach((el, i) => {
+          const cs = getComputedStyle(live[i]);
+          if (el.classList.contains('ic-stalk')) el.setAttribute('stroke', hex(cs.stroke));
+          else el.setAttribute('fill', hex(cs.fill));
+          el.removeAttribute('class');
+        });
+        link.setAttribute('href', 'data:image/svg+xml,' + encodeURIComponent(new XMLSerializer().serializeToString(svg)));
+      } catch (e) {}
+    }
+    // Checked again when the page comes back: a switch while it was hidden may not fire 'change'.
+    if (window.matchMedia) {
+      const mq = matchMedia('(prefers-color-scheme: light)');
+      if (mq.addEventListener) mq.addEventListener('change', syncTheme);
+      else if (mq.addListener) mq.addListener(syncTheme);
+    }
+    window.addEventListener('focus', syncTheme);
+    window.addEventListener('pageshow', syncTheme);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncTheme(); });
+    if (document.body) applyAccent();
+    else document.addEventListener('DOMContentLoaded', applyAccent);
 
     const PARAMS = new URLSearchParams(window.location.search);
     const TAB = PARAMS.get('view') === 'saved' ? 'saved'
