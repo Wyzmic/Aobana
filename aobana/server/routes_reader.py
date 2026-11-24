@@ -613,6 +613,12 @@ _READER_DIRS = ("vertical", "horizontal")
 _READER_PREF_DIRS = ("auto", "vertical", "horizontal")
 _READER_MANGA_BOXES = ("hover", "always", "off")
 _READER_MANGA_LAYOUTS = ("single", "strip")
+_READER_BOOKMARKS_MAX = 100
+_READER_BACKUPS_MAX = 5
+_READER_BOOKMARK_NAME_MAX = 80
+_READER_EXPORT_VERSION = 1
+_READER_IMPORT_MAX_BYTES = 20 * 1024 * 1024
+_READER_IMPORT_MODES = ("keep_newer", "merge", "replace")
 
 
 def _reader_state_path():
@@ -754,12 +760,91 @@ def _clean_anchor_fields(src):
     return out
 
 
-def _clean_work_state(raw, existing=None):
+def _bookmark_place_key(bm, media=None):
+    if not isinstance(bm, dict):
+        return ("", 0, 0, 0)
+    try:
+        sec = int(bm.get("sec_index") or 0)
+    except (TypeError, ValueError):
+        sec = 0
+    try:
+        ch = int(bm.get("char_offset") or 0)
+    except (TypeError, ValueError):
+        ch = 0
+    try:
+        pg = int(bm.get("page") or 0)
+    except (TypeError, ValueError):
+        pg = 0
+    use_pg = (pg if media == "manga" else 0) if media is not None else (pg if (sec == 0 and ch == 0) else 0)
+    return (str(bm.get("file") or ""), sec, ch, use_pg)
+
+
+def _clean_bookmark_entry(bm, now=None):
+    if not isinstance(bm, dict) or not isinstance(bm.get("file"), str) or not bm["file"]:
+        return None
+    if now is None:
+        now = int(datetime.datetime.now().timestamp())
+    cleaned = _clean_anchor_fields(bm)
+    entry = {
+        "file": bm["file"][:512],
+        "scroll_ratio": cleaned.get("scroll_ratio", 0.0),
+        "page": cleaned.get("page", 0),
+        "char_offset": cleaned.get("char_offset", 0),
+        "label": str(bm.get("label") or "")[:120],
+    }
+    for extra in ("anchor_v", "sec_index", "quote", "page_frac", "edge"):
+        if extra in cleaned:
+            entry[extra] = cleaned[extra]
+    raw_name = bm.get("name")
+    if isinstance(raw_name, str):
+        nm = raw_name.replace("\r", " ").replace("\n", " ").strip()[:_READER_BOOKMARK_NAME_MAX]
+        if nm:
+            entry["name"] = nm
+    try:
+        cat = int(bm.get("created_at") or 0)
+    except (TypeError, ValueError):
+        cat = 0
+    entry["created_at"] = cat if cat > 0 else now
+    return entry
+
+
+def _normalize_bookmarks(work, now=None, media=None):
+    if not isinstance(work, dict):
+        return []
+    if now is None:
+        now = int(datetime.datetime.now().timestamp())
+    raw_list = []
+    if isinstance(work.get("bookmarks"), list):
+        raw_list.extend(work["bookmarks"])
+    if isinstance(work.get("bookmark"), dict):
+        raw_list.append(work["bookmark"])
+    out = []
+    seen = set()
+    for bm in raw_list:
+        cleaned = _clean_bookmark_entry(bm, now=now)
+        if not cleaned:
+            continue
+        pk = _bookmark_place_key(cleaned, media=media)
+        if pk in seen:
+            continue
+        seen.add(pk)
+        out.append(cleaned)
+        if len(out) >= _READER_BOOKMARKS_MAX:
+            break
+    return out
+
+
+def _clean_work_state(raw, existing=None, media=None):
     out = dict(existing) if isinstance(existing, dict) else {}
+    now = int(datetime.datetime.now().timestamp())
+    if "bookmark" in out or "bookmarks" in out:
+        existing_bms = _normalize_bookmarks(out, now=0, media=media)
+        out.pop("bookmark", None)
+        out["bookmarks"] = existing_bms
     if not isinstance(raw, dict):
         return out
     if isinstance(raw.get("file"), str):
-        out["file"] = raw["file"]
+        out["file"] = raw["file"][:512]
     if "part_index" in raw and raw["part_index"] is not None:
         try:
             out["part_index"] = max(0, int(raw["part_index"]))
@@ -776,23 +861,22 @@ def _clean_work_state(raw, existing=None):
     if "layout" in raw:
         lo = raw["layout"]
         out["layout"] = lo if lo in _READER_LAYOUTS else None
-    if "bookmark" in raw:
+    if "bookmarks" in raw:
+        bms = raw["bookmarks"]
+        out.pop("bookmark", None)
+        if bms is None:
+            out["bookmarks"] = []
+        elif isinstance(bms, list):
+            out["bookmarks"] = _normalize_bookmarks({"bookmarks": bms}, now=now, media=media)
+    elif "bookmark" in raw:
         bm = raw["bookmark"]
+        out.pop("bookmark", None)
         if bm is None:
-            out["bookmark"] = None
+            out["bookmarks"] = []
         elif isinstance(bm, dict) and isinstance(bm.get("file"), str):
-            cleaned = _clean_anchor_fields(bm)
-            out["bookmark"] = {
-                "file": bm["file"],
-                "scroll_ratio": cleaned.get("scroll_ratio", 0.0),
-                "page": cleaned.get("page", 0),
-                "char_offset": cleaned.get("char_offset", 0),
-                "label": str(bm.get("label") or "")[:120],
-            }
-            for extra in ("anchor_v", "sec_index", "quote", "page_frac", "edge"):
-                if extra in cleaned:
-                    out["bookmark"][extra] = cleaned[extra]
-    out["updated_at"] = int(datetime.datetime.now().timestamp())
+            merged = [bm] + list(out.get("bookmarks") or [])
+            out["bookmarks"] = _normalize_bookmarks({"bookmarks": merged}, now=now, media=media)
+    out["updated_at"] = now
     return out
 
 
@@ -2082,8 +2166,9 @@ def api_reading_chapters():
         files = _custom_reader_files(conn, folder) if conn is not None else []
         with _READER_STATE_LOCK:
             st = _read_reader_state()
+        w = st["works"].get(f"{media}:{folder}")
         return jsonify({"media": media, "folder": folder, "files": files,
-                        "prefs": st["prefs"][media], "work": st["works"].get(f"{media}:{folder}")})
+                        "prefs": st["prefs"][media], "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
     with app.test_request_context(f"/api/episodes?folder={urllib.parse.quote(folder)}&media={urllib.parse.quote(media)}"):
         ep_resp = api_episodes()
     if isinstance(ep_resp, tuple):
@@ -2092,12 +2177,13 @@ def api_reading_chapters():
     with _READER_STATE_LOCK:
         st = _read_reader_state()
     work_key = f"{media}:{folder}"
+    w = st["works"].get(work_key)
     return jsonify({
         "media": media,
         "folder": folder,
         "files": data.get("files", []),
         "prefs": st["prefs"][media],
-        "work": st["works"].get(work_key),
+        "work": _work_for_read(w, media=media) if isinstance(w, dict) else w,
     })
 
 
@@ -2393,7 +2479,7 @@ def _load_manga_volume(db_manga, folder, file_key):
             has_img = library.manga_volume_image_in_dirs(img_dirs, pg.get("img_path")) is not None
             image_url = f"/manga/image/{source_id}/{page_no}" if has_img else None
             raws = m_idx.attach_ruby(pg)
-            blks_out = []
+            page_items = []
             for blk in m_idx.reading_order(pg):
                 if not has_img:
                     _part_check()
@@ -2407,18 +2493,22 @@ def _load_manga_volume(db_manga, folder, file_key):
                 cleaned = m_idx.VERTICAL_COLON_RE.sub("…", joined) if vert else joined
                 unfused = m_idx.unfuse_ruby(normalize_manga_text(cleaned))
                 norm_txt = manga_fused.unfuse(unfused)[0] or unfused or joined
-                total_chars += len(norm_txt)
                 box = blk.get("box")
                 if not (isinstance(box, list) and len(box) == 4):
                     box = None
-                blks_out.append({
-                    "box": [float(v) for v in box] if box else None,
+                fbox = [float(v) for v in box] if box else None
+                page_items.append((fbox, norm_txt, {
+                    "box": fbox,
                     "vertical": vert,
                     "font_size": int(blk.get("font_size") or 16),
                     "lines": raw_lines,
                     "text": norm_txt,
-                    "html": None if has_img else highlight_and_furigana(norm_txt, mark=False, bold=False, work=wk, **hl),
-                })
+                }))
+            blks_out = []
+            for norm_txt, item in m_idx.dedupe_page_blocks(page_items):
+                total_chars += len(norm_txt)
+                item["html"] = None if has_img else highlight_and_furigana(norm_txt, mark=False, bold=False, work=wk, **hl)
+                blks_out.append(item)
             pages_out.append({
                 "page": page_no,
                 "img_width": img_w,
@@ -2631,6 +2721,18 @@ def _reading_works_remove_restore(body):
     return jsonify({"ok": True, "removed": removed, "restored": restored})
 
 
+def _work_for_read(w, media=None):
+    if not isinstance(w, dict):
+        return w
+    item = dict(w)
+    if "bookmark" in item or "bookmarks" in item:
+        item["bookmarks"] = _normalize_bookmarks(item, now=0, media=media)
+        item.pop("bookmark", None)
+    else:
+        item["bookmarks"] = []
+    return item
+
+
 @app.route("/api/reading/state", methods=["GET", "POST"])
 def api_reading_state():
     if request.method == "GET":
@@ -2641,21 +2743,26 @@ def api_reading_state():
         with _READER_STATE_LOCK:
             st = _read_reader_state()
         if media and folder:
-            return jsonify({"prefs": st["prefs"][media], "work": st["works"].get(f"{media}:{folder}")})
+            w = st["works"].get(f"{media}:{folder}")
+            return jsonify({"prefs": st["prefs"][media], "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
         if media:
             return jsonify({"prefs": st["prefs"][media]})
         if request.args.get("titles") != "1":
-            return jsonify({"prefs_by_media": st["prefs"], "works": st["works"]})
-        # The 保存 tab names each work's part and its bookmark's part, as Reading mode's contents do
+            works_norm = {k: _work_for_read(v, media=k.split(":", 1)[0] if ":" in str(k) else None)
+                          for k, v in st["works"].items() if isinstance(v, dict)}
+            return jsonify({"prefs_by_media": st["prefs"], "works": works_norm})
+        # The 保存 tab names each work's part and its bookmarks' parts, as Reading mode's contents do
         works = {}
         for wkey, w in st["works"].items():
             media_k, sep, folder_k = str(wkey).partition(":")
             if not sep or media_k not in _READER_ALLOWED_MEDIA or not isinstance(w, dict):
                 continue
-            item = dict(w)
+            item = _work_for_read(w, media=media_k)
             item["part_title"] = _part_label(media_k, item.get("file") or "", folder_k)
-            if isinstance(item.get("bookmark"), dict):
-                item["bookmark"] = dict(item["bookmark"], part_title=_part_label(media_k, item["bookmark"].get("file") or "", folder_k))
+            item["bookmarks"] = [
+                dict(bm, part_title=_part_label(media_k, bm.get("file") or "", folder_k))
+                for bm in item.get("bookmarks") or []
+            ]
             works[wkey] = item
         return jsonify({"prefs_by_media": st["prefs"], "works": works})
 
@@ -2683,7 +2790,7 @@ def api_reading_state():
         work_out = None
         if media and folder and isinstance(body.get("work"), dict):
             wkey = f"{media}:{folder}"
-            st["works"][wkey] = _clean_work_state(body["work"], st["works"].get(wkey))
+            st["works"][wkey] = _clean_work_state(body["work"], st["works"].get(wkey), media=media)
             work_out = st["works"][wkey]
         _write_reader_state(st)
     return jsonify({"ok": True, "prefs": st["prefs"][media] if media else None, "work": work_out})
@@ -2743,7 +2850,7 @@ def _clean_note_entry(raw, existing=None):
     if not base.get("id"):
         base["id"] = f"n_{uuid.uuid4().hex[:12]}"
     if isinstance(raw.get("file"), str) and raw["file"]:
-        base["file"] = raw["file"]
+        base["file"] = raw["file"][:512]
     if not base.get("file"):
         return None
     if isinstance(raw.get("part_title"), str):
@@ -2879,3 +2986,347 @@ def api_reading_notes():
         doc["works"][wkey] = cur
         _write_reader_notes(doc)
     return jsonify({"ok": True, "note": cleaned, "notes": _sorted_work_notes(cur)})
+
+
+def _clean_import_work(w, media=None):
+    if not isinstance(w, dict):
+        return None
+    out = {}
+    if isinstance(w.get("file"), str):
+        out["file"] = w["file"][:512]
+    if "part_index" in w and w["part_index"] is not None:
+        try:
+            out["part_index"] = max(0, int(w["part_index"]))
+        except (TypeError, ValueError):
+            pass
+    out.update(_clean_anchor_fields(w))
+    if w.get("writing_mode") in _READER_DIRS:
+        out["writing_mode"] = w["writing_mode"]
+    if w.get("layout") in _READER_LAYOUTS:
+        out["layout"] = w["layout"]
+    bms = _normalize_bookmarks(w, now=0, media=media)
+    if bms or "bookmarks" in w or "bookmark" in w:
+        out["bookmarks"] = bms
+    try:
+        out["updated_at"] = max(0, int(w.get("updated_at") or 0))
+    except (TypeError, ValueError):
+        out["updated_at"] = 0
+    return out
+
+
+def _clean_import_note(raw):
+    if not isinstance(raw, dict):
+        return None
+    nid = raw.get("id")
+    if not isinstance(nid, str) or not nid.strip():
+        return None
+    cleaned = _clean_note_entry(raw)
+    if cleaned is None:
+        return None
+    cleaned["id"] = nid.strip()[:64]
+    for ts_key in ("created_at", "updated_at"):
+        try:
+            cleaned[ts_key] = max(0, int(raw.get(ts_key) or 0))
+        except (TypeError, ValueError):
+            cleaned[ts_key] = 0
+    return cleaned
+
+
+def _validate_reader_import(raw_bytes):
+    if len(raw_bytes) > _READER_IMPORT_MAX_BYTES:
+        return None, "too_large"
+    try:
+        doc = _json.loads(raw_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return None, "invalid_json"
+    if not isinstance(doc, dict):
+        return None, "invalid_json"
+    if doc.get("app") != "aobana" or doc.get("kind") != "reader":
+        return None, "wrong_kind"
+    ver = doc.get("version")
+    if isinstance(ver, bool) or not isinstance(ver, int):
+        return None, "wrong_kind"
+    if ver > _READER_EXPORT_VERSION:
+        return None, "newer_version"
+    if ver < 1:
+        return None, "wrong_kind"
+    raw_state = doc.get("state")
+    raw_notes = doc.get("notes")
+    if not isinstance(raw_state, dict) or not isinstance(raw_notes, dict):
+        return None, "invalid_json"
+    st_works = raw_state.get("works") if raw_state.get("works") is not None else {}
+    nt_works = raw_notes.get("works") if raw_notes.get("works") is not None else {}
+    if not isinstance(st_works, dict) or not isinstance(nt_works, dict):
+        return None, "invalid_json"
+    clean_works = {}
+    for wkey, w in st_works.items():
+        if not isinstance(wkey, str) or len(wkey) > 512:
+            continue
+        media_k, sep, folder_k = wkey.partition(":")
+        if not sep or not folder_k.strip() or media_k not in _READER_ALLOWED_MEDIA:
+            continue
+        cw = _clean_import_work(w, media=media_k)
+        if cw is not None:
+            clean_works[wkey] = cw
+    clean_notes = {}
+    for wkey, nlist in nt_works.items():
+        if not isinstance(wkey, str) or len(wkey) > 512 or not isinstance(nlist, list):
+            continue
+        media_k, sep, folder_k = wkey.partition(":")
+        if not sep or not folder_k.strip() or media_k not in _READER_ALLOWED_MEDIA:
+            continue
+        cleaned_list = []
+        seen_ids = set()
+        for item in nlist:
+            cn = _clean_import_note(item)
+            if cn and cn["id"] not in seen_ids:
+                seen_ids.add(cn["id"])
+                cleaned_list.append(cn)
+        if cleaned_list:
+            clean_notes[wkey] = cleaned_list
+    inc_state = {"prefs": _clamp_media_prefs(raw_state.get("prefs")), "works": clean_works}
+    inc_notes = {"works": clean_notes}
+    return (inc_state, inc_notes), None
+
+
+def _diff_reader_import(cur_state, cur_notes, inc_state, inc_notes):
+    cur_works = {k: _work_for_read(v, media=k.split(":", 1)[0] if ":" in str(k) else None)
+                 for k, v in (cur_state.get("works") or {}).items() if isinstance(v, dict)}
+    inc_works = inc_state.get("works") or {}
+    works_c = {"new": 0, "newer_here": 0, "newer_in_file": 0, "same": 0}
+    bms_c = {"new": 0, "newer_here": 0, "newer_in_file": 0, "same": 0}
+    notes_c = {"new": 0, "newer_here": 0, "newer_in_file": 0, "same": 0}
+
+    cur_bm_map = {}
+    for wkey, w in cur_works.items():
+        media_k = wkey.split(":", 1)[0] if ":" in str(wkey) else None
+        for bm in _normalize_bookmarks(w, now=0, media=media_k):
+            cur_bm_map[(wkey, _bookmark_place_key(bm, media=media_k))] = bm
+
+    for wkey, iw in inc_works.items():
+        media_k = wkey.split(":", 1)[0] if ":" in str(wkey) else None
+        cw = cur_works.get(wkey)
+        if cw is None:
+            works_c["new"] += 1
+        else:
+            cu = int(cw.get("updated_at") or 0)
+            iu = int(iw.get("updated_at") or 0)
+            if iu > cu:
+                works_c["newer_in_file"] += 1
+            elif cu > iu:
+                works_c["newer_here"] += 1
+            else:
+                works_c["same"] += 1
+        for bm in _normalize_bookmarks(iw, now=0, media=media_k):
+            cbm = cur_bm_map.get((wkey, _bookmark_place_key(bm, media=media_k)))
+            if cbm is None:
+                bms_c["new"] += 1
+            else:
+                cc = int(cbm.get("created_at") or 0)
+                ic = int(bm.get("created_at") or 0)
+                if ic > cc:
+                    bms_c["newer_in_file"] += 1
+                elif cc > ic:
+                    bms_c["newer_here"] += 1
+                else:
+                    bms_c["same"] += 1
+
+    cur_notes_by_id = {}
+    for wkey, nlist in (cur_notes.get("works") or {}).items():
+        if not isinstance(nlist, list):
+            continue
+        for n in nlist:
+            if isinstance(n, dict) and n.get("id"):
+                cur_notes_by_id[n["id"]] = n
+    for wkey, nlist in (inc_notes.get("works") or {}).items():
+        for n in nlist:
+            cn = cur_notes_by_id.get(n["id"])
+            if cn is None:
+                notes_c["new"] += 1
+            else:
+                cu = int(cn.get("updated_at") or cn.get("created_at") or 0)
+                iu = int(n.get("updated_at") or n.get("created_at") or 0)
+                if iu > cu:
+                    notes_c["newer_in_file"] += 1
+                elif cu > iu:
+                    notes_c["newer_here"] += 1
+                else:
+                    notes_c["same"] += 1
+
+    return {"works": works_c, "bookmarks": bms_c, "notes": notes_c}
+
+
+def _merge_bookmark_lists(primary, secondary, media=None):
+    combined = list(primary) + list(secondary)
+    by_key = {}
+    order = []
+    for bm in combined:
+        pk = _bookmark_place_key(bm, media=media)
+        if pk not in by_key:
+            by_key[pk] = dict(bm)
+            order.append(pk)
+        else:
+            prev = by_key[pk]
+            bc = int(bm.get("created_at") or 0)
+            pc = int(prev.get("created_at") or 0)
+            if bc > pc:
+                by_key[pk] = dict(bm)
+            elif bc == pc and not prev.get("name") and bm.get("name"):
+                prev["name"] = bm["name"]
+    items = [by_key[k] for k in order]
+    items.sort(key=lambda b: int(b.get("created_at") or 0), reverse=True)
+    return items[:_READER_BOOKMARKS_MAX]
+
+
+def _apply_reader_import(cur_state, cur_notes, inc_state, inc_notes, mode):
+    if mode == "replace":
+        return (
+            {"prefs": _clamp_media_prefs(inc_state.get("prefs")), "works": dict(inc_state.get("works") or {})},
+            {"works": {k: _sorted_work_notes(list(v)) for k, v in (inc_notes.get("works") or {}).items() if v}},
+        )
+
+    cur_works = {k: _work_for_read(v, media=k.split(":", 1)[0] if ":" in str(k) else None)
+                 for k, v in (cur_state.get("works") or {}).items() if isinstance(v, dict)}
+    inc_works = inc_state.get("works") or {}
+    out_works = {}
+    for wkey in set(cur_works) | set(inc_works):
+        media_k = wkey.split(":", 1)[0] if ":" in str(wkey) else None
+        cw = cur_works.get(wkey)
+        iw = inc_works.get(wkey)
+        if cw is None:
+            out_works[wkey] = dict(iw)
+        elif iw is None:
+            out_works[wkey] = dict(cw)
+        else:
+            cu = int(cw.get("updated_at") or 0)
+            iu = int(iw.get("updated_at") or 0)
+            winner, loser = (iw, cw) if iu > cu else (cw, iw)
+            merged = dict(winner)
+            if mode == "merge":
+                merged["bookmarks"] = _merge_bookmark_lists(
+                    _normalize_bookmarks(winner, now=0, media=media_k),
+                    _normalize_bookmarks(loser, now=0, media=media_k),
+                    media=media_k,
+                )
+            out_works[wkey] = merged
+
+    by_id = {}
+    for wkey, nlist in (cur_notes.get("works") or {}).items():
+        if not isinstance(nlist, list):
+            continue
+        for n in nlist:
+            if isinstance(n, dict) and n.get("id"):
+                by_id[n["id"]] = (wkey, dict(n))
+    for wkey, nlist in (inc_notes.get("works") or {}).items():
+        for n in nlist:
+            nid = n["id"]
+            if nid not in by_id:
+                by_id[nid] = (wkey, dict(n))
+            else:
+                _, cn = by_id[nid]
+                cu = int(cn.get("updated_at") or cn.get("created_at") or 0)
+                iu = int(n.get("updated_at") or n.get("created_at") or 0)
+                if iu > cu:
+                    by_id[nid] = (wkey, dict(n))
+    out_notes_works = {}
+    for wkey, n in by_id.values():
+        out_notes_works.setdefault(wkey, []).append(n)
+    for wkey in list(out_notes_works):
+        out_notes_works[wkey] = _sorted_work_notes(out_notes_works[wkey])
+
+    return {"prefs": cur_state["prefs"], "works": out_works}, {"works": out_notes_works}
+
+
+def _backup_reader_sort_key(name):
+    parts = name.split("-")
+    if len(parts) >= 3:
+        suffix = int(parts[3]) if len(parts) >= 4 and parts[3].isdigit() else 0
+        return (parts[1], parts[2], suffix, name)
+    return ("", "", 0, name)
+
+
+def _backup_reader_files():
+    import shutil
+    backups_root = os.path.join(paths.STORE_DIR, "backups")
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    name = f"reader-{stamp}"
+    # Within one second the next number follows the highest one there, so a pruned name is never reused
+    try:
+        taken = [nm for nm in os.listdir(backups_root) if nm == name or nm.startswith(name + "-")]
+    except OSError:
+        taken = []
+    if taken:
+        last = max((_backup_reader_sort_key(nm)[2] for nm in taken), default=0)
+        name = f"{name}-{last + 1}"
+    dest = os.path.join(backups_root, name)
+    os.makedirs(dest, exist_ok=True)
+    for src in (_reader_state_path(), _reader_notes_path()):
+        if os.path.isfile(src):
+            shutil.copy2(src, os.path.join(dest, os.path.basename(src)))
+    try:
+        entries = [
+            nm for nm in os.listdir(backups_root)
+            if nm.startswith("reader-") and os.path.isdir(os.path.join(backups_root, nm))
+        ]
+        entries.sort(key=_backup_reader_sort_key)
+        for old in entries[:-_READER_BACKUPS_MAX]:
+            if old == name:
+                continue
+            shutil.rmtree(os.path.join(backups_root, old), ignore_errors=True)
+    except OSError:
+        pass
+    return dest
+
+
+@app.route("/api/reading/export", methods=["GET"])
+def api_reading_export():
+    with _READER_STATE_LOCK:
+        with _READER_NOTES_LOCK:
+            st = _read_reader_state()
+            nt = _read_reader_notes()
+    state_out = {
+        "prefs": st["prefs"],
+        "works": {k: _work_for_read(v, media=k.split(":", 1)[0] if ":" in str(k) else None)
+                  for k, v in st["works"].items() if isinstance(v, dict)},
+    }
+    doc = {
+        "app": "aobana",
+        "kind": "reader",
+        "version": _READER_EXPORT_VERSION,
+        "exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "state": state_out,
+        "notes": nt,
+    }
+    return jsonify(doc)
+
+
+@app.route("/api/reading/import", methods=["POST"])
+def api_reading_import():
+    server._require_page()
+    dry_run = (request.args.get("dry_run") or "").strip().lower() in ("1", "true", "yes")
+    mode = (request.args.get("mode") or "keep_newer").strip().lower()
+    if mode not in _READER_IMPORT_MODES:
+        return jsonify({"error": "bad_mode"}), 400
+    if "file" in request.files:
+        raw_bytes = request.files["file"].read(_READER_IMPORT_MAX_BYTES + 1)
+    else:
+        cl = request.content_length
+        if cl is not None and cl > _READER_IMPORT_MAX_BYTES:
+            return jsonify({"error": "too_large"}), 400
+        raw_bytes = request.stream.read(_READER_IMPORT_MAX_BYTES + 1) or b""
+    parsed, err = _validate_reader_import(raw_bytes)
+    if err:
+        return jsonify({"error": err}), 400
+    inc_state, inc_notes = parsed
+    with _READER_STATE_LOCK:
+        with _READER_NOTES_LOCK:
+            cur_state = _read_reader_state()
+            cur_notes = _read_reader_notes()
+            counts = _diff_reader_import(cur_state, cur_notes, inc_state, inc_notes)
+            if dry_run:
+                return jsonify({"ok": True, "dry_run": True, "counts": counts})
+            backup_dir = _backup_reader_files()
+            new_state, new_notes = _apply_reader_import(cur_state, cur_notes, inc_state, inc_notes, mode)
+            _write_reader_state(new_state)
+            _write_reader_notes(new_notes)
+    return jsonify({"ok": True, "mode": mode, "counts": counts, "backup": backup_dir})

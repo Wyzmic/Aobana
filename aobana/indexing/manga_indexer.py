@@ -230,11 +230,34 @@ def attach_ruby(page):
     return {id(b): raw for b, raw in zip(blocks, raws)}
 
 
+def dedupe_page_blocks(items, on_drop=None):
+    out = []
+    kept = []
+    for box, text, payload in items:
+        b = box if (isinstance(box, (list, tuple)) and len(box) == 4) else [0, 0, 0, 0]
+        key = _DUP_NOISE_RE.sub("", text) or text.strip()
+        twin = next((k for k in kept if k[1] == key and _iou(k[0], b) >= DUPLICATE_IOU), None)
+        if twin:
+            idx = twin[2]
+            prev_text, prev_payload = out[idx]
+            if len(text) > len(prev_text):
+                if on_drop is not None:
+                    on_drop(prev_text, prev_payload)
+                out[idx] = (text, payload)
+            else:
+                if on_drop is not None:
+                    on_drop(text, payload)
+            continue
+        kept.append((b, key, len(out)))
+        out.append((text, payload))
+    return out
+
+
 def volume_blocks(doc):
     out = []
     for page_no, page in enumerate(doc.get("pages") or [], 1):
-        kept = []
         raws = attach_ruby(page)
+        page_items = []
         for block in reading_order(page):
             raw = raws[id(block)]
             if block.get("vertical"):
@@ -248,16 +271,8 @@ def volume_blocks(doc):
             if not WORD_RE.search(text):
                 _EXCLUDED_LOG.append(("PUNCTUATION_ONLY", text))
                 continue
-            box, key = _box(block), _DUP_NOISE_RE.sub("", text)
-            twin = next((k for k in kept if k[1] == key and _iou(k[0], box) >= DUPLICATE_IOU), None)
-            if twin:
-                if len(text) > len(out[twin[2]][1]):
-                    _EXCLUDED_LOG.append(("DUPLICATE", out[twin[2]][1]))
-                    out[twin[2]] = (page_no, text)
-                else:
-                    _EXCLUDED_LOG.append(("DUPLICATE", text))
-                continue
-            kept.append((box, key, len(out)))
+            page_items.append((_box(block), text, None))
+        for text, _ in dedupe_page_blocks(page_items, on_drop=lambda dropped, _: _EXCLUDED_LOG.append(("DUPLICATE", dropped))):
             out.append((page_no, text))
     return out
 

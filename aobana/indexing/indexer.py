@@ -133,7 +133,7 @@ def _zh_only_count(text):
 
 
 PROMO_URL_RE = re.compile(r'(?:https?://|www\.|(?:\.com|\.cc|\.net|\.org)(?:\b|/))', re.IGNORECASE)
-JAPANESE_CHARS_RE = re.compile(r'[\u3040-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\U00020000-\U000323AF\U0002F800-\U0002FA1F]')
+JAPANESE_CHARS_RE = re.compile(r'[\u3040-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\U00020000-\U0003347F\U0002F800-\U0002FA1F]')
 
 _EXCLUDED_LOG = []
 _WAKATI_LOG = []

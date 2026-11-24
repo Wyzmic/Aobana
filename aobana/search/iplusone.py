@@ -11,7 +11,7 @@ POLICY = 'iplusone-1'
 # (は is also a noun and a letter's name in the dictionary, ます a noun), or one that is only symbols.
 GRAMMAR_POS = frozenset(('助詞', '助動詞'))
 SYMBOL_POS = frozenset(('補助記号', '記号', '空白'))
-WORD = re.compile(r'[ぁ-ヿ㐀-鿿豈-﫿A-Za-zＡ-Ｚａ-ｚ]')
+WORD = re.compile(r'[ぁ-ヿ㐀-鿿豈-﫿\U00020000-\U0003347FA-Za-zＡ-Ｚａ-ｚ]')
 # i+1 first under おすすめ: how far apart two groups' scores are; おすすめ's own score is at most 1.5
 # (the length's 1, the exact match's 0.5), so a group never reaches into the one before it.
 GROUP_STEP = 10.0
@@ -46,15 +46,26 @@ def is_grammar(form):
     return bool(pos) and all(p[0] in SYMBOL_POS for p in pos)
 
 
+_FORMS_LOCK = threading.Lock()
+_SEEN_MAX = 500_000
 _SEEN = set()
 _GRAMMAR = set()
 
 
 def _learn_forms(forms):
-    for f in forms:
-        if is_grammar(f):
-            _GRAMMAR.add(f)
-        _SEEN.add(f)
+    if len(_SEEN) >= _SEEN_MAX:
+        return {f for f in forms if is_grammar(f)}
+    extra = set()
+    with _FORMS_LOCK:
+        for f in forms:
+            g = is_grammar(f)
+            if len(_SEEN) < _SEEN_MAX:
+                if g:
+                    _GRAMMAR.add(f)
+                _SEEN.add(f)
+            elif g:
+                extra.add(f)
+    return extra
 
 
 def tokenize(text):
@@ -91,7 +102,7 @@ def entry_units(expression, reading=''):
 
 _VOICED = str.maketrans('がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽ', 'かきくけこさしすせそたちつてとはひふへほはひふへほ')
 KANA = re.compile(r'[ぁ-ゖァ-ヺー]+')
-LETTER_OR_DIGIT = re.compile(r'[ぁ-ヿ㐀-鿿豈-﫿A-Za-zＡ-Ｚａ-ｚ0-9０-９]')
+LETTER_OR_DIGIT = re.compile(r'[ぁ-ヿ㐀-鿿豈-﫿\U00020000-\U0003347FA-Za-zＡ-Ｚａ-ｚ0-9０-９]')
 SPACE_READING = 'きごう'
 
 
@@ -163,7 +174,7 @@ def _aligned(tokens, readings):
 
 @lru_cache(maxsize=1024)
 def _first_kanji(form):
-    got = re.search(r'[㐀-鿿豈-﫿々]', form)
+    got = re.search(r'[㐀-鿿豈-﫿\U00020000-\U0003347F々]', form)
     return got.group() if got else ''
 
 
@@ -238,10 +249,74 @@ def compile_vocabulary(entries):
     return Vocabulary(singles, phrases, digest.hexdigest()[:16], len(units))
 
 
+_GROUP = re.compile(r'[\uff08(]([^\uff08()\uff09]*)[\uff09)]')
+_OPEN = frozenset('\uff08(')
+_CLOSE = frozenset('\uff09)')
+_SENTENCE_MARK = re.compile(r'[\u3002\u3001\uff01\uff1f!?\u2026\u2025\u300c\u300d\u300e\u300f]')
+
+
+def _tag_opens(text):
+    if not text or not _GROUP.search(text):
+        return set()
+    depth, outside = 0, []
+    for ch in text:
+        if ch in _OPEN:
+            depth += 1
+        elif ch in _CLOSE:
+            depth = max(0, depth - 1)
+        elif depth != 1:
+            outside.append(ch)
+    if not LETTER_OR_DIGIT.search(''.join(outside)):
+        return set()
+    tags = set()
+    for m in _GROUP.finditer(text):
+        a, b, inner = m.start(), m.end(), m.group(1)
+        if not inner.strip() or _SENTENCE_MARK.search(inner):
+            continue
+        if (a and text[a - 1] in _OPEN) or (b < len(text) and text[b] in _CLOSE):
+            continue
+        tags.add(sum(1 for ch in text[:a] if ch in _OPEN))
+    return tags
+
+
+def _without_tags(tokens, text):
+    if '(' not in tokens:
+        return tokens
+    tags = _tag_opens(text)
+    if not tags:
+        return tokens
+    if (tokens.count('(') != sum(1 for ch in text if ch in _OPEN)
+            or tokens.count(')') != sum(1 for ch in text if ch in _CLOSE)):
+        # The index left some brackets out (a tag mid-line) or joined one to the next sign
+        # ()⟨): only a tag that starts the line still lines up, its `)` before any other `(`.
+        if 0 in tags and tokens[0] == '(' and ')' in tokens:
+            end = tokens.index(')')
+            if '(' not in tokens[1:end]:
+                return tokens[end + 1:]
+        return tokens
+    out, opened, skipping = [], 0, False
+    for tok in tokens:
+        if skipping:
+            if tok == ')':
+                skipping = False
+            continue
+        if tok == '(':
+            if opened in tags:
+                skipping = True
+                opened += 1
+                continue
+            opened += 1
+        out.append(tok)
+    return tuple(out)
+
+
 def row_units(base_forms, clean_text='', media=''):
     if media == 'custom' and '\u2029' in (clean_text or ''):
         return tokenize(clean_text.split('\u2029', 1)[0])
-    return tuple((base_forms or '').split())
+    tokens = tuple((base_forms or '').split())
+    if media == 'subs':
+        return _without_tags(tokens, clean_text or '')
+    return tokens
 
 
 def _hits(tokens, target):
@@ -282,9 +357,8 @@ def analyze(tokens, target, vocab, stop_at=None, positional=False, target_known=
         found = t in forms
         forms.discard(t)
         new = forms - _SEEN
-        if new:
-            _learn_forms(new)
-        content = forms - _GRAMMAR
+        extra = _learn_forms(new) if new else None
+        content = forms - _GRAMMAR - extra if extra else forms - _GRAMMAR
         others = len(content)
         unknown_forms = content - vocab.singles
         parts = vocab.parts

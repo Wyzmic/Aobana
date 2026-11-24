@@ -63,7 +63,9 @@ def hello():
         raise AnkiError("anki_old")
     if not got.get("ready"):
         raise AnkiError("anki_no_profile")
-    return {"version": got.get("version") or "", "profile": got.get("profile") or ""}
+    raw_feats = got.get("features")
+    feats = [str(f) for f in raw_feats if isinstance(f, str)] if isinstance(raw_feats, list) else []
+    return {"version": got.get("version") or "", "profile": got.get("profile") or "", "features": feats}
 
 
 def decks():
@@ -137,14 +139,24 @@ def clean_selection(raw):
     if not fields:
         raise AnkiError("anki_no_fields")
     return {"decks": chosen, "subdecks": raw.get("subdecks", True) is not False, "rule": clean_rule,
+            "skip_suspended": bool(raw.get("skip_suspended", False)),
             "fields": fields}
 
 
 def _fetch(selection):
     who = hello()
-    got = _call("POST", "/words", {"decks": [d["id"] for d in selection["decks"]],
-                                   "subdecks": selection["subdecks"], "rule": selection["rule"],
-                                   "fields": selection["fields"]}, timeout=TIMEOUT_WORDS_S)
+    want_skip = bool(selection.get("skip_suspended"))
+    has_skip_feature = "skip_suspended" in (who.get("features") or [])
+    if want_skip and not has_skip_feature:
+        raise AnkiError("anki_skip_suspended_old")
+    req_body = {"decks": [d["id"] for d in selection["decks"]],
+                "subdecks": selection["subdecks"], "rule": selection["rule"],
+                "fields": selection["fields"]}
+    if has_skip_feature:
+        req_body["skip_suspended"] = want_skip
+    got = _call("POST", "/words", req_body, timeout=TIMEOUT_WORDS_S)
+    if has_skip_feature and ("skip_suspended" not in got or got.get("skip_suspended") is not want_skip):
+        raise AnkiError("anki_skip_suspended_unconfirmed")
     missing = set(got.get("missing") or [])
     gone = [d["name"] for d in selection["decks"] if d["id"] in missing]
     if gone and len(gone) == len(selection["decks"]):

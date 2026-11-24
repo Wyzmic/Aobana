@@ -224,7 +224,6 @@ function rmUpdateNotesBtn() {
   const btn = document.getElementById('rm-notes-btn');
   if (!btn) return;
   const n = rmNotesState.notes.length;
-  btn.classList.toggle('rm-notes-active', n > 0);
   btn.title = n > 0 ? `${t('rm_notes')} (${n})` : t('rm_notes');
 }
 
@@ -584,12 +583,16 @@ async function rmJumpToNote(id) {
   rmToggleNotes(false);
   const idx = rmState.files.findIndex(f => f.file === note.file);
   if (idx < 0) { rmToast(t('rm_place_gone')); return; }
+  const beforePos = rmCapturePos();
   if (idx !== rmState.partIndex) {
-    await rmLoadPart(idx, { targetAnchor: note.anchor_v ? note : null, targetRatio: note.scroll_ratio, targetPage: note.page || 1 });
+    if (!(await rmLoadPart(idx, { targetAnchor: note.anchor_v ? note : null, targetRatio: note.scroll_ratio, targetPage: note.page || 1 }))) return;
   } else {
     rmRestoreAnchor(note);
     rmUpdateProgressUI();
   }
+  rmPushLinkHistory(beforePos, rmCapturePos());
+  saveMediaState();
+  rmSaveProgressNow(false);
   rmToast(t('rm_notes_jumped'));
 }
 

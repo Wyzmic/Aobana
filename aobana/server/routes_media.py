@@ -83,13 +83,23 @@ def api_media():
     if sort == "read_desc":
         from aobana.server.routes_reader import last_read_times
         read_at = last_read_times()
+    coverage = None
+    covered = None
+    if sort in ("known_desc", "known_asc"):
+        # Until the count is done, the works come by name, with how far it is
+        from aobana.search import coverage as cov
+        covered = cov.status(dbs)
+        if covered.get("ready"):
+            coverage = covered.pop("figures")
     page = media_page(get_media_library(dbs),
                       media=request.args.get("media", "all"),
                       needle=needle,
                       offset=max(0, request.args.get("offset", 0, type=int)),
                       limit=max(0, request.args.get("limit", 0, type=int)),
-                      folder=folder, sort=sort, inner=inner, read_at=read_at)
+                      folder=folder, sort=sort, inner=inner, read_at=read_at, coverage=coverage)
     page["ready"] = True
+    if covered is not None:
+        page["coverage"] = covered
     if inner_wait:
         page["inner_pending"] = inner_wait
     return jsonify(page)

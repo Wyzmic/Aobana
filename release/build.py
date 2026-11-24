@@ -56,7 +56,7 @@ APP_FILES = [
     "aobana/search/__init__.py", "aobana/search/engine.py", "aobana/search/furigana.py",
     "aobana/search/titles.py", "aobana/search/result_cache.py", "aobana/search/media_tab.py", "aobana/search/custom.py",
     "aobana/search/reading.py", "aobana/search/iplusone.py", "aobana/search/known_words.py",
-    "aobana/search/anki_link.py",
+    "aobana/search/anki_link.py", "aobana/search/coverage.py",
     "aobana/indexing/__init__.py", "aobana/indexing/indexer.py", "aobana/indexing/epub_indexer.py",
     "aobana/indexing/manga_indexer.py", "aobana/indexing/custom_indexer.py", "aobana/indexing/manga_fused.py", "aobana/indexing/ass_ruby.py",
     "aobana/indexing/analyser.py", "aobana/indexing/custom_markdown.py",

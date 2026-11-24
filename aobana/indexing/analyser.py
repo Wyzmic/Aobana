@@ -455,10 +455,6 @@ def recheck_mark(now, size, mtime):
     return f"{now or 'none'}|{size}|{mtime}"
 
 
-def _show(name):
-    return re.split(r"[\\/]", name, maxsplit=1)[0]
-
-
 def _subplz(name):
     m = SUBPLZ_RE.match(re.split(r"[\\/]", name)[-1])
     return (m.group(1), m.group(2).lower()) if m else None

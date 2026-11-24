@@ -239,9 +239,6 @@ def format_merged_chapter_name(current_part: str, chapter_title: str) -> str:
         return ch_clean
     return f"{part_clean}｜{ch_clean}"
 
-def is_part_divider(label: str) -> bool:
-    return bool(IN_FILE_PART_RE.match(normalize_cjk_spacing(heading_test_text(label.strip()))))
-
 def is_main_chapter_heading(label: str) -> bool:
     clean = normalize_cjk_spacing(heading_test_text(label.strip()))
     if TIMESTAMP_SCENE_RE.match(clean) or ILLUSTRATION_PLACEHOLDER_RE.match(clean):
@@ -265,7 +262,7 @@ BOOK_PUA_RE = re.compile('[\ue000-\uf8ff\U000f0000-\U000ffffd\U00100000-\U0010ff
 
 def _book_kanji(ch):
     o = ord(ch)
-    return 0x3400 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF or o == 0x3005 or 0x20000 <= o <= 0x323AF
+    return 0x3400 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF or o == 0x3005 or 0x20000 <= o <= 0x3347F
 
 
 def _book_letter(ch):

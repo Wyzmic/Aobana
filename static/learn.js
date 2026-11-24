@@ -64,7 +64,8 @@
       const sources = KNOWN.sources || [];
       const rows = sources.map(s => {
         const sel = s.origin === 'anki' && s.meta && s.meta.anki;
-        const rule = sel ? ' · ' + t('anki_rule_note_' + sel.rule.kind, { ivl: sel.rule.ivl }) : '';
+        const skipNote = sel && sel.skip_suspended ? ' · ' + t('anki_rule_note_skip_suspended') : '';
+        const rule = sel ? ' · ' + t('anki_rule_note_' + sel.rule.kind, { ivl: sel.rule.ivl }) + skipNote : '';
         return `<div class="known-source" data-id="${esc(s.id)}">
           <div class="known-source-name"><strong>${esc(s.name)}</strong>
             <span class="muted">${esc(t('known_source', { words: fmt(s.words), date: String(s.imported || '').slice(0, 10) }) + rule)}</span></div>
@@ -227,6 +228,7 @@
     }
 
     const anki = { decks: [], ticked: new Set(), subdecks: true, rule: { kind: 'mature', ivl: 21 },
+                   skipSuspended: false, canSkipSuspended: false,
                    noteTypes: [], fields: {}, replace: null, filter: '', timer: 0, seq: 0 };
     async function ankiFetch(url, body) {
       try {
@@ -249,11 +251,15 @@
       button.disabled = false;
       if (res.error || (sel && sel.error)) { knownMessage(ankiError(res.error ? res : sel)); return; }
       knownMessage('');
+      const feats = Array.isArray(res.features) ? res.features : [];
+      const canSkip = feats.includes('skip_suspended');
       Object.assign(anki, {
         decks: res.decks || [], replace: sid || null, filter: '', noteTypes: [],
         ticked: new Set(sel ? sel.decks.map(d => d.id) : []),
         subdecks: sel ? sel.subdecks !== false : true,
         rule: sel ? { kind: sel.rule.kind, ivl: sel.rule.ivl || 21 } : { kind: 'mature', ivl: 21 },
+        skipSuspended: sel ? !!sel.skip_suspended : false,
+        canSkipSuspended: canSkip,
         fields: sel ? { ...sel.fields } : {},
       });
       const title = document.getElementById('anki-title');
@@ -277,10 +283,11 @@
       const decks = anki.decks.filter(d => anki.ticked.has(d.id) && !ankiCovered(d.name)).map(d => ({ id: d.id, name: d.name }));
       const fields = {};
       for (const nt of anki.noteTypes) if (anki.fields[nt.id]) fields[nt.id] = anki.fields[nt.id];
-      return { decks, subdecks: anki.subdecks, rule: anki.rule, fields };
+      return { decks, subdecks: anki.subdecks, rule: anki.rule, skip_suspended: !!anki.skipSuspended, fields };
     }
     function renderAnkiDialog(profile) {
       const rule = anki.rule;
+      const lockSkip = !anki.canSkipSuspended && !anki.skipSuspended;
       document.getElementById('anki-body').innerHTML = `
         <div class="facts"><div>${esc(t('anki_lead'))}</div>${profile ? `<div class="muted">${esc(t('anki_profile', { name: profile }))}</div>` : ''}</div>
         <h4>${esc(t('anki_decks'))}</h4>
@@ -295,6 +302,8 @@
             ${esc(t('anki_rule_mature'))} <input type="number" class="anki-ivl" min="1" max="36500" value="${esc(String(rule.ivl || 21))}" aria-label="${esc(t('anki_days'))}" oninput="setAnkiIvl(this.value)"> ${esc(t('anki_days'))}</label>
           <label class="anki-check"><input type="radio" name="anki-rule" value="reviewed" ${rule.kind === 'reviewed' ? 'checked' : ''} onchange="setAnkiRule('reviewed')"> ${esc(t('anki_rule_reviewed'))}</label>
           <label class="anki-check"><input type="radio" name="anki-rule" value="all" ${rule.kind === 'all' ? 'checked' : ''} onchange="setAnkiRule('all')"> ${esc(t('anki_rule_all'))}</label>
+          <label class="anki-check ${lockSkip ? 'muted' : ''}"><input type="checkbox" id="anki-skip-suspended" ${anki.skipSuspended ? 'checked' : ''} ${lockSkip ? 'disabled' : ''} onchange="setAnkiSkipSuspended(this.checked)"> ${esc(t('anki_skip_suspended'))}</label>
+          ${anki.canSkipSuspended ? '' : `<div class="muted anki-feature-note" id="anki-skip-suspended-note">${esc(t('anki_skip_suspended_update'))}</div>`}
         </div>
         <div class="anki-fields"></div>
         <div class="anki-preview" role="status"></div>
@@ -342,6 +351,18 @@
     function setAnkiSubdecks(on) { anki.subdecks = on; renderAnkiDecks(); ankiChanged(true); }
     function filterAnkiDecks(value) { anki.filter = value || ''; renderAnkiDecks(); }
     function setAnkiRule(kind) { anki.rule = { ...anki.rule, kind }; ankiChanged(false); }
+    function setAnkiSkipSuspended(on) {
+      anki.skipSuspended = anki.canSkipSuspended ? !!on : false;
+      if (!anki.canSkipSuspended && !anki.skipSuspended) {
+        const el = document.getElementById('anki-skip-suspended');
+        if (el) {
+          el.checked = false;
+          el.disabled = true;
+          if (el.parentElement) el.parentElement.classList.add('muted');
+        }
+      }
+      ankiChanged(false);
+    }
     function setAnkiIvl(value) {
       const ivl = parseInt(value, 10);
       if (ivl >= 1 && ivl <= 36500) { anki.rule = { ...anki.rule, ivl }; ankiChanged(false); }

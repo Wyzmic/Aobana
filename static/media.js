@@ -6,6 +6,8 @@
     const mediaTabUnfiltered = () => MEDIAS.length === 1 || mediaTabFilter() === 'all';
 
     function statPills(it) {
+      // Sorted by known words, the row shows them in place of its files and lines
+      if (it.coverage !== undefined) return coveragePills(it.coverage);
       if (it.media === 'custom') {
         return `${it.file ? '' : `<span class="stat-pill secondary">${esc(t('custom_files', { n: fmt(it.episodes) }))}</span>`}<span class="stat-pill">${esc(t('stat_lines', { n: fmt(it.lines) }))}</span>`;
       }
@@ -19,6 +21,15 @@
       }
       return `<span class="stat-pill secondary">${esc(t('stat_eps', { n: fmt(it.episodes) }))}</span>
               <span class="stat-pill">${esc(t('stat_lines', { n: fmt(it.lines) }))}</span>`;
+    }
+
+    function coveragePills(c) {
+      const pct = v => v == null ? '—' : Number(v).toFixed(1);
+      const title = esc(t('coverage_title'));
+      if (!c || c.known == null) return `<span class="stat-pill" title="${title}">${esc(t('stat_known', { n: '—' }))}</span>`;
+      return `<span class="stat-pill" title="${title}">${esc(t('stat_known', { n: pct(c.known) }))}</span>
+              <span class="stat-pill secondary" title="${title}">${esc(t('stat_i0', { n: pct(c.i0) }))}</span>
+              <span class="stat-pill secondary" title="${title}">${esc(t('stat_i1', { n: pct(c.i1) }))}</span>`;
     }
 
     const MEDIA_STATE = 'aobana_last_media';
@@ -199,12 +210,15 @@
     }
 
     const MEDIA_PAGE = '500';
-    const MEDIA_SORTS = ['name', 'read_desc', 'parts_desc', 'parts_asc', 'lines_desc', 'lines_asc'];
+    const MEDIA_SORTS = ['name', 'read_desc', 'known_desc', 'known_asc', 'parts_desc', 'parts_asc', 'lines_desc', 'lines_asc'];
+    // Easiest and hardest need known words, as the i+1 menu does
+    const isKnownSort = v => v === 'known_desc' || v === 'known_asc';
     function mediaSort() {
       const v = store.get('mediaSort', 'name');
-      return MEDIA_SORTS.includes(v) ? v : 'name';
+      return MEDIA_SORTS.includes(v) && (KNOWN.available || !isKnownSort(v)) ? v : 'name';
     }
-    const CUSTOM_SORTS = ['default', ...MEDIA_SORTS];
+    // The known-word sorts are of whole works: not inside one
+    const CUSTOM_SORTS = ['default', ...MEDIA_SORTS.filter(v => !isKnownSort(v))];
     function customSort() {
       const v = store.get('customSort', 'default');
       return CUSTOM_SORTS.includes(v) ? v : 'default';
@@ -274,6 +288,8 @@
       if (reset) {
         mediaGen++;
         clearTimeout(mediaInnerTimer);
+        clearTimeout(coverageTimer);
+        showCoverageNotice(null);
         if (mediaCtrl) mediaCtrl.abort();
         cancelServerSearch(0);
         stopSearchEta();
@@ -337,6 +353,50 @@
       moreEl.textContent = mediaHasMore ? t('loading') : '';
       if (mediaHasMore && !mediaRestoring) watchMediaEnd();
       showMediaInnerWait(data, gen);
+      if (mediaOffset === data.items.length) watchCoverage(data.coverage, gen);
+    }
+
+    let coverageTimer = null;
+    function watchCoverage(cov, gen) {
+      clearTimeout(coverageTimer);
+      const head = document.getElementById('media-coverage-wait');
+      if (!cov || cov.ready || !cov.words) { if (head) head.remove(); showCoverageNotice(null); return; }
+      const listEl = document.getElementById('media-list');
+      if (!head) listEl.insertAdjacentHTML('afterbegin', `<div id="media-coverage-wait" class="media-inner-head">${esc(t('coverage_counting'))}</div>`);
+      showCoverageNotice(cov);
+      coverageTimer = setTimeout(async () => {
+        if (gen !== mediaGen) return showCoverageNotice(null);
+        const params = new URLSearchParams({ media: mediaTabFilter(), q: '', offset: '0', limit: '1', sort: mediaSort() });
+        let st = null;
+        try { st = await fetchMedia(params, mediaCtrl && mediaCtrl.signal); } catch (e) {
+          if (gen !== mediaGen || (e && e.name === 'AbortError')) {
+            const h = document.getElementById('media-coverage-wait');
+            if (h) h.remove();
+            showCoverageNotice(null);
+            return;
+          }
+          coverageTimer = setTimeout(() => watchCoverage(cov, gen), 2000);
+          return;
+        }
+        if (gen !== mediaGen) return showCoverageNotice(null);
+        if (st && st.coverage && st.coverage.ready) { showCoverageNotice(null); loadMediaPage(true, true).then(saveMediaState); }
+        else watchCoverage(st && st.coverage, gen);
+      }, 1000);
+    }
+    function showCoverageNotice(cov) {
+      let box = document.getElementById('coverage-notice');
+      if (!cov || !cov.notice) { if (box) box.remove(); return; }
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'coverage-notice';
+        box.className = 'task-notice';
+        box.setAttribute('role', 'status');
+        box.innerHTML = `<div><div>${esc(t('coverage_counting'))}</div><div class="progress"><div></div></div><div class="progress-text"></div></div>`;
+        document.body.appendChild(box);
+      }
+      const part = cov.total ? Math.min(100, 100 * cov.done / cov.total) : 0;
+      box.querySelector('.progress > div').style.width = part.toFixed(1) + '%';
+      box.querySelector('.progress-text').textContent = cov.remaining == null ? t('duration_unknown') : fmtEta(cov.remaining);
     }
 
     function showMediaInnerWait(data, gen) {
@@ -539,7 +599,7 @@
     }
     function initMediaSort() {
       mediaSortFor = mediaTabFilter();
-      const sorts = MEDIA_SORTS.filter(v => mediaPartsVary || !v.startsWith('parts'));
+      const sorts = MEDIA_SORTS.filter(v => (mediaPartsVary || !v.startsWith('parts')) && (KNOWN.available || !isKnownSort(v)));
       makeDropdown(document.getElementById('media-sort'), {
         options: sorts.map(v => ({ value: v, label: mediaSortLabel(v) })),
         value: sorts.includes(mediaSort()) ? mediaSort() : 'name', title: t('media_sort_title'), icon: ICON_ROWS,
@@ -2314,6 +2374,7 @@
         file: (rmState.part && rmState.part.file) || (item && item.file) || '',
         secIndex: rmState.secIndex || 0,
         pageIndex: rmState.pageIndex || 0,
+        mangaPage: rmState.media === 'manga' ? (rmState.mangaPage || 1) : 0,
         scrollRatio: rmState.media === 'manga' ? 0 : rmReadScrollRatio(),
         scrollTop: sc ? sc.scrollTop : 0,
         rtlDist: (sc && rmState.dir === 'vertical') ? rmGetRtlDist(sc) : 0,
@@ -2330,11 +2391,14 @@
       }
       if (idx < 0 || idx >= rmState.files.length) return;
       if (idx !== rmState.partIndex || !rmState.part) {
-        await rmLoadPart(idx, { restoreExactPos: pos, targetAnchor: pos.anchor || null, fromHistory: true });
+        const tPage = pos.mangaPage || (pos.anchor && pos.anchor.page) || 1;
+        await rmLoadPart(idx, { restoreExactPos: pos, targetAnchor: pos.anchor || null, targetPage: tPage, fromHistory: true });
         return;
       }
       if (pos.anchor && pos.anchor.anchor_v) {
         rmRestoreAnchor(pos.anchor);
+      } else if (rmState.media === 'manga') {
+        if (typeof rmGoMangaPage === 'function') rmGoMangaPage(pos.mangaPage || 1);
       } else if (rmState.layout === 'paginated') {
         if ((rmState.sections || []).length > 1 && pos.secIndex != null && pos.secIndex !== rmState.secIndex) {
           rmRenderPaginatedSection(pos.secIndex, { inSecRatio: 0 });
@@ -2680,7 +2744,10 @@
         <div class="rm-drawer-backdrop" id="rm-toc-drawer" hidden onclick="if(event.target===this)rmToggleToc(false)">
           <div class="rm-drawer-panel">
             <div class="rm-drawer-head">
-              <span id="rm-toc-head">${esc(t('rm_toc'))}</span>
+              <div class="rm-drawer-tabs" role="tablist">
+                <button type="button" role="tab" class="rm-drawer-tab" data-toc-tab="toc" onclick="rmSetTocTab('toc')">${esc(t('rm_toc'))}</button>
+                <button type="button" role="tab" class="rm-drawer-tab" data-toc-tab="bm" onclick="rmSetTocTab('bm')">${esc(t('rm_bookmarks'))}<span class="rm-drawer-tab-n" id="rm-toc-bm-n"></span></button>
+              </div>
               <button type="button" class="sq-btn" onclick="rmToggleToc(false)" aria-label="${esc(t('close'))}">✕</button>
             </div>
             <div class="rm-drawer-list" id="rm-toc-list"></div>
@@ -2692,11 +2759,14 @@
         <div class="rm-notes-backdrop" id="rm-notes-panel" hidden onclick="if(event.target===this && typeof rmToggleNotes==='function')rmToggleNotes(false)">
           <div class="rm-notes-card" id="rm-notes-card"></div>
         </div>
+        <div class="sr-only" id="rm-live" aria-live="polite" aria-atomic="true"></div>
         <style id="rm-epub-style"></style>`;
 
       dlg.addEventListener('click', e => {
         const bmMenu = document.getElementById('rm-bm-menu');
-        if (bmMenu && !bmMenu.hidden && !e.target.closest('#rm-bm-menu, #rm-bm-btn')) {
+        const path = e.composedPath ? e.composedPath() : [];
+        const insideBm = path.includes(bmMenu) || (e.target && e.target.closest && e.target.closest('#rm-bm-menu, #rm-bm-btn'));
+        if (bmMenu && !bmMenu.hidden && !insideBm) {
           bmMenu.hidden = true;
           rmResetTopbarForMode();
         }
@@ -2828,7 +2898,7 @@
     }
 
     async function rmLoadPart(index, opts = {}) {
-      if (index < 0 || index >= rmState.files.length) return;
+      if (index < 0 || index >= rmState.files.length) return false;
       rmLanded = null;
       rmState.partIndex = index;
       const item = rmState.files[index];
@@ -2855,7 +2925,7 @@
       const ctrl = rmState.partCtrl = new AbortController();
       if (skipping) {
         await new Promise(res => setTimeout(res, 180));
-        if (gen !== rmState.loadGen || !isReadingModeOpen()) return;
+        if (gen !== rmState.loadGen || !isReadingModeOpen()) return false;
       }
       let r = null;
       let part = null;
@@ -2864,10 +2934,10 @@
         if (r.ok) part = await r.json();
       } catch (e) {}
       if (rmState.partCtrl === ctrl) rmState.partCtrl = null;
-      if (gen !== rmState.loadGen || !isReadingModeOpen()) return;
+      if (gen !== rmState.loadGen || !isReadingModeOpen()) return false;
       if (!part) {
         stage.innerHTML = `<div class="error-text" style="padding:2em;text-align:center;">${esc(t('load_failed'))}</div>`;
-        return;
+        return false;
       }
       rmState.part = part;
       rmResolveDirAndLayout();
@@ -2884,11 +2954,66 @@
 
       rmApplyPrefsToDom(false);
       rmRenderPartContent(opts);
+      rmAnnounce(shortTitle);
       rmUpdateBookmarkBtn();
       if (typeof rmOnNotesPartChange === 'function') rmOnNotesPartChange();
       saveMediaState();
       if (opts.fromHistory) rmSaveProgressNow(false);
       else rmScheduleSaveProgress();
+      return true;
+    }
+
+    function rmSyncPartNavButtons() {
+      const prevBtn = document.getElementById('rm-prev-btn');
+      const nextBtn = document.getElementById('rm-next-btn');
+      if (!prevBtn || !nextBtn || prevBtn.parentElement !== nextBtn.parentElement) return;
+      const verticalNav = rmState.media === 'manga' || rmState.dir === 'vertical';
+      const parent = prevBtn.parentElement;
+      if (verticalNav) {
+        if (prevBtn.nextElementSibling === nextBtn) parent.insertBefore(nextBtn, prevBtn);
+      } else if (nextBtn.nextElementSibling === prevBtn) {
+        parent.insertBefore(prevBtn, nextBtn);
+      }
+      const prevPath = prevBtn.querySelector('svg path');
+      const nextPath = nextBtn.querySelector('svg path');
+      if (prevPath) prevPath.setAttribute('d', verticalNav ? 'M9 6l6 6-6 6' : 'M15 18l-6-6 6-6');
+      if (nextPath) nextPath.setAttribute('d', verticalNav ? 'M15 18l-6-6 6-6' : 'M9 6l6 6-6 6');
+    }
+
+    function rmSyncFuriganaAria() {
+      const stage = document.getElementById('rm-stage');
+      if (!stage) return;
+      const hoverMode = rmGetPrefs().furigana === 'hover';
+      stage.querySelectorAll('ruby rt').forEach(rt => {
+        const ruby = rt.closest('ruby');
+        const hide = hoverMode && !(ruby && ruby.classList.contains('rm-ruby-open'));
+        if (hide) rt.setAttribute('aria-hidden', 'true');
+        else rt.removeAttribute('aria-hidden');
+      });
+    }
+
+    function rmAnnounce(text) {
+      const el = document.getElementById('rm-live');
+      if (!el || !text) return;
+      el.textContent = String(text);
+    }
+
+    function rmPageAnnounceText() {
+      if (!rmState.part) return '';
+      if (rmState.media === 'manga') {
+        const total = Math.max(1, (rmState.part.pages || []).length);
+        const cur = Math.max(1, Math.min(total, rmState.mangaPage));
+        return t('rm_page_of', { a: fmt(cur), b: fmt(total) });
+      }
+      if (rmState.layout !== 'paginated') return '';
+      const sCount = Math.max(1, rmState.sections.length);
+      if (sCount > 1 && rmState.pageCount === 1) {
+        return t('rm_page_of', { a: fmt(rmState.secIndex + 1), b: fmt(sCount) });
+      }
+      if (sCount > 1) {
+        return `${fmt(rmState.secIndex + 1)}/${fmt(sCount)} · ${t('rm_page_of', { a: fmt(rmState.pageIndex + 1), b: fmt(rmState.pageCount) })}`;
+      }
+      return t('rm_page_of', { a: fmt(rmState.pageIndex + 1), b: fmt(rmState.pageCount) });
     }
 
     function rmApplyPrefsToDom(relayout = true, rebuildSettings = true, anchorOverride = null) {
@@ -2954,6 +3079,8 @@
       }
       const setp = document.getElementById('rm-settings-panel');
       if (rebuildSettings && setp && !setp.hidden) rmRenderSettingsPanel();
+      rmSyncPartNavButtons();
+      rmSyncFuriganaAria();
     }
 
     function rmEdgeHitSide(clientX, containerEl) {
@@ -3197,6 +3324,7 @@
       scroller.scrollTop = 0;
       scroller.scrollLeft = 0;
       rmSetSafeHtml(root, rmState.sections[rmState.secIndex] || `<div class="status-line">${esc(t('rm_no_content'))}</div>`);
+      rmSyncFuriganaAria();
       rmNormalizePaginatedSection(root, scroller);
       rmMeasurePagination();
       if (!opts.skipOffset) {
@@ -3287,6 +3415,7 @@
         }
         rmState.sections = [''];
         const finishPaginatedLines = () => {
+          rmSyncFuriganaAria();
           rmBuildPartCharIndex(root);
           rmBindStageInteractions();
           rmNormalizePaginatedSection(root, scroller);
@@ -3336,6 +3465,7 @@
             <button type="button" class="btn primary" ${rmState.partIndex >= rmState.files.length - 1 ? 'disabled' : ''} onclick="rmStepPart(1)">${esc(t('rm_next_part'))}${vert ? '' : ' →'}</button>`;
           root.appendChild(nav);
         }
+        rmSyncFuriganaAria();
         rmBuildPartCharIndex(root);
         rmBindStageInteractions();
         rmMeasurePagination();
@@ -3923,6 +4053,7 @@
         if (nxt < 0) {
           if (rmState.secIndex > 0) {
             rmRenderPaginatedSection(rmState.secIndex - 1, { atEnd: true });
+            rmAnnounce(rmPageAnnounceText());
             rmScheduleSaveProgress();
           } else if (rmState.partIndex > 0) {
             rmLoadPart(rmState.partIndex - 1, { atEnd: true });
@@ -3932,6 +4063,7 @@
         if (nxt >= rmState.pageCount) {
           if (rmState.secIndex + 1 < rmState.sections.length) {
             rmRenderPaginatedSection(rmState.secIndex + 1, { inSecRatio: 0 });
+            rmAnnounce(rmPageAnnounceText());
             rmScheduleSaveProgress();
           } else if (rmState.partIndex + 1 < rmState.files.length) {
             rmLoadPart(rmState.partIndex + 1, {});
@@ -3940,6 +4072,7 @@
         }
         rmApplyPaginatedOffset(nxt);
         rmUpdateProgressUI();
+        rmAnnounce(rmPageAnnounceText());
         rmScheduleSaveProgress();
         return;
       }
@@ -3967,6 +4100,24 @@
       return null;
     }
 
+    // A link's target is its first character: the element's own box can begin a page earlier
+    // (a note pushed to the next page, an empty anchor before a paragraph), the character cannot.
+    function rmAnchorCharRect(el, root) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      walker.currentNode = el;
+      const range = document.createRange();
+      for (let node = walker.nextNode(), n = 0; node && n < 200; node = walker.nextNode(), n++) {
+        if (node.parentElement && node.parentElement.closest('rt, rp, .rm-sent-break')) continue;
+        const i = node.nodeValue.search(/\S/);
+        if (i < 0) continue;
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const r = [...range.getClientRects()].find(x => x.width >= 0.5 && x.height >= 0.5);
+        if (r) return r;
+      }
+      return el.getBoundingClientRect();
+    }
+
     function rmGoToAnchorInPart(member, frag, allowMemberFallback = false) {
       const part = rmState.part;
       if (!rmHtmlPart(part)) return false;
@@ -3988,15 +4139,26 @@
           if (secIdx !== prevSec) rmRenderPaginatedSection(prevSec, { inSecRatio: 0 });
           return false;
         }
+        const vertical = rmState.dir === 'vertical';
+        const axisMid = r => vertical ? (r.top + r.bottom) * 0.5 : (r.left + r.right) * 0.5;
         let page = 0;
         if (el && root) {
-          const er = el.getBoundingClientRect();
           const rr = root.getBoundingClientRect();
-          const off = rmState.dir === 'vertical' ? er.top - rr.top : er.left - rr.left;
-          const stride = (rmState.dir === 'vertical' ? rmState.pageH : rmState.pageW) + RM_PAGE_GAP;
-          page = Math.max(0, Math.floor(off / Math.max(1, stride)));
+          const off = axisMid(rmAnchorCharRect(el, root)) - (vertical ? rr.top : rr.left);
+          const stride = (vertical ? rmState.pageH : rmState.pageW) + RM_PAGE_GAP;
+          page = Math.max(0, Math.floor((off + RM_PAGE_GAP * 0.5) / Math.max(1, stride)));
         }
         rmApplyPaginatedOffset(page);
+        // The page shown is the proof: a target still before or after it moves the page.
+        const sc = rmScrollerEl();
+        for (let i = 0; i < 3 && el && root && sc; i++) {
+          const vr = sc.getBoundingClientRect();
+          const c = axisMid(rmAnchorCharRect(el, root));
+          const step = c > (vertical ? vr.bottom : vr.right) ? 1 : (c < (vertical ? vr.top : vr.left) ? -1 : 0);
+          const nxt = rmState.pageIndex + step;
+          if (!step || nxt < 0 || nxt >= rmState.pageCount) break;
+          rmApplyPaginatedOffset(nxt);
+        }
         rmUpdateProgressUI();
         rmScheduleSaveProgress();
         return true;
@@ -4041,7 +4203,7 @@
         rmToast(t('rm_link_not_found'));
         return;
       }
-      if (idx !== rmState.partIndex) await rmLoadPart(idx, {});
+      if (idx !== rmState.partIndex && !(await rmLoadPart(idx, {}))) return;
       rmGoToAnchorInPart(member, frag, true);
       rmPushLinkHistory(beforePos, rmCapturePos());
       saveMediaState();
@@ -4127,9 +4289,11 @@
             const was = ruby.classList.contains('rm-ruby-open');
             stage.querySelectorAll('ruby.rm-ruby-open').forEach(r => r.classList.remove('rm-ruby-open'));
             if (!was) ruby.classList.add('rm-ruby-open');
+            rmSyncFuriganaAria();
             return;
           }
           stage.querySelectorAll('ruby.rm-ruby-open').forEach(r => r.classList.remove('rm-ruby-open'));
+          rmSyncFuriganaAria();
         }
       };
 
@@ -4259,24 +4423,24 @@
       await apiPost('/api/reading/state', { media: rmState.media, folder: rmState.folder, work: patch }).catch(() => null);
     }
 
-    function rmFormatBookmarkPlace(bm) {
+    const RM_BOOKMARKS_MAX = 100;
+
+    function rmWorkBookmarks(work = rmState.work) {
+      if (!work) return [];
+      if (Array.isArray(work.bookmarks)) return work.bookmarks;
+      if (work.bookmark && typeof work.bookmark === 'object') return [work.bookmark];
+      return [];
+    }
+
+    function rmBookmarkPlaceKey(bm) {
       if (!bm) return '';
-      const base = bm.label || bm.file || '';
-      if (rmState.media === 'manga' && bm.page) return `${base} · ${t('page_n', { n: fmt(bm.page) })}`;
-      if (bm.scroll_ratio != null) return `${base} · ${Math.round((bm.scroll_ratio || 0) * 100)}%`;
-      return base;
+      const sec = Number(bm.sec_index || 0), ch = Number(bm.char_offset || 0);
+      const pg = rmState.media === 'manga' ? Number(bm.page || 0) : 0;
+      return `${bm.file || ''}|${sec}|${ch}|${pg}`;
     }
 
-    function rmUpdateBookmarkBtn() {
-      const btn = document.getElementById('rm-bm-btn');
-      if (!btn) return;
-      const bm = rmState.work && rmState.work.bookmark;
-      btn.classList.toggle('rm-bm-active', !!bm);
-      btn.title = bm ? `${t('rm_bookmark_go')} (${rmFormatBookmarkPlace(bm)})` : t('rm_bookmark_set');
-    }
-
-    async function rmSetBookmarkNow() {
-      if (!rmState.part) return;
+    function rmCurrentBookmarkCandidate() {
+      if (!rmState.part) return null;
       const anchor = rmReadAnchor();
       const item = rmState.files[rmState.partIndex] || {};
       const curRatio = anchor ? anchor.scroll_ratio : (rmState.media === 'manga' ? 0 : rmReadScrollRatio());
@@ -4289,60 +4453,137 @@
         sec_index: anchor ? (anchor.sec_index || 0) : (rmState.secIndex || 0),
         quote: anchor ? (anchor.quote || '') : '',
         label: item.title || rmState.part.file,
+        created_at: Math.floor(Date.now() / 1000),
       };
       if (anchor && anchor.page_frac != null) nextBm.page_frac = anchor.page_frac;
       if (anchor && typeof anchor.edge === 'number') nextBm.edge = anchor.edge;
-      await rmSaveWorkOverride({ bookmark: nextBm });
+      return nextBm;
+    }
+
+    function rmCurrentBookmarkIndex() {
+      const cand = rmCurrentBookmarkCandidate();
+      if (!cand) return -1;
+      const key = rmBookmarkPlaceKey(cand);
+      return rmWorkBookmarks().findIndex(b => rmBookmarkPlaceKey(b) === key);
+    }
+
+    function rmFormatBookmarkPlace(bm) {
+      if (!bm) return '';
+      const base = bm.label || bm.file || '';
+      if (rmState.media === 'manga' && bm.page) return `${base} · ${t('page_n', { n: fmt(bm.page) })}`;
+      if (bm.scroll_ratio != null) return `${base} · ${Math.round((bm.scroll_ratio || 0) * 100)}%`;
+      return base;
+    }
+
+    function rmUpdateBookmarkBtn() {
+      const btn = document.getElementById('rm-bm-btn');
+      if (!btn) return;
+      const bms = rmWorkBookmarks();
+      btn.title = bms.length ? `${t('rm_bookmarks')} (${fmt(bms.length)})` : t('rm_bookmark_set');
+    }
+
+    async function rmAddBookmarkHere() {
+      const nextBm = rmCurrentBookmarkCandidate();
+      if (!nextBm) return false;
+      const existing = rmWorkBookmarks();
+      const key = rmBookmarkPlaceKey(nextBm);
+      const dupIdx = existing.findIndex(b => rmBookmarkPlaceKey(b) === key);
+      if (dupIdx >= 0) {
+        const nextList = existing.filter((_, idx) => idx !== dupIdx);
+        await rmSaveWorkOverride({ bookmarks: nextList });
+        rmUpdateBookmarkBtn();
+        rmRenderToc();
+        const bmMenu = document.getElementById('rm-bm-menu');
+        if (bmMenu && !bmMenu.hidden) rmRenderBookmarkMenu();
+        rmToast(t('rm_bookmark_deleted'));
+        return false;
+      }
+      if (existing.length >= RM_BOOKMARKS_MAX) {
+        rmToast(t('rm_bookmark_limit', { n: fmt(RM_BOOKMARKS_MAX) }));
+        return false;
+      }
+      const nextList = [nextBm, ...existing].slice(0, RM_BOOKMARKS_MAX);
+      await rmSaveWorkOverride({ bookmarks: nextList });
       rmUpdateBookmarkBtn();
       rmRenderToc();
       const bmMenu = document.getElementById('rm-bm-menu');
-      if (bmMenu) bmMenu.hidden = true;
+      if (bmMenu && !bmMenu.hidden) rmRenderBookmarkMenu();
       rmToast(`${t('rm_bookmark_saved')} ${rmFormatBookmarkPlace(nextBm)}`);
+      return true;
     }
 
-    async function rmGoBookmark() {
-      const bm = rmState.work && rmState.work.bookmark;
+    async function rmGoBookmark(bmIdx = 0) {
+      const bms = rmWorkBookmarks();
+      const bm = bms[bmIdx];
       const bmMenu = document.getElementById('rm-bm-menu');
       if (bmMenu) bmMenu.hidden = true;
       if (!bm) return;
       const idx = rmState.files.findIndex(f => f.file === bm.file);
       if (idx < 0) { rmToast(t('rm_place_gone')); return; }
+      const beforePos = rmCapturePos();
       if (idx !== rmState.partIndex) {
-        await rmLoadPart(idx, { targetAnchor: bm.anchor_v ? bm : null, targetRatio: bm.scroll_ratio, targetPage: bm.page || 1 });
+        if (!(await rmLoadPart(idx, { targetAnchor: bm.anchor_v ? bm : null, targetRatio: bm.scroll_ratio, targetPage: bm.page || 1 }))) return;
       } else if (rmState.media === 'manga') {
         rmRestoreAnchor(bm);
       } else {
         rmRestoreAnchor(bm);
         rmUpdateProgressUI();
       }
+      rmPushLinkHistory(beforePos, rmCapturePos());
+      saveMediaState();
+      rmSaveProgressNow(false);
       rmToast(t('rm_bookmark_jumped'));
     }
 
-    async function rmClearBookmark() {
-      const bmMenu = document.getElementById('rm-bm-menu');
-      if (bmMenu) bmMenu.hidden = true;
-      await rmSaveWorkOverride({ bookmark: null });
+    async function rmDeleteBookmark(i) {
+      const bms = rmWorkBookmarks().filter((_, idx) => idx !== i);
+      await rmSaveWorkOverride({ bookmarks: bms });
       rmUpdateBookmarkBtn();
+      rmRenderBookmarkMenu();
       rmRenderToc();
-      rmToast(t('rm_bookmark_cleared'));
+      rmToast(t('rm_bookmark_deleted'));
+    }
+
+    function rmRenderBookmarkMenu() {
+      const menu = document.getElementById('rm-bm-menu');
+      if (!menu) return;
+      const bms = rmWorkBookmarks();
+      const here = rmCurrentBookmarkIndex() >= 0;
+      const headBtn = `<div class="rm-bm-actions">
+        <button type="button" class="btn ${here ? '' : 'primary'}" id="rm-bm-add-btn" onclick="rmAddBookmarkHere()">${esc(t(here ? 'rm_bookmark_remove_here' : 'rm_bookmark_add_here'))}</button>
+      </div>`;
+      if (!bms.length) {
+        menu.innerHTML = headBtn + `<div class="rm-bm-where">${esc(t('rm_bookmark_empty'))}</div>`;
+        return;
+      }
+      const head = rmTocCommonHead(rmState.files.map(it => it.title || it.file));
+      const shortLbl = s => (head && s.startsWith(head) && s.length > head.length ? s.slice(head.length) : s);
+      const rows = bms.map((bm, i) => {
+        const place = rmFormatBookmarkPlace({ ...bm, label: shortLbl(bm.label || bm.file || '') });
+        return `<div class="rm-bm-item" data-bm-idx="${i}">
+          ${bm.name ? `<div class="rm-bm-name">${esc(bm.name)}</div>` : ''}
+          <div class="rm-bm-where">${esc(place)}</div>
+          <div class="rm-bm-row-actions">
+            <button type="button" class="btn primary" onclick="rmGoBookmark(${i})">${esc(t('rm_bookmark_go_one'))}</button>
+            <button type="button" class="btn" onclick="rmDeleteBookmark(${i})">${esc(t('rm_notes_delete'))}</button>
+          </div>
+        </div>`;
+      }).join('');
+      menu.innerHTML = headBtn + `<div class="rm-bm-list">${rows}</div>`;
     }
 
     function rmOnBookmarkClick() {
       rmCloseFontPopup(false);
       const notesp = document.getElementById('rm-notes-panel');
       if (notesp && !notesp.hidden && typeof rmToggleNotes === 'function') rmToggleNotes(false);
-      const bm = rmState.work && rmState.work.bookmark;
-      if (!bm) { rmSetBookmarkNow(); return; }
       const menu = document.getElementById('rm-bm-menu');
       if (!menu) return;
-      if (!menu.hidden) { menu.hidden = true; rmResetTopbarForMode(); return; }
-      menu.innerHTML = `
-        <div class="rm-bm-where">${esc(rmFormatBookmarkPlace(bm))}</div>
-        <div class="rm-bm-actions">
-          <button type="button" class="btn primary" onclick="rmGoBookmark()">${esc(t('rm_bookmark_go'))}</button>
-          <button type="button" class="btn" onclick="rmSetBookmarkNow()">${esc(t('rm_bookmark_move'))}</button>
-          <button type="button" class="btn" onclick="rmClearBookmark()">${esc(t('rm_bookmark_clear'))}</button>
-        </div>`;
+      if (!menu.hidden) {
+        menu.hidden = true;
+        rmResetTopbarForMode();
+        return;
+      }
+      rmRenderBookmarkMenu();
       menu.hidden = false;
       rmSetTopbarHidden(false, 'overlay');
     }
@@ -4369,12 +4610,46 @@
       const cut = head.lastIndexOf('｜');
       return cut < 0 ? '' : head.slice(0, cut + 1);
     }
+    // The drawer's two tabs, 目次 and しおり; the one last chosen opens again
+    let rmTocTab = 'toc';
+    function rmSetTocTab(tab) {
+      rmTocTab = tab === 'bm' ? 'bm' : 'toc';
+      rmRenderToc();
+      const list = document.getElementById('rm-toc-list');
+      if (list) list.scrollTop = 0;
+      if (rmTocTab === 'toc') {
+        const active = list && list.querySelector('.rm-toc-item.active');
+        if (active) active.scrollIntoView({ block: 'center' });
+      }
+    }
+    function rmTocBookmarkRows(bms, label) {
+      if (!bms.length) return `<div class="rm-toc-empty">${esc(t('rm_bookmark_empty'))}</div>`;
+      return bms.map((bm, bi) => {
+        const place = rmFormatBookmarkPlace({ ...bm, label: label(bm.label || bm.file || '') });
+        const text = bm.name ? `<span class="rm-toc-bm-name">${esc(bm.name)}</span><span class="rm-toc-bm-sub">${esc(place)}</span>` : `<span>${esc(place)}</span>`;
+        return `<div class="rm-toc-bm-row" data-bm-idx="${bi}">
+          <button type="button" class="rm-toc-item rm-toc-bm-item" onclick="rmToggleToc(false); rmGoBookmark(${bi})">${text}</button>
+          <button type="button" class="icon-btn rm-toc-bm-x" title="${esc(t('rm_bookmark_delete_one'))}" aria-label="${esc(t('rm_bookmark_delete_one'))}" onclick="rmDeleteBookmark(${bi})"><span>×</span></button>
+        </div>`;
+      }).join('');
+    }
     function rmRenderToc() {
       const list = document.getElementById('rm-toc-list');
       if (!list) return;
-      const bmFile = rmState.work && rmState.work.bookmark && rmState.work.bookmark.file;
+      const bms = rmWorkBookmarks();
       const head = rmTocCommonHead(rmState.files.map(it => it.title || it.file));
       const label = s => (head && s.startsWith(head) && s.length > head.length ? s.slice(head.length) : s);
+      document.querySelectorAll('#rm-toc-drawer .rm-drawer-tab').forEach(b => {
+        const on = b.dataset.tocTab === rmTocTab;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      const n = document.getElementById('rm-toc-bm-n');
+      if (n) n.textContent = bms.length ? fmt(bms.length) : '';
+      if (rmTocTab === 'bm') {
+        list.innerHTML = rmTocBookmarkRows(bms, label);
+        return;
+      }
       let lastGroup = '';
       const out = [];
       rmState.files.forEach((it, i) => {
@@ -4388,19 +4663,23 @@
             out.push(`<div class="rm-toc-group">${esc(gName)}</div>`);
           }
         }
-        const bmBadge = bmFile && it.file === bmFile ? '<span class="rm-toc-bm" aria-hidden="true">★</span>' : '';
-        out.push(`<button type="button" class="rm-toc-item ${i === rmState.partIndex ? 'active' : ''}" data-idx="${i}" onclick="rmJumpToc(${i})"><span>${esc(label(it.title || it.file))}</span>${bmBadge}</button>`);
+        out.push(`<button type="button" class="rm-toc-item ${i === rmState.partIndex ? 'active' : ''}" data-idx="${i}" onclick="rmJumpToc(${i})"><span>${esc(label(it.title || it.file))}</span></button>`);
       });
       list.innerHTML = out.join('');
     }
     function rmHighlightToc() {
-      document.querySelectorAll('#rm-toc-list .rm-toc-item').forEach((el, i) => {
-        el.classList.toggle('active', i === rmState.partIndex);
+      document.querySelectorAll('#rm-toc-list .rm-toc-item[data-idx]').forEach(el => {
+        el.classList.toggle('active', Number(el.dataset.idx) === rmState.partIndex);
       });
     }
-    function rmJumpToc(idx) {
+    async function rmJumpToc(idx) {
       rmToggleToc(false);
-      rmLoadPart(idx, {});
+      if (idx < 0 || idx >= rmState.files.length) return;
+      const beforePos = rmCapturePos();
+      if (!(await rmLoadPart(idx, {}))) return;
+      rmPushLinkHistory(beforePos, rmCapturePos());
+      saveMediaState();
+      rmSaveProgressNow(false);
     }
     function rmToggleToc(force) {
       const el = document.getElementById('rm-toc-drawer');
@@ -4415,6 +4694,7 @@
         if (notesp) notesp.hidden = true;
         const bmMenu = document.getElementById('rm-bm-menu');
         if (bmMenu) bmMenu.hidden = true;
+        rmRenderToc();
         rmSetTopbarHidden(false, 'overlay');
         const active = el.querySelector('.rm-toc-item.active');
         if (active) active.scrollIntoView({ block: 'center' });
@@ -4461,7 +4741,6 @@
       const isManga = rmState.media === 'manga';
       const mangaText = isManga && rmMangaTextOnly(rmState.part);
       const isSubs = rmState.media === 'subs';
-      const bm = w.bookmark;
       card.innerHTML = `
         <div class="rm-drawer-head">
           <span>${esc(t('rm_settings'))}</span>
@@ -4621,12 +4900,11 @@
           <div class="rm-set-row-inline">
             <button type="button" class="btn" onclick="rmMangaFit(false); rmToggleSettings(false)">${esc(t('rm_zoom_reset'))}</button>
           </div>` : ''}
-          ${bm ? `<div class="rm-set-row">
-            <span class="rm-set-label">${esc(rmFormatBookmarkPlace(bm))}</span>
+          ${rmWorkBookmarks().length ? `<div class="rm-set-row">
+            <span class="rm-set-label">${esc(t('rm_bookmarks'))} (${fmt(rmWorkBookmarks().length)})</span>
             <div class="rm-set-row-inline">
-              <button type="button" class="btn primary" onclick="rmToggleSettings(false); rmGoBookmark()">${esc(t('rm_bookmark_go'))}</button>
-              <button type="button" class="btn" onclick="rmSetBookmarkNow().then(rmRenderSettingsPanel)">${esc(t('rm_bookmark_move'))}</button>
-              <button type="button" class="btn" onclick="rmClearBookmark().then(rmRenderSettingsPanel)">${esc(t('rm_bookmark_clear'))}</button>
+              <button type="button" class="btn primary" onclick="rmToggleSettings(false); rmGoBookmark(0)">${esc(t('rm_bookmark_go'))}</button>
+              <button type="button" class="btn" onclick="rmToggleSettings(false); rmOnBookmarkClick()">${esc(t('rm_bookmarks'))}</button>
             </div>
           </div>` : ''}
         </div>
@@ -4845,7 +5123,7 @@
       if (e.key === '[') { e.preventDefault(); rmStepPart(-1); return; }
       if (e.key === ']') { e.preventDefault(); rmStepPart(1); return; }
       if ((e.key === 't' || e.key === 'T') && !e.shiftKey) { e.preventDefault(); rmToggleToc(); return; }
-      if ((e.key === 'b' || e.key === 'B') && !e.shiftKey) { e.preventDefault(); rmOnBookmarkClick(); return; }
+      if ((e.key === 'b' || e.key === 'B') && !e.shiftKey) { e.preventDefault(); rmAddBookmarkHere(); return; }
       if ((e.key === 'n' || e.key === 'N') && !e.shiftKey && typeof rmToggleNotes === 'function') { e.preventDefault(); rmCaptureNotesSelection(); rmToggleNotes(); return; }
       if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) { e.preventDefault(); rmCycleFurigana(); return; }
       if ((e.key === 's' || e.key === 'S') && !e.shiftKey) { e.preventDefault(); rmToggleSettings(); return; }
@@ -4908,12 +5186,16 @@
         boxEl.style.zIndex = String(zMap.get(idx) || 10);
         if (blk.vertical) boxEl.style.writingMode = 'vertical-rl';
 
+        // One <p> per box, one inline span per OCR line: the line breaks come from CSS, so Yomitan reads a box as one sentence.
         const rawLines = (blk.lines && blk.lines.length) ? blk.lines : [blk.text || ''];
+        const pEl = document.createElement('p');
         for (const ln of rawLines) {
-          const pEl = document.createElement('p');
-          pEl.textContent = ln;
-          boxEl.appendChild(pEl);
+          const lineEl = document.createElement('span');
+          lineEl.className = 'rm-ocr-line';
+          lineEl.textContent = ln;
+          pEl.appendChild(lineEl);
         }
+        boxEl.appendChild(pEl);
         boxEl.addEventListener('click', ev => {
           ev.stopPropagation();
           if (rmGetPrefs().manga_boxes === 'hover') {
@@ -5052,6 +5334,7 @@
             mStage.appendChild(wrap);
           }
         }
+        rmSyncFuriganaAria();
         rmResizeStripPages();
         rmMangaStripObs = new IntersectionObserver(entries => {
           const vis = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -5085,6 +5368,42 @@
       mStage.addEventListener('mouseleave', () => rmSetEdgeHint(null));
 
       mStage.addEventListener('dragstart', e => e.preventDefault());
+
+      mStage.addEventListener('copy', e => {
+        const sel = window.getSelection && window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount || !e.clipboardData) return;
+        const range = sel.getRangeAt(0);
+        if (!mStage.contains(range.commonAncestorContainer)) return;
+        const startEl = range.startContainer.nodeType === 3 ? range.startContainer.parentElement : range.startContainer;
+        const endEl = range.endContainer.nodeType === 3 ? range.endContainer.parentElement : range.endContainer;
+        const startBox = startEl && startEl.closest('.rm-text-box');
+        const endBox = endEl && endEl.closest('.rm-text-box');
+        let out = '';
+        if (startBox && startBox === endBox) {
+          out = range.toString().replace(/[\r\n]+/g, '');
+        } else {
+          const boxes = [...mStage.querySelectorAll('.rm-text-box')].filter(b => range.intersectsNode(b));
+          if (!boxes.length) return;
+          const parts = [];
+          for (const box of boxes) {
+            const sub = document.createRange();
+            sub.selectNodeContents(box);
+            if (range.compareBoundaryPoints(Range.START_TO_START, sub) > 0) {
+              sub.setStart(range.startContainer, range.startOffset);
+            }
+            if (range.compareBoundaryPoints(Range.END_TO_END, sub) < 0) {
+              sub.setEnd(range.endContainer, range.endOffset);
+            }
+            const txt = sub.toString().replace(/[\r\n]+/g, '');
+            if (txt) parts.push(txt);
+          }
+          if (!parts.length) return;
+          out = parts.join('\n');
+        }
+        if (!out) return;
+        e.clipboardData.setData('text/plain', out);
+        e.preventDefault();
+      });
 
       mStage.addEventListener('pointerdown', e => {
         if (isStrip || (e.button !== 0 && e.button !== 1)) return;
@@ -5215,6 +5534,7 @@
         rmPz.imgW = 0; rmPz.imgH = 0; rmPz.scale = 1; rmPz.fitScale = 1;
         mStage.style.overflowY = 'auto';
         mStage.appendChild(rmBuildMokuroPageEl(pg));
+        rmSyncFuriganaAria();
       } else {
         mStage.style.overflowY = '';
         const canvas = document.createElement('div');
@@ -5284,6 +5604,7 @@
         return;
       }
       rmDrawSingleMangaPage(nxt);
+      rmAnnounce(rmPageAnnounceText());
     }
 
 

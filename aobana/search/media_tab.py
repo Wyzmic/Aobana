@@ -244,8 +244,10 @@ def _count_media_library(dbs, db_epub=None, db_manga=None):
 
 
 MEDIA_SORTS = {"name": None, "parts_desc": ("episodes", True), "parts_asc": ("episodes", False),
-               "lines_desc": ("lines", True), "lines_asc": ("lines", False), "read_desc": None}
+               "lines_desc": ("lines", True), "lines_asc": ("lines", False), "read_desc": None,
+               "known_desc": None, "known_asc": None}
 # read_desc: the works last read in Reading mode first, the latest first; the rest by name after.
+# known_desc / known_asc: the share of the words known, the easiest or the hardest first (coverage.py).
 
 
 INNER_CACHE_FORM = 2
@@ -407,7 +409,8 @@ def _build_inner_names(dbs):
     return out
 
 
-def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name", inner=None, read_at=None):
+def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, sort="name", inner=None, read_at=None,
+               coverage=None):
     if folder is not None:
         rows = [it for it in items if it["folder"] == folder and media in ("all", it["media"])]
         return {"items": rows[:1], "total": len(rows[:1]), "has_more": False}
@@ -420,6 +423,9 @@ def media_page(items, media="all", needle="", offset=0, limit=0, folder=None, so
     unread_from = None
     if key:
         rows = sorted(rows, key=lambda it: it[key[0]] or 0, reverse=key[1])
+    elif sort in ("known_desc", "known_asc") and coverage is not None:
+        from aobana.search.coverage import sort_items
+        rows = sort_items(rows, coverage, hardest=sort == "known_asc")
     elif sort == "read_desc" and read_at:
         rows = sorted(rows, key=lambda it: -read_at.get((it["media"], it["folder"]), 0))
         # The 未読 line goes above the first work never read, only when some were read and some not

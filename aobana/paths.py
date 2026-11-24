@@ -29,7 +29,7 @@ DATA_FOLDER = "data"
 DB_NAMES = ("subs.db", "epub.db", "manga.db", "custom.db")
 DB_COMPANION_DBS = ("search_cache.db", "analysis.db")
 DB_COMPANIONS = ("filtered.tsv", "analysis.json", "analysis.view.jsonl", "analysis-attempt.json", "estimate.json",
-                 "media_cache.json", "media_inner.json.gz", "library_summary.json", "library_figures.json",
+                 "media_cache.json", "media_inner.json.gz", "coverage_cache.json", "library_summary.json", "library_figures.json",
                  "settings_snapshot.json", ".index_run.json", ".index.stop", ".check.stop",
                  "pending-reindex.json", "pending-reindex.json.writer.lock",
                  "pending-reindex.json.bad", "filtered.tsv.epub-pending", ".index-runs")

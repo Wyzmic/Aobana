@@ -638,26 +638,265 @@
         items = Array.isArray(doc) ? doc : (doc && Array.isArray(doc.items) ? doc.items : null);
       } catch (e) { items = null; }
       if (!items) { favNote(t('fav_bad_file'), true); return; }
-      const have = new Set(savedSentences.map(s => s.id));
-      let added = 0, same = 0;
-      const incoming = [];
+      // The file's entries, cleaned and each once; then the choice: add to these, or replace them
+      const fileItems = [];
+      const seen = new Set();
       for (const orig of items) {
         const s = cleanFavorite(orig);
         if (!s) continue;
         const id = lineId(s.line);
-        if (have.has(id)) { same++; continue; }
-        have.add(id);
+        if (seen.has(id)) continue;
+        seen.add(id);
         if (s.id !== id && s.legacy_id === undefined && typeof s.id === 'string') s.legacy_id = s.id;
         s.id = id;
-        incoming.push(s);
-        added++;
+        fileItems.push(s);
       }
-      if (added) {
-        if (store.get('savedSentences_backup_v1') === null) store.set('savedSentences_backup_v1', store.get('savedSentences', '[]'));
+      if (!fileItems.length) { favNote(t('fav_bad_file'), true); return; }
+      favPending = { name: file.name, items: fileItems };
+      favAskingReplace = false;
+      document.getElementById('fav-note').hidden = true;
+      renderFavChoice();
+    }
+
+    let favPending = null;
+    let favAskingReplace = false;
+
+    function renderFavChoice() {
+      const box = document.getElementById('fav-choice');
+      if (!box) return;
+      if (!favPending) { box.hidden = true; box.innerHTML = ''; return; }
+      const have = new Set(savedSentences.map(s => s.id));
+      const n = favPending.items.length;
+      const added = favPending.items.filter(s => !have.has(s.id)).length;
+      const head = `<div class="reader-import-file">${esc(favPending.name)}</div>
+        <div class="muted">${esc(t('fav_import_found', { n: fmt(n), added: fmt(added), same: fmt(n - added) }))}</div>`;
+      box.innerHTML = favAskingReplace
+        ? `${head}<div class="warn">${esc(t('fav_import_replace_ask', { cur: fmt(savedSentences.length), n: fmt(n) }))}</div>
+          <div class="btns">
+            <button type="button" class="btn danger" onclick="applyFavImport('replace')">${esc(t('fav_import_replace'))}</button>
+            <button type="button" class="btn" onclick="favAskingReplace = false; renderFavChoice()">${esc(t('rm_notes_cancel'))}</button>
+          </div>`
+        : `${head}<div class="btns">
+            <button type="button" class="btn primary" onclick="applyFavImport('add')">${esc(t('fav_import_add'))}</button>
+            <button type="button" class="btn" onclick="favAskingReplace = true; renderFavChoice()">${esc(t('fav_import_replace'))}</button>
+            <button type="button" class="btn" onclick="favPending = null; renderFavChoice()">${esc(t('rm_notes_cancel'))}</button>
+          </div>`;
+      box.hidden = false;
+    }
+
+    function applyFavImport(how) {
+      if (!favPending) return;
+      const items = favPending.items;
+      favPending = null;
+      favAskingReplace = false;
+      renderFavChoice();
+      if (store.get('savedSentences_backup_v1') === null) store.set('savedSentences_backup_v1', store.get('savedSentences', '[]'));
+      if (how === 'replace') {
+        // The list a replace took the place of, kept until the next replace
+        store.set('savedSentences_before_replace', store.get('savedSentences', '[]'));
+        savedSentences = items.slice();
+        store.set('savedSentences', JSON.stringify(savedSentences));
+        favNote(t('fav_replaced', { n: fmt(items.length) }));
+        return;
+      }
+      const have = new Set(savedSentences.map(s => s.id));
+      const incoming = items.filter(s => !have.has(s.id));
+      if (incoming.length) {
         savedSentences = savedSentences.concat(incoming);
         store.set('savedSentences', JSON.stringify(savedSentences));
       }
-      favNote(t('fav_imported', { added: fmt(added), same: fmt(same) }));
+      favNote(t('fav_imported', { added: fmt(incoming.length), same: fmt(items.length - incoming.length) }));
+    }
+
+    let readerBackupPending = null;
+    let readerBackupMode = 'keep_newer';
+    let readerBackupAskingReplace = false;
+
+    function readerBackupNote(msg, warn = false) {
+      const el = document.getElementById('reader-backup-note');
+      if (!el) return;
+      el.hidden = !msg;
+      el.className = 'notice' + (warn ? ' warn' : ' ok');
+      el.textContent = msg || '';
+    }
+
+    function readerBackupErrorText(code) {
+      const key = {
+        too_large: 'reader_backup_err_too_large',
+        invalid_json: 'reader_backup_err_json',
+        wrong_kind: 'reader_backup_err_kind',
+        newer_version: 'reader_backup_err_version',
+      }[code] || 'reader_backup_err_failed';
+      return t(key);
+    }
+
+    async function exportReaderData() {
+      readerBackupNote('');
+      let doc;
+      try {
+        const r = await fetch('/api/reading/export');
+        if (!r.ok) throw new Error('export');
+        doc = await r.json();
+      } catch (e) {
+        readerBackupNote(t('reader_backup_err_failed'), true);
+        return;
+      }
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aobana-reader-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      const worksN = Object.keys((doc.state && doc.state.works) || {}).length;
+      const notesN = Object.values((doc.notes && doc.notes.works) || {}).reduce((s, l) => s + (Array.isArray(l) ? l.length : 0), 0);
+      readerBackupNote(t('reader_backup_exported', { works: fmt(worksN), notes: fmt(notesN) }));
+    }
+
+    async function pickReaderBackupFile(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      readerBackupNote('');
+      readerBackupPending = null;
+      readerBackupMode = 'keep_newer';
+      readerBackupAskingReplace = false;
+      const box = document.getElementById('reader-import-preview');
+      if (box) { box.hidden = true; box.innerHTML = ''; }
+      if (file.size > 20 * 1024 * 1024) {
+        readerBackupNote(readerBackupErrorText('too_large'), true);
+        return;
+      }
+      let buf;
+      try { buf = await file.arrayBuffer(); } catch (e) {
+        readerBackupNote(readerBackupErrorText('invalid_json'), true);
+        return;
+      }
+      let res;
+      try {
+        const r = await fetch('/api/reading/import?dry_run=1', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream', ...API_HEADERS },
+          body: buf,
+        });
+        res = await r.json();
+        if (!r.ok || res.error) {
+          readerBackupNote(readerBackupErrorText(res && res.error), true);
+          return;
+        }
+      } catch (e) {
+        readerBackupNote(t('reader_backup_err_failed'), true);
+        return;
+      }
+      readerBackupPending = { name: file.name, buf, counts: res.counts };
+      renderReaderBackupPreview();
+    }
+
+    function setReaderBackupMode(mode) {
+      readerBackupMode = mode;
+      readerBackupAskingReplace = false;
+      renderReaderBackupPreview();
+    }
+
+    function cancelReaderBackupImport() {
+      readerBackupPending = null;
+      readerBackupAskingReplace = false;
+      const box = document.getElementById('reader-import-preview');
+      if (box) { box.hidden = true; box.innerHTML = ''; }
+    }
+
+    function renderReaderBackupPreview() {
+      const box = document.getElementById('reader-import-preview');
+      if (!box || !readerBackupPending) return;
+      const c = readerBackupPending.counts || {};
+      const row = (label, g) => `<tr>
+        <td>${esc(label)}</td>
+        <td>${esc(fmt((g && g.new) || 0))}</td>
+        <td>${esc(fmt((g && g.newer_here) || 0))}</td>
+        <td>${esc(fmt((g && g.newer_in_file) || 0))}</td>
+        <td>${esc(fmt((g && g.same) || 0))}</td>
+      </tr>`;
+      const modes = [
+        ['keep_newer', 'reader_backup_mode_newer', 'reader_backup_mode_newer_note'],
+        ['merge', 'reader_backup_mode_merge', 'reader_backup_mode_merge_note'],
+        ['replace', 'reader_backup_mode_replace', 'reader_backup_mode_replace_note'],
+      ];
+      const activeMode = modes.find(m => m[0] === readerBackupMode) || modes[0];
+      box.innerHTML = `
+        <div class="reader-import-file">${esc(readerBackupPending.name)}</div>
+        <div class="reader-import-table-wrap">
+          <table class="summary-table reader-import-table">
+            <thead><tr>
+              <th></th>
+              <th>${esc(t('reader_backup_col_new'))}</th>
+              <th>${esc(t('reader_backup_col_here'))}</th>
+              <th>${esc(t('reader_backup_col_file'))}</th>
+              <th>${esc(t('reader_backup_col_same'))}</th>
+            </tr></thead>
+            <tbody>
+              ${row(t('reader_backup_row_works'), c.works)}
+              ${row(t('reader_backup_row_bookmarks'), c.bookmarks)}
+              ${row(t('reader_backup_row_notes'), c.notes)}
+            </tbody>
+          </table>
+        </div>
+        <div class="seg seg-fit reader-import-modes">
+          ${modes.map(([val, lbl]) => `<button type="button" class="seg-btn ${val === readerBackupMode ? 'active' : ''}" onclick="setReaderBackupMode('${val}')">${esc(t(lbl))}</button>`).join('')}
+        </div>
+        <div class="muted reader-import-mode-note">${esc(t(activeMode[2]))}</div>
+        ${readerBackupAskingReplace ? `<div class="notice warn">${esc(t('reader_backup_replace_ask'))}</div>
+          <div class="btns">
+            <button type="button" class="btn danger" id="reader-import-confirm-replace" onclick="runReaderBackupImport(true)">${esc(t('reader_backup_replace_yes'))}</button>
+            <button type="button" class="btn" onclick="readerBackupAskingReplace=false;renderReaderBackupPreview()">${esc(t('lib_cancel'))}</button>
+          </div>` : `<div class="btns">
+            <button type="button" class="btn primary" id="reader-import-apply" onclick="runReaderBackupImport(false)">${esc(t('fav_import'))}</button>
+            <button type="button" class="btn" onclick="cancelReaderBackupImport()">${esc(t('lib_cancel'))}</button>
+          </div>`}`;
+      box.hidden = false;
+    }
+
+    let readerBackupBusy = false;
+    async function runReaderBackupImport(confirmedReplace) {
+      if (!readerBackupPending || readerBackupBusy) return;
+      if (readerBackupMode === 'replace' && !confirmedReplace) {
+        readerBackupAskingReplace = true;
+        renderReaderBackupPreview();
+        return;
+      }
+      const { buf } = readerBackupPending;
+      const mode = readerBackupMode;
+      readerBackupBusy = true;
+      const applyBtn = document.getElementById('reader-import-apply');
+      const repBtn = document.getElementById('reader-import-confirm-replace');
+      if (applyBtn) applyBtn.disabled = true;
+      if (repBtn) repBtn.disabled = true;
+      let res;
+      try {
+        const r = await fetch(`/api/reading/import?mode=${encodeURIComponent(mode)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream', ...API_HEADERS },
+          body: buf,
+        });
+        res = await r.json();
+        if (!r.ok || res.error) {
+          readerBackupNote(readerBackupErrorText(res && res.error), true);
+          return;
+        }
+      } catch (e) {
+        readerBackupNote(t('reader_backup_err_failed'), true);
+        return;
+      } finally {
+        readerBackupBusy = false;
+        if (applyBtn) applyBtn.disabled = false;
+        if (repBtn) repBtn.disabled = false;
+      }
+      cancelReaderBackupImport();
+      if (typeof savedWorks !== 'undefined') savedWorks = null;
+      if (typeof savedNotes !== 'undefined') savedNotes = null;
+      if (mode === 'replace' && typeof rmFetchPrefs === 'function') {
+        await rmFetchPrefs().catch(() => null);
+        renderReaderSettings();
+      }
+      readerBackupNote(t('reader_backup_imported'));
     }
 
     let handoffPending = document.querySelector('meta[name="aobana-handoff-pending"]').content === '1';

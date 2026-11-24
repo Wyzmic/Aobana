@@ -359,13 +359,12 @@
       <div class="set-pane" data-set-pane="general" data-set-label="set_tab_general">
         <div class="lib-card" id="set-look"></div>
         <div class="lib-card" id="set-media"></div>
-        <div class="lib-card" id="set-known-words"></div>
       </div>
       <div class="set-pane" data-set-pane="reader" data-set-label="set_tab_reader" hidden>
         <div class="lib-card" id="set-reader"></div>
       </div>
-      <div class="set-pane" data-set-pane="advanced" data-set-label="set_tab_advanced" hidden>
-        <div class="lib-card" id="lib-data"></div>
+      <div class="set-pane" data-set-pane="data" data-set-label="set_tab_data" hidden>
+        <div class="lib-card" id="set-known-words"></div>
         <div class="lib-card" id="lib-favorites">
           <h3 data-i18n="fav_title">お気に入りの書き出し・読み込み</h3>
           <p class="muted" data-i18n="fav_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
@@ -374,8 +373,23 @@
             <button class="btn" onclick="document.getElementById('fav-file').click()" data-i18n="fav_import">読み込む</button>
             <input type="file" id="fav-file" accept=".json,application/json" hidden onchange="importFavorites(this)">
           </div>
+          <div class="fav-choice" id="fav-choice" hidden></div>
           <div class="notice" id="fav-note" hidden style="margin:0.8em 0 0;"></div>
         </div>
+        <div class="lib-card" id="lib-reader-backup">
+          <h3 data-i18n="reader_backup_title">読書データの書き出し・読み込み</h3>
+          <p class="muted" data-i18n="reader_backup_lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>
+          <div class="btns">
+            <button class="btn" onclick="exportReaderData()" data-i18n="fav_export">書き出す</button>
+            <button class="btn" onclick="document.getElementById('reader-backup-file').click()" data-i18n="fav_import">読み込む</button>
+            <input type="file" id="reader-backup-file" accept=".json,application/json" hidden onchange="pickReaderBackupFile(this)">
+          </div>
+          <div id="reader-import-preview" class="reader-import-preview" hidden></div>
+          <div class="notice" id="reader-backup-note" hidden style="margin:0.8em 0 0;"></div>
+        </div>
+      </div>
+      <div class="set-pane" data-set-pane="advanced" data-set-label="set_tab_advanced" hidden>
+        <div class="lib-card" id="lib-data"></div>
         <div class="lib-card" id="search-workers-card">
           <h3 data-i18n="search_workers_title">検索の並列処理</h3>
           <p class="muted" id="search-workers-lead" style="margin:0 0 0.8em; font-size:0.9em;"></p>

@@ -78,10 +78,17 @@
 
     const savedOffTag = () => `<span class="muted">${esc(LANG === 'ja' ? `（${t('saved_media_off')}）` : `(${t('saved_media_off')})`)}</span>`;
 
+    function savedWorkBookmarks(w) {
+      if (!w) return [];
+      if (Array.isArray(w.bookmarks)) return w.bookmarks;
+      if (w.bookmark && typeof w.bookmark === 'object') return [w.bookmark];
+      return [];
+    }
+
     function savedReadingRows() {
       return Object.entries(savedWorks || {})
         .map(([wkey, w]) => ({ wkey, ...savedSplitKey(wkey), ...w }))
-        .filter(w => w.file || w.bookmark)
+        .filter(w => w.file || savedWorkBookmarks(w).length > 0)
         .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
     }
 
@@ -121,17 +128,24 @@
       pane.innerHTML = seg + `<div class="media-list">${rows.map((w, i) => {
         const on = !!MEDIA_ON[w.media];
         const where = w.file ? savedPlace(w.media, savedShortPart(w.part_title || w.file, w.folder), w.scroll_ratio, w.page) : '';
-        const bm = w.bookmark;
-        const bmWhere = bm ? savedPlace(w.media, savedShortPart(bm.part_title || bm.label || bm.file, w.folder), bm.scroll_ratio, bm.page) : '';
+        const bms = savedWorkBookmarks(w);
+        const bmLines = bms.map((bm, bi) => {
+          const bmWhere = savedPlace(w.media, savedShortPart(bm.part_title || bm.label || bm.file, w.folder), bm.scroll_ratio, bm.page);
+          const text = bm.name ? `${bm.name} · ${bmWhere}` : bmWhere;
+          const lbl = `<span>${esc(t('saved_bookmark_at', { where: text }))}</span>`;
+          const go = bms.length > 1 ? `<button type="button" class="btn saved-bm-go-btn" ${on ? '' : 'disabled'} onclick="savedOpenBookmark(${i}, ${bi})">${esc(t('rm_bookmark_go_one'))}</button>` : '';
+          const x = `<button type="button" class="icon-btn saved-bm-x" title="${esc(t('rm_bookmark_delete_one'))}" aria-label="${esc(t('rm_bookmark_delete_one'))}" onclick="savedDeleteBookmark(${i}, ${bi})"><span>×</span></button>`;
+          return `<div class="media-author saved-bm-line">${lbl}${go}${x}</div>`;
+        }).join('');
         return `<div class="media-row saved-work-row">
           <span class="media-kind ${esc(w.media)}">${esc(t('kind_' + w.media))}</span>
           <span class="media-names">
             <div class="media-name">${esc(w.folder)}${on ? '' : ' ' + savedOffTag()}</div>
             ${where ? `<div class="media-author">${esc(where)}</div>` : ''}
-            ${bmWhere ? `<div class="media-author saved-bm-line">${esc(t('saved_bookmark_at', { where: bmWhere }))}</div>` : ''}
+            ${bms.length ? `<div class="saved-bm-list ${bms.length > SAVED_BM_SHOWN ? 'many' : ''}">${bmLines}</div>` : ''}
           </span>
           <span class="saved-row-actions">
-            ${bm ? `<button type="button" class="btn" ${on ? '' : 'disabled'} onclick="savedOpenWork(${i}, true)">${esc(t('rm_bookmark_go'))}</button>` : ''}
+            ${bms.length === 1 ? `<button type="button" class="btn" ${on ? '' : 'disabled'} onclick="savedOpenBookmark(${i}, 0)">${esc(t('rm_bookmark_go'))}</button>` : ''}
             ${w.file ? `<button type="button" class="btn primary" ${on ? '' : 'disabled'} onclick="savedOpenWork(${i}, false)">${esc(t('rm_continue'))}</button>` : ''}
             <button type="button" class="icon-btn saved-remove" title="${esc(t('saved_reading_remove', { name: w.folder }))}" aria-label="${esc(t('saved_reading_remove', { name: w.folder }))}" onclick="savedRemoveRow(${i})"><span>×</span></button>
           </span>
@@ -196,11 +210,42 @@
       if (savedPaneOpen === 'reading') renderSavedReading();
     }
 
+    // Over 5 bookmarks a work, its list scrolls in its own box; × deletes at once
+    const SAVED_BM_SHOWN = 5;
+
+    async function savedDeleteBookmark(i, bi) {
+      const w = (document.querySelector('[data-saved-pane="reading"]')._rows || [])[i];
+      if (!w) return;
+      const bms = savedWorkBookmarks(w).filter((_, idx) => idx !== bi);
+      const res = await apiPost('/api/reading/state', { media: w.media, folder: w.folder, work: { bookmarks: bms } }).catch(() => null);
+      if (res && savedWorks && savedWorks[w.wkey]) {
+        savedWorks[w.wkey] = { ...savedWorks[w.wkey], bookmarks: bms };
+        delete savedWorks[w.wkey].bookmark;
+      }
+      savedRedrawKeepingScroll();
+    }
+
+    // A redraw keeps each work's bookmark box where it was scrolled
+    function savedRedrawKeepingScroll() {
+      const pane = document.querySelector('[data-saved-pane="reading"]');
+      const tops = [...pane.querySelectorAll('.saved-bm-list')].map(el => el.scrollTop);
+      renderSavedReading();
+      pane.querySelectorAll('.saved-bm-list').forEach((el, k) => { if (tops[k]) el.scrollTop = tops[k]; });
+    }
+
+    function savedOpenBookmark(i, bi = 0) {
+      const w = (document.querySelector('[data-saved-pane="reading"]')._rows || [])[i];
+      if (!w) return;
+      const bm = savedWorkBookmarks(w)[bi];
+      if (!bm) return;
+      jumpToReadingMode({ media: w.media, folder: w.folder, file: bm.file, target: bm, explicitStart: true, toast: t('rm_bookmark_jumped') });
+    }
+
     function savedOpenWork(i, toBookmark) {
       const w = (document.querySelector('[data-saved-pane="reading"]')._rows || [])[i];
       if (!w) return;
-      if (toBookmark && w.bookmark) {
-        jumpToReadingMode({ media: w.media, folder: w.folder, file: w.bookmark.file, target: w.bookmark, explicitStart: true, toast: t('rm_bookmark_jumped') });
+      if (toBookmark) {
+        savedOpenBookmark(i, 0);
       } else {
         // Where it was left: Reading mode's own place for the work
         jumpToReadingMode({ media: w.media, folder: w.folder });

@@ -39,7 +39,7 @@ def convert_hw_katakana(text: str) -> str:
     return text.translate(_HW_MAP)
 
 KANA_RE = r'[\u3040-\u309F\u30A0-\u30FF\u31F0-\u31FF\uFF65-\uFF9F\u3031-\u3035\U0001B000-\U0001B16Fa-zA-Z0-9ａ-ｚＡ-Ｚ０-９ー・･ﾞﾟﾞ゛゜.･･\s\-/／＼]+'
-KANJI_CHARS = r"\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\U00020000-\U000323AF\U0002F800-\U0002FA1F\u3005\U0001B000-\U0001B16F"
+KANJI_CHARS = r"\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\U00020000-\U0003347F\U0002F800-\U0002FA1F\u3005\U0001B000-\U0001B16F"
 KANJI_PATTERN = rf"[{KANJI_CHARS}０-９0-9]+(?:[ヶヵ][{KANJI_CHARS}]+)*[\u3040-\u309F]*"
 ALPHA_CHARS = r"a-zA-Zａ-ｚＡ-Ｚ0-9０-９α-ωΑ-Ω\'\.\u00C0-\u024F\u2160-\u217F"
 ALPHA_PATTERN = rf"[{ALPHA_CHARS}]+(?:[ \t\-　]+[{ALPHA_CHARS}]+)*"
@@ -1693,7 +1693,3 @@ def write_tokenizer_meta(conn, tokenized_rows: int) -> dict:
 def parallel_map(fn, items, workers, chunksize=1, ordered=True, stop=None):
     from aobana.indexing.preparation import bounded_map
     yield from bounded_map(fn, items, workers, ordered=ordered, stop=stop)
-
-
-def _map_chunk(fn, chunk):
-    return [fn(x) for x in chunk]

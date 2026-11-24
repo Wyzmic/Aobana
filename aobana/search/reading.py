@@ -510,10 +510,6 @@ def dictionary_entries(word: str) -> frozenset:
                      for m in entries if m.surface() == word)
 
 
-def dictionary_readings(word: str) -> frozenset:
-    return frozenset(r for r, _ in dictionary_entries(word))
-
-
 _DIGITS_RE = re.compile(r'[0-9０-９]+')
 
 

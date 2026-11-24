@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.8: Bookmarks, Easiest and Hardest, and Settings → Data
+
+### Enhancements
+
+- **Bookmarks.** A work in Reading mode holds up to 100 bookmarks. **B** adds one at the current place, or removes the one there. The bookmark button lists them, newest first; **Contents** has a **Bookmarks** tab beside the contents, and **Saved → Continue reading** lists each work's bookmarks. A 2.7 bookmark becomes the first of the list.
+- **Easiest and Hardest.** With known words imported, the Media list sorts by **Easiest** or **Hardest**, and each work shows the share of its words known and of its sentences with no unknown word (i+0) and with one (i+1).
+- **Settings → Data.** A **Data** tab holds the known words, the favorites' export and import, and an export and import of reading data (places, bookmarks and notes in one file).
+
+**Reading mode**
+
+- Outside manga a bookmark's place is its chapter and line, so a font or size change keeps it.
+- Importing reading data shows what is new, newer here, newer in the file and the same, for works, bookmarks and notes, and offers **Keep newer**, **Merge** (bookmarks from both) or **Replace**. Each import first backs up the reading data in the data folder, keeping the newest 5.
+- Importing favorites shows how many are new and offers **Add to these** or **Replace**.
+- The browser's Back returns to the place before a jump from **Contents**, a bookmark or a note.
+- In vertical text and in manga, the top bar's **Next** is on the left with a left arrow and **Previous** on the right.
+- A manga bubble of several OCR lines is one sentence for Yomitan; copying inside one bubble gives one line.
+- Screen readers hear the page count on a page turn and the part's title on a part change, and no longer read furigana shown only on hover.
+
+**Known words and i+1**
+
+- The Anki import has **Leave out suspended cards**: a note counts only if one of its cards is not suspended (Aobana Reibun 1.9 or later).
+- The Easiest and Hardest count runs in the background, once, then only for the files an index run changed (about 17 s for 4.3 million lines on a Mac), with a progress notice on a large library.
+
+### Bug Fixes
+
+- A link in a book, such as a note number, could open the page before its target. It now opens the target's page.
+- A manga page in Reading mode could show an OCR box twice. It now shows one, by the rule the search index already used.
+- Speaker and sound tags in subtitles, such as `（拍手）`, counted as unknown words for i+1 and **Recommended**. They no longer count; a line that is only `（…）` still does.
+- Words with rare kanji (CJK Extensions B to J) did not count as words for i+1, **Recommended** and the Media sorts. They now do.
+- Kanji of CJK Extension J were not read as kanji in ruby, the reading search and a book's kanji checks. They now are.
+
 ## 2.7: Reading notes, the Saved tab, and Appearance
 
 ### Enhancements
