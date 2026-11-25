@@ -15,8 +15,8 @@ from pathlib import Path
 from contextlib import closing
 
 from aobana import paths
-from aobana.utils import norm_relpath, sub_relpath, is_appledouble_name, parallel_map, line_kind, filtered_rows, write_filtered_rows, refresh_auto_filtered, stop_requested
-from aobana.utils import start_output, emit, name_key, MEDIA_EXTS, media_walk, fold_compat
+from aobana.utils import norm_relpath, sub_relpath, parallel_map, line_kind, filtered_rows, stop_requested
+from aobana.utils import start_output, emit, name_key, MEDIA_EXTS, fold_compat
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -387,7 +387,7 @@ def _measure(conn, media, root, files, workers, skip=(), progress=None):
         progress.begin('reading',len(todo),stage=media,cached=len(files)-len(todo),files=len(files))
     fn = _measure_custom if media == 'custom' else _measure_sub if media == "subs" else _measure_book
     last = time.monotonic()
-    for i, (name, row, error) in enumerate(parallel_map(fn, todo, min(workers,len(todo)), chunksize=8 if media == "subs" else 1,
+    for i, (name, row, error) in enumerate(parallel_map(fn, todo, min(workers,len(todo)),
                                                         ordered=False, stop=stop_requested), 1):
         if stop_requested():
             break

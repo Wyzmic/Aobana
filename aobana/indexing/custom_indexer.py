@@ -11,7 +11,6 @@ from aobana import paths, utils
 from aobana.indexing import kanji_table, line_repeats, run_control as control, subtitle_input
 from aobana.custom_source import Catalog, natural_key
 from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
-from aobana.search.titles import get_sort_key
 from aobana.utils import CUSTOM_STR_REPLACEMENTS
 
 if hasattr(sys.stdout, 'reconfigure'):
@@ -219,9 +218,10 @@ def drop_rows(conn, source_id, ranges):
 
 def build_folders(conn):
     folders = {'': [None, '', order_key(''), 0, 0]}
-    metadata = dict(conn.execute('SELECT relpath, path FROM custom_source_meta'))
+    metadata = {utils.name_key(k): v for k, v in conn.execute('SELECT relpath, path FROM custom_source_meta')}
     for relpath, category, key, lines in conn.execute('SELECT relpath, category, order_key, lines FROM sources'):
-        parts = metadata.get(relpath, utils.name_key(relpath)).split('/')
+        norm = utils.name_key(relpath)
+        parts = metadata.get(norm, norm).split('/')
         parents = [''] + (['/'.join(parts[:n]) for n in range(1, len(parts))] if len(parts) > 1 else [category])
         for path in parents:
             parent, _, name = path.rpartition('/')

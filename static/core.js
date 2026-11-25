@@ -59,7 +59,7 @@
     }
 
     const LABEL_CONTROLS = '.brand, .nav-tab, .seg-btn, .dd-btn, .dd-item, .exact-chip, .sq-btn, .btn, .icon-btn, '
-      + '.search-btn, .reveal-btn, .path-back, .modal-close, .menu-btn, .sidebar-more, summary, label[for], '
+      + '.search-btn, .reveal-btn, .path-back, .modal-close, .menu-btn, .sidebar-more, .media-kind, summary, label[for], '
       + '.rm-topbar-title, .rm-drawer-head, .rm-set-label, .rm-range-val, .rm-footer, .rm-toc-group, .rm-toc-item, '
       + '.rm-bm-where, .rm-toast, .rm-sub-ts';
     function hideLabelText(node) {
@@ -103,6 +103,174 @@
     }
     if (document.body) startHidingLabels();
     else document.addEventListener('DOMContentLoaded', startHidingLabels);
+
+    // Keep a closing fold from pulling text above it down under the finger when scrollTop clamps
+    // at the bottom, and shield the tap point briefly if a control itself disappears on tap.
+    const FOLD_SPACERS = new WeakMap();
+    function isWindowScroller(sc) {
+      return !sc || sc === document.scrollingElement || sc === document.documentElement || sc === document.body;
+    }
+    function findFoldScroller(el, existingOnly) {
+      for (let p = el && el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+        if (FOLD_SPACERS.has(p)) return p;
+        if (existingOnly) continue;
+        const st = getComputedStyle(p);
+        if ((st.overflowY === 'auto' || st.overflowY === 'scroll' || st.overflowY === 'overlay') && p.scrollHeight > p.clientHeight + 1) {
+          return p;
+        }
+      }
+      const root = document.scrollingElement || document.documentElement;
+      if (existingOnly) return FOLD_SPACERS.has(root) ? root : null;
+      return root;
+    }
+    function getFoldScrollPos(sc) {
+      return isWindowScroller(sc) ? window.scrollY : sc.scrollTop;
+    }
+    function setFoldScrollPos(sc, top) {
+      if (isWindowScroller(sc)) window.scrollTo({ top, behavior: 'instant' });
+      else sc.scrollTop = top;
+    }
+    function reclaimFoldSpacer(sc) {
+      if (!sc) return;
+      const state = FOLD_SPACERS.get(sc);
+      if (!state || state.extra <= 0) return;
+      if (!state.el.isConnected) { state.extra = 0; return; }
+      const curScroll = getFoldScrollPos(sc);
+      if (curScroll <= 0) {
+        state.el.remove();
+        state.extra = 0;
+        return;
+      }
+      const clientH = isWindowScroller(sc) ? window.innerHeight : sc.clientHeight;
+      const maxNow = Math.max(0, sc.scrollHeight - clientH);
+      const slack = Math.floor(maxNow - curScroll);
+      if (slack > 0) {
+        state.extra = Math.max(0, state.extra - slack);
+        if (state.extra <= 0) { state.el.remove(); state.extra = 0; }
+        else state.el.style.height = state.extra + 'px';
+      }
+    }
+    function setFoldSpacer(sc, height) {
+      let state = FOLD_SPACERS.get(sc);
+      if (!state) {
+        const el = document.createElement('div');
+        el.className = 'fold-scroll-spacer';
+        el.setAttribute('aria-hidden', 'true');
+        el.setAttribute('data-rm-ui', '1');
+        el.style.cssText = 'height:0;flex-shrink:0;pointer-events:none;';
+        state = { el, extra: 0 };
+        FOLD_SPACERS.set(sc, state);
+        (isWindowScroller(sc) ? window : sc).addEventListener('scroll', () => reclaimFoldSpacer(sc), { passive: true });
+      }
+      const host = isWindowScroller(sc) ? document.body : sc;
+      if (!host) return;
+      if (!state.el.isConnected) { state.extra = 0; host.appendChild(state.el); }
+      const next = Math.max(0, Math.ceil(height));
+      state.extra = next;
+      if (next <= 0) state.el.remove();
+      else state.el.style.height = next + 'px';
+    }
+    function anchorFoldClose(e) {
+      if (e.defaultPrevented) return;
+      const summary = e.target && e.target.closest && e.target.closest('summary');
+      if (!summary) return;
+      const details = summary.parentElement;
+      if (!details || details.tagName !== 'DETAILS' || details.querySelector(':scope > summary') !== summary) return;
+      const innerBtn = e.target.closest('button, a, input, select, textarea');
+      if (innerBtn && summary.contains(innerBtn)) return;
+      if (!details.open) return;
+      if (details.closest('.rm-paginated')) return;
+      const sc = findFoldScroller(details, false);
+      if (!sc || getComputedStyle(sc).writingMode.startsWith('vertical')) return;
+      const beforeScroll = getFoldScrollPos(sc);
+      const beforeTop = summary.getBoundingClientRect().top;
+      const beforeDetH = details.getBoundingClientRect().height;
+      e.preventDefault();
+      details.open = false;
+      const dy = summary.getBoundingClientRect().top - beforeTop;
+      if (dy > 0.5) {
+        const prevState = FOLD_SPACERS.get(sc);
+        const curExtra = prevState && prevState.el.isConnected ? prevState.extra : 0;
+        const collapsed = Math.max(dy, beforeDetH - details.getBoundingClientRect().height);
+        setFoldSpacer(sc, curExtra + collapsed);
+        setFoldScrollPos(sc, beforeScroll);
+        reclaimFoldSpacer(sc);
+      }
+    }
+    let tapShieldEl = null;
+    let tapShieldTimer = null;
+    let lastControlTap = null;
+    function clearTapShield() {
+      if (tapShieldTimer) { clearTimeout(tapShieldTimer); tapShieldTimer = null; }
+      if (tapShieldEl) { tapShieldEl.remove(); tapShieldEl = null; }
+    }
+    function shieldTapPoint(x, y) {
+      if (!document.body || !Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) return;
+      clearTapShield();
+      const el = document.createElement('div');
+      el.className = 'tap-shield';
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('data-rm-ui', '1');
+      el.style.cssText = `position:fixed;left:${Math.round(x - 24)}px;top:${Math.round(y - 24)}px;width:48px;height:48px;z-index:2147483640;background:rgba(0,0,0,0.01);`;
+      document.body.appendChild(el);
+      tapShieldEl = el;
+      tapShieldTimer = setTimeout(clearTapShield, 160);
+    }
+    function shieldLastControlTap() {
+      if (lastControlTap && performance.now() - lastControlTap.at < 200) {
+        shieldTapPoint(lastControlTap.x, lastControlTap.y);
+      }
+    }
+    function maybeShieldDisappearedControl(hit) {
+      if (!hit || hit.done) return;
+      hit.done = true;
+      if (hit.x < 0 || hit.y < 0 || hit.x >= window.innerWidth || hit.y >= window.innerHeight) return;
+      const top = document.elementFromPoint(hit.x, hit.y);
+      if (!top || (!hit.ctrl.contains(top) && !top.closest(LABEL_CONTROLS))) {
+        shieldTapPoint(hit.x, hit.y);
+      }
+    }
+    let activeControlClick = null;
+    document.addEventListener('pointerdown', clearTapShield, true);
+    document.addEventListener('mousedown', e => {
+      if (e.detail > 1 && e.target && e.target.closest) {
+        const hdr = e.target.closest('summary, .episode-header');
+        if (hdr) {
+          const inner = e.target.closest('button, a, input, select, textarea');
+          if (!inner || !hdr.contains(inner)) e.preventDefault();
+        }
+      }
+    });
+    document.addEventListener('click', e => {
+      const hdr = e.target && e.target.closest && e.target.closest('summary, .episode-header');
+      if (!hdr) return;
+      const sel = window.getSelection && window.getSelection();
+      if (sel && !sel.isCollapsed && !(hdr.contains(sel.anchorNode) && hdr.contains(sel.focusNode))) {
+        sel.removeAllRanges();
+      }
+    }, true);
+    document.addEventListener('click', e => {
+      const ctrl = e.target && e.target.closest && e.target.closest(LABEL_CONTROLS);
+      if (ctrl && (e.clientX || e.clientY)) {
+        const hit = { ctrl, x: e.clientX, y: e.clientY, at: performance.now(), done: false };
+        activeControlClick = hit;
+        lastControlTap = hit;
+        queueMicrotask(() => maybeShieldDisappearedControl(hit));
+      } else {
+        activeControlClick = null;
+      }
+    }, true);
+    document.addEventListener('click', e => {
+      anchorFoldClose(e);
+      const hit = activeControlClick;
+      activeControlClick = null;
+      maybeShieldDisappearedControl(hit);
+    });
+    document.addEventListener('toggle', e => {
+      if (e.target && e.target.tagName === 'DETAILS' && e.target.open) {
+        reclaimFoldSpacer(findFoldScroller(e.target, true));
+      }
+    }, true);
     function setLang(lang) {
       store.set('lang', lang);
       location.reload();
@@ -153,8 +321,9 @@
     }
     // The accent colour, over every theme (app.css, Accent). 'default' is the themes' own blue;
     // the colour is the dot shown beside each name.
-    const ACCENTS = [['default', '#2b72e7'], ['device', 'AccentColor'], ['teal', '#0d7f79'], ['green', '#2b8a3e'],
-      ['purple', '#6f42c1'], ['pink', '#c2255c'], ['red', '#c92a2a'], ['orange', '#c2540a'], ['gray', '#4f5b69']];
+    const ACCENTS = [['default', '#2b72e7'], ['device', 'AccentColor'], ['cyan', '#217b97'], ['teal', '#0d7f79'],
+      ['green', '#2b8a3e'], ['indigo', '#6863e5'], ['purple', '#6f42c1'], ['pink', '#c2255c'], ['red', '#c92a2a'],
+      ['orange', '#c2540a'], ['gold', '#8b6b1a'], ['gray', '#4f5b69']];
     const ACCENT_VARS = ['--ac-h', '--ac-k', '--ac-c1', '--ac-c2', '--ac-c3', '--ac-c4', '--ac-c5', '--ac-c6'];
     // The themes' strong colours by band of lightness: [OKLCH L, hue offset from the blue]
     // (app.css, Accent), to cap the device's accent where sRGB runs out at its hue.

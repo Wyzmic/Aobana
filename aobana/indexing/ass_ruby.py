@@ -691,9 +691,7 @@ def grade(task, k, h=0.5, ev=None):
     return "unverified", case
 
 
-def fit(tasks, fixed=False, ev=None):
-    if fixed:
-        return 1.0, 0.5
+def fit(tasks):
     probe = tasks[:: max(1, len(tasks) // 60)]
     k = max(K_RANGE, key=lambda kk: (sum(grade(tk, kk)[0] == "geometry-exact" for tk in probe),
                                       -abs(kk - 0.8)))

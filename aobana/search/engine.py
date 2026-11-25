@@ -33,9 +33,9 @@ from aobana.search.titles import (
 )
 from aobana.search import iplusone, result_cache
 from aobana.search.result_cache import (
-    _LEAN_CHARS, _LEAN_FOLDER, _LEAN_LINE, _LEAN_MEDIA, _LEAN_ROWID, _LEAN_SCORE, _result_cache_get,
-    _result_cache_key, _result_cache_page, _result_cache_put, _result_entry, _result_folder,
-    db_fingerprint,
+    _LEAN_CHARS, _LEAN_FOLDER, _LEAN_LINE, _LEAN_MEDIA, _LEAN_ROWID, _LEAN_SCORE, _MEDIA_NAMES,
+    _result_cache_get, _result_cache_key, _result_cache_page, _result_cache_put, _result_entry,
+    _result_folder, db_fingerprint, format_folder_key, split_folder_key,
 )
 from aobana.search.media_tab import (
     _BACKGROUND_READERS, _BACKGROUND_READERS_LOCK, _media_library_cached,
@@ -1053,6 +1053,31 @@ def _source_runs(conn, table, m_type, folder_set):
     return _merge_runs([list(r) for f in folder_set for r in folder_runs.get(f, ())])
 
 
+def _colliding_folders(folder_media):
+    return {f for f, ms in folder_media.items() if len(ms) > 1}
+
+
+def _folder_in_media(key, folder_media):
+    m_req, raw = split_folder_key(key)
+    ms = folder_media.get(raw)
+    return bool(ms) and (m_req is None or m_req in ms)
+
+
+def _media_raw_folders(folder_set, m_type, folder_media):
+    out = set()
+    for f in folder_set:
+        m_req, raw = split_folder_key(f)
+        if (m_req is None or m_req == m_type) and m_type in folder_media.get(raw, ()):
+            out.add(raw)
+    return out
+
+
+def _matches_folder_set(m_type, raw, folder_set, colliding):
+    if f"{m_type}::{raw}" in folder_set or raw in folder_set:
+        return True
+    return format_folder_key(m_type, raw, colliding) in folder_set
+
+
 def _search_key(q, sort, seed, media, exact, folder_set, file, targets, folder_media=None, ruby_only=False,
                 learn=''):
     key = _result_cache_key(q, sort, seed, media, exact, None, file, targets, ruby_only, learn)
@@ -1067,7 +1092,7 @@ def _search_key(q, sort, seed, media, exact, folder_set, file, targets, folder_m
     for table, conn, m_type in targets:
         if conn is None:
             continue
-        m_folders = {f for f in folder_set if m_type in folder_media.get(f, ())}
+        m_folders = _media_raw_folders(folder_set, m_type, folder_media)
         if not m_folders:
             runs_by_media[m_type] = []
             continue
@@ -1158,6 +1183,8 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
         _MATCH_COUNTS.move_to_end(key)
         return _MATCH_COUNTS[key]
     from aobana import utils
+    colliding = (_colliding_folders(_folder_list_for(targets, abort_flag)[1])
+                 if sum(1 for _, c, _ in targets if c is not None) > 1 else set())
     counts = {}
     for table, conn, m_type in targets:
         if conn is None:
@@ -1174,7 +1201,8 @@ def folder_match_counts(db_subs, q, exact=False, db_epub=None, media='all', db_m
         if got is None:
             return None
         for f, n in got.items():
-            counts[f] = counts.get(f, 0) + n
+            k = format_folder_key(m_type, f, colliding)
+            counts[k] = counts.get(k, 0) + n
     out = (counts, sorted(counts, key=lambda f: counts[f], reverse=True), sum(counts.values()))
     if result_cache.RESULT_CACHE_ENABLED:
         _MATCH_COUNTS[key] = out
@@ -1611,7 +1639,7 @@ def search_progress(db_subs, db_epub, q, sort="recommended", seed=None, media="a
         if folder_set:
             try:
                 _, folder_media = _folder_list_for(targets, abort_flag)
-                folder_set = {f for f in folder_set if f in folder_media} or None
+                folder_set = {f for f in folder_set if _folder_in_media(f, folder_media)} or None
             except Exception:
                 pass
         key, _ = _search_key(q, sort, seed, media, exact, folder_set, file, targets, folder_media, ruby_only, learn)
@@ -1867,7 +1895,16 @@ def _folder_list_for(targets, abort_flag=None):
                 raise sqlite3.OperationalError("interrupted")
     if abort_flag and abort_flag[0]:
         raise sqlite3.OperationalError("interrupted")
-    listed = (sorted(all_folders_set, key=get_sort_key), folder_media)
+    colliding = _colliding_folders(folder_media)
+    all_folders = []
+    for f_name in sorted(all_folders_set, key=get_sort_key):
+        if f_name in colliding:
+            for m in _MEDIA_NAMES:
+                if m in folder_media[f_name]:
+                    all_folders.append(f"{m}::{f_name}")
+        else:
+            all_folders.append(f_name)
+    listed = (all_folders, folder_media)
     if len(_FOLDER_LISTS) > 8:
         _FOLDER_LISTS.clear()
     _FOLDER_LISTS[list_key] = listed
@@ -1917,7 +1954,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
 
     all_folders_list = ()
     folder_media = {}
-    if not scan_only and (not q or folder_set or pin_list):
+    need_folders = not scan_only and (not q or folder_set or pin_list
+                                      or sum(1 for _, c, _ in targets if c is not None) > 1)
+    if need_folders:
         try:
             all_folders_list, folder_media = _folder_list_for(targets, abort_flag)
         except sqlite3.OperationalError as e:
@@ -1925,20 +1964,22 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 return [], {}, 0, [], False
             raise
         checked_folders = list(dict.fromkeys([*(folder_set or ()), *pin_list]))
-        outside_media = [f for f in checked_folders if f not in folder_media]
+        outside_media = [f for f in checked_folders if not _folder_in_media(f, folder_media)]
         if info is not None:
             info["outside_media"] = outside_media
     elif info is not None:
         info["outside_media"] = []
+    colliding = _colliding_folders(folder_media)
 
     if not q:
         all_folders = list(all_folders_list)
         by_media = {m_type: (table_name, db_conn, m_type) for table_name, db_conn, m_type in targets}
         global_counts = {f: 0 for f in all_folders}
-        if not folder or folder not in folder_media:
+        if not folder or not _folder_in_media(folder, folder_media):
             return [], global_counts, 0, all_folders, False
 
-        m_types = folder_media.get(folder) or ()
+        req_media, raw_folder = split_folder_key(folder)
+        m_types = {req_media} if req_media else (folder_media.get(raw_folder) or ())
         candidates = [target for target in targets if target[2] in m_types]
         target_info = reader_target(candidates, file) if file else None
         if target_info is None:
@@ -1948,10 +1989,10 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         else:
             target_table, target_db, target_media = targets[0]
 
-        folder_sql, folder_params = folder_prefix_where("file", folder)
+        folder_sql, folder_params = folder_prefix_where("file", raw_folder)
         if target_media == 'custom':
             folder_sql = 'source_id IN (SELECT id FROM sources WHERE category = ?)'
-            folder_params = [folder]
+            folder_params = [raw_folder]
         folder_where = "WHERE " + folder_sql
         if file:
             where_clause = "WHERE file = ?"
@@ -1975,12 +2016,12 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                 where_clause, query_params = "WHERE rowid BETWEEN ? AND ? AND file = ?", [lo, hi, file]
             else:
                 where_clause, query_params = folder_where, folder_params
-            chapter_counts = {folder: sum(s[3] for s in spans)}
+            chapter_counts = {raw_folder: sum(s[3] for s in spans)}
             if file:
-                chapter_counts[(folder, file)] = sum(s[3] for s in mine)
+                chapter_counts[(raw_folder, file)] = sum(s[3] for s in mine)
         else:
             chapter_counts = {}
-            m_runs = _source_runs(target_db, target_table, target_media, {folder})
+            m_runs = _source_runs(target_db, target_table, target_media, {raw_folder})
             if m_runs is not None:
                 if not m_runs:
                     return [], {**global_counts, folder: 0}, 0, all_folders, False
@@ -2010,8 +2051,8 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             return GLOBAL_FOLDER_COUNTS[key]
 
         try:
-            global_counts[folder] = cached_count(folder, folder_where, folder_params)
-            total_in_folder = cached_count((folder, file), where_clause, query_params) if file else global_counts[folder]
+            global_counts[folder] = cached_count(raw_folder, folder_where, folder_params)
+            total_in_folder = cached_count((raw_folder, file), where_clause, query_params) if file else global_counts[folder]
             query = f"SELECT rowid, line, file, clean_text, readings, base_forms FROM {target_table} {where_clause} ORDER BY file ASC, rowid ASC LIMIT ? OFFSET ?"
             cur = target_db.execute(query, query_params + [limit, offset])
             rows = cur.fetchall()
@@ -2024,7 +2065,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             for r in rows:
                 row_dict = dict(r)
                 row_dict["media_type"] = target_media
-                row_dict["folder"] = folder
+                row_dict["folder"] = raw_folder
                 row_dict["score"] = 1.0
                 row_dict["char_count"] = calculate_display_length(row_dict["line"], target_media)
                 row_dict["title"] = title_of(target_media, row_dict["file"], target_db, db_epub)
@@ -2053,7 +2094,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             return [], {}, 0, [], False
 
         if not scan_only and folder_set:
-            in_media_folders = {f for f in folder_set if f in folder_media}
+            in_media_folders = {f for f in folder_set if _folder_in_media(f, folder_media)}
             if not in_media_folders:
                 return [], {f: 0 for f in folder_set}, None, list(all_folders_list), False
             folder_set = in_media_folders
@@ -2187,7 +2228,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         scan_targets = targets
         if runs is not None:
             scan_targets = [t for t in targets if t[1] is not None
-                            and any(t[2] in folder_media.get(f, ()) for f in (folder_set or ()))]
+                            and _media_raw_folders(folder_set or (), t[2], folder_media)]
             if info is not None:
                 info["scoped"] = True
         cached = _result_cache_get(cache_key)
@@ -2198,7 +2239,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         if cached is not None:
             if folder_set:
                 names = cached["folders"]
-                cached_sel = [i for i, fi in enumerate(cached["fidx"]) if names[fi] in folder_set]
+                matched_fi = {fi for fi, (m, raw) in enumerate(names)
+                              if _matches_folder_set(m, raw, folder_set, colliding)}
+                cached_sel = [i for i, fi in enumerate(cached["fidx"]) if fi in matched_fi]
             else:
                 cached_sel = range(len(cached["rowid"]))
             cached_page = _result_cache_page(cached, cached_sel[offset:offset + limit], targets,
@@ -2381,7 +2424,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             where_clause = f"WHERE ({' AND '.join(wheres)})"
             cols = _scan_columns(db_conn, table_name, bool(r_terms))
             plain_cols = cols
-            f_filter = folder_set if runs is not None else None
+            target_folders = (_media_raw_folders(folder_set, m_type, folder_media) if (folder_set and not scan_only)
+                              else ({split_folder_key(f)[1] for f in folder_set} if folder_set else None))
+            f_filter = target_folders if runs is not None else None
             m_runs = runs.get(m_type) if isinstance(runs, dict) else (runs if m_type == "epub" else None)
             run_clause, run_params = where_clause, where_params
             if m_runs is not None and not named and table_name in leads:
@@ -2396,7 +2441,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
             try:
                 chrono_parallel = None
                 if not scan_only and q and sort == 'chrono' and table_workers > 1 and not file and time.monotonic() >= deadline:
-                    chrono_parallel = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,folder_set,search_workers,abort_flag,entry,ruby_only,learn)
+                    chrono_parallel = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,target_folders,search_workers,abort_flag,entry,ruby_only,learn)
                 if chrono_parallel is not None:
                     lean, seen = chrono_parallel
                 elif m_runs is None:
@@ -2441,7 +2486,7 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
                                             folder_filter=f_filter)
             except _ChronoHandoff:
                 entry.pop('chrono_deadline',None)
-                combined = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,folder_set,search_workers,abort_flag,entry,ruby_only,learn)
+                combined = _parallel_chrono_runs(db_conn,table_name,m_type,q,exact,seed,m_runs,target_folders,search_workers,abort_flag,entry,ruby_only,learn)
                 if combined is not None:
                     lean,seen = combined
                 else:
@@ -2530,7 +2575,9 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
         _result_flight_release(held)
         if folder_set:
             names = cached["folders"]
-            cached_sel = [i for i, fi in enumerate(cached["fidx"]) if names[fi] in folder_set]
+            matched_fi = {fi for fi, (m, raw) in enumerate(names)
+                          if _matches_folder_set(m, raw, folder_set, colliding)}
+            cached_sel = [i for i, fi in enumerate(cached["fidx"]) if fi in matched_fi]
         else:
             cached_sel = range(len(cached["rowid"]))
         cached_page = _result_cache_page(cached, cached_sel[offset:offset + limit], targets,
@@ -2538,7 +2585,10 @@ def _search_results(db, q, folders, sort, folder, exact, abort_flag, limit, offs
     if entry is not None:
         entry["phase"] = "render"
     paginated_chunk = cached_page
-    folder_counts = dict(cached["folder_counts"])
+    folder_counts = {}
+    for (m_type, raw), n in cached["folder_counts"].items():
+        k = format_folder_key(m_type, raw, colliding)
+        folder_counts[k] = folder_counts.get(k, 0) + n
     n_valid = len(cached_sel)
 
     hl_by_media = {}

@@ -14,8 +14,10 @@ for those and for the wheels (pip download, the pinned versions only).
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
+import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +38,8 @@ APPIMAGETOOL = ("https://github.com/AppImage/appimagetool/releases/download/1.9.
                 "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0")
 RUNTIME = ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
            "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d")
+HDIUTIL_TRIES = 4
+HDIUTIL_PAUSE = 15
 
 
 def fetch(url, digest, name=None):
@@ -109,6 +113,22 @@ def image(platform, dest):
     return exe
 
 
+def make_dmg(src, out, tries=HDIUTIL_TRIES, pause=HDIUTIL_PAUSE):
+    cmd = ["hdiutil", "create", "-volname", "Aobana", "-srcfolder", src, "-ov", "-format", "UDZO", out]
+    for attempt in range(1, tries + 1):
+        try:
+            run(cmd)
+            return out
+        except subprocess.CalledProcessError as exc:
+            if attempt == tries:
+                raise
+            print(f"  hdiutil create failed (exit {exc.returncode}), try {attempt} of {tries}: "
+                  f"trying again in {pause} s", flush=True)
+            if os.path.exists(out):
+                os.remove(out)
+            time.sleep(pause)
+
+
 def mac():
     root = os.path.join(BUILD, "mac")
     rmtree(root)
@@ -130,8 +150,7 @@ def mac():
     out = os.path.join(DIST, f"Aobana-{VERSION}-macos-arm64.dmg")
     if os.path.exists(out):
         os.remove(out)
-    run(["hdiutil", "create", "-volname", "Aobana", "-srcfolder", os.path.join(root, "dmg"),
-         "-ov", "-format", "UDZO", out])
+    make_dmg(os.path.join(root, "dmg"), out)
     print(f"  {out}: {os.path.getsize(out) / 2**20:.0f} MB, sha256 {sha256(out)}")
     return out
 

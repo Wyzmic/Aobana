@@ -1,4 +1,3 @@
-import contextlib
 import ctypes
 import functools
 import json
@@ -6,7 +5,6 @@ import os
 import shutil
 import sqlite3
 import sys
-import tempfile
 import threading
 import time
 import tracemalloc

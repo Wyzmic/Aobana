@@ -5,7 +5,6 @@ import re
 import statistics
 import sqlite3
 import sys
-import hashlib
 import time
 from datetime import datetime
 
@@ -14,7 +13,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-from sudachipy import tokenizer, dictionary
+from sudachipy import tokenizer
 
 from aobana import paths
 from aobana.utils import sudachi_dictionary
@@ -36,7 +35,7 @@ def get_tokenizer():
 from aobana.utils import (
     BOOK_RUBY_RE, normalize_manga_text, katakana_to_hiragana, sudachi_pieces,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested,
-    write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
+    write_tokenizer_meta, ruby_index_extras, fold_compat, filtered_names, held_removals, ALLOW_REMOVAL_FLAG,
     name_key, start_output, emit, say, file_sha256, ensure_stat_columns,
     ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths, token_lengths_blob, stored_display_length,
     write_token_lengths,
@@ -333,7 +332,6 @@ COMMIT_EVERY_SECONDS = 20
 
 from aobana.indexing import run_control as control, kanji_table, line_repeats, manga_fused, rebuild as rebuilding
 from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
-from aobana.utils import media_walk
 
 def build_tables(conn, top, db=None):
     if top and not has_line_lengths(conn):

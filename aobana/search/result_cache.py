@@ -40,6 +40,19 @@ _RESULT_CACHE = OrderedDict()
 _RESULT_CACHE_LOCK = threading.Lock()
 _MEDIA_CODES = {"subs": 0, "epub": 1, "manga": 2, "custom": 3}
 _MEDIA_NAMES = ("subs", "epub", "manga", "custom")
+_FOLDER_KEY_PREFIXES = tuple(f"{m}::" for m in _MEDIA_NAMES)
+
+
+def split_folder_key(key):
+    if isinstance(key, str):
+        for m, prefix in zip(_MEDIA_NAMES, _FOLDER_KEY_PREFIXES):
+            if key.startswith(prefix):
+                return m, key[len(prefix):]
+    return None, key
+
+
+def format_folder_key(m_type, name, colliding):
+    return f"{m_type}::{name}" if name in colliding else name
 
 
 def _result_folder(media_type, file):
@@ -131,12 +144,12 @@ _LEAN_LINE, _LEAN_ROWID, _LEAN_MEDIA, _LEAN_FOLDER, _LEAN_SCORE, _LEAN_CHARS = r
 def _result_entry(valid_results):
     names, folder_counts = {}, {}
     for r in valid_results:
-        f = r[_LEAN_FOLDER]
+        f = (r[_LEAN_MEDIA], r[_LEAN_FOLDER])
         names.setdefault(f, len(names))
         folder_counts[f] = folder_counts.get(f, 0) + 1
     return {
         "media": array("b", (_MEDIA_CODES[r[_LEAN_MEDIA]] for r in valid_results)),
-        "fidx": array("i", (names[r[_LEAN_FOLDER]] for r in valid_results)),
+        "fidx": array("i", (names[(r[_LEAN_MEDIA], r[_LEAN_FOLDER])] for r in valid_results)),
         "folders": list(names),
         "rowid": array("q", (r[_LEAN_ROWID] for r in valid_results)),
         "score": array("d", (r[_LEAN_SCORE] for r in valid_results)),

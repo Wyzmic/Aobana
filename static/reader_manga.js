@@ -1,6 +1,5 @@
     let rmMangaStageObs = null;
     let rmMangaStripObs = null;
-    let rmMangaClickTimer = null;
     const rmPz = {
       scale: 1, fitScale: 1, tx: 0, ty: 0, imgW: 0, imgH: 0,
       dragging: false, captured: false, pointerId: null, moved: false,
@@ -158,7 +157,6 @@
       if (!part || !stage) return;
       if (rmMangaStageObs) rmMangaStageObs.disconnect();
       if (rmMangaStripObs) rmMangaStripObs.disconnect();
-      clearTimeout(rmMangaClickTimer);
       rmSetEdgeHint(null);
 
       const pages = part.pages || [];
@@ -393,7 +391,6 @@
       const mStage = document.getElementById('rm-manga-stage');
       const pages = (rmState.part && rmState.part.pages) || [];
       if (!mStage || !pages.length) return;
-      clearTimeout(rmMangaClickTimer);
       const pno = Math.max(1, Math.min(pages.length, pageNo));
       rmState.mangaPage = pno;
       const pg = pages[pno - 1];

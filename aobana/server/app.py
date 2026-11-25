@@ -2,7 +2,6 @@ import os
 import sys
 import re
 import sqlite3
-import subprocess
 import threading
 import time
 import uuid
@@ -18,16 +17,15 @@ if __name__ == '__main__':
 if __name__ in ('__main__', '__mp_main__') and getattr(sys.modules.get(__name__), '__dict__', None) is globals():
     sys.modules.setdefault('aobana.server.app', sys.modules[__name__])
 from flask.json.provider import DefaultJSONProvider
-from flask import Flask, render_template, make_response, request, jsonify, g, abort, send_file
+from flask import Flask, render_template, make_response, request, jsonify, g, abort
 from aobana.search.engine import get_search_results, folder_prefix_where, is_reading_search, fts_phrase
 from aobana.search.furigana import warm_ruby_lexicon
 from aobana.search.reading import parse_reading_terms, reading_fallback_words
-from aobana.search.titles import format_episode_title, format_book_title, get_formatted_title
+from aobana.search.titles import format_book_title, get_formatted_title
 from aobana.search import furigana, result_cache
 from aobana.search.iplusone import StaleVocabulary
 from aobana.server import library
 from aobana.server import folder_picker
-from aobana.server import updater
 from aobana.utils import fold_compat, normalize_query, index_busy, media_wanted, outdated_sources, parse_media, RUBY_RE, BOOK_RUBY_RE, MEDIA_NAMES
 
 app = Flask(__name__, template_folder='.', static_folder=os.path.join(paths.BASE_DIR, 'static'))
@@ -93,7 +91,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.9"
+VERSION = "3.0"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"

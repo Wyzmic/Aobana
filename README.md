@@ -32,7 +32,7 @@ and offer the release page, or download an update when you choose to update.
 - **Reading mode:** open any show, book or manga in the Media tab, or a folder of Custom `.txt` and `.md` files, to read from the original file (`.srt`, `.ass`, `.ssa`, `.epub`, `.mokuro`, `.txt`, `.md`). Vertical or horizontal text, by page or scrolling, with furigana, themes, bookmarks, notes you can copy as Markdown, and your place kept in each work; manga shows the page images with the OCR text on top, one page at a time or as a vertical strip.
 - **Copy for Anki:** copy any sentence with its furigana and the searched word in bold, ready to paste into a card.
 - **Saved, sorting and filters:** the Saved tab keeps your favorite sentences, the works to continue reading and your reading notes; sort results by recommended, chronological, longest, shortest or random; search one media or all of them, or inside a single title.
-- **Japanese and English UI**, four themes that can follow your device's light or dark mode, eight accent colors or your device's own, keyboard shortcuts.
+- **Japanese and English UI**, four themes that can follow your device's light or dark mode, eleven accent colors or your device's own, keyboard shortcuts.
 
 ## Anki add-on: Aobana Reibun
 [Aobana Reibun](https://ankiweb.net/shared/info/1429349152) fills your Anki cards with Japanese example sentences. With Aobana it picks them from your own subtitles, books, manga and Custom files, with furigana, the title they come from, the lines around them, and for manga the page's image; it also takes sentences with screenshots and audio from Nadeshiko and Immersion Kit. It backfills a whole deck at once, or the card you are reviewing with one hotkey.

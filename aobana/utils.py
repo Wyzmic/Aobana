@@ -1282,7 +1282,7 @@ def _sha256_file(path: str) -> str:
     return file_sha256(path)
 
 
-def tokenizer_identity(with_hash: bool = True, recorded=None) -> dict:
+def tokenizer_identity(recorded=None) -> dict:
     import importlib.metadata as md
 
     ident = {}
@@ -1304,20 +1304,19 @@ def tokenizer_identity(with_hash: bool = True, recorded=None) -> dict:
     ident["sudachidict_requires"] = requires
     ident["dictionary_format"] = "v1" if ">=0.7" in requires.replace(" ", "") else "v0"
 
-    if with_hash:
-        path = system_dic_path()
-        try:
-            st = os.stat(path)
-            size, mtime = str(st.st_size), str(st.st_mtime_ns)
-            recorded = recorded or {}
-            same = (recorded.get("system_dic_bytes") == size and recorded.get("system_dic_mtime_ns") == mtime
-                    and recorded.get("system_dic_sha256", "unknown") != "unknown")
-            ident["system_dic_sha256"] = recorded["system_dic_sha256"] if same else _sha256_file(path)
-            ident["system_dic_bytes"] = size
-            ident["system_dic_mtime_ns"] = mtime
-        except Exception:
-            ident["system_dic_sha256"] = "unknown"
-            ident["system_dic_bytes"] = "unknown"
+    path = system_dic_path()
+    try:
+        st = os.stat(path)
+        size, mtime = str(st.st_size), str(st.st_mtime_ns)
+        recorded = recorded or {}
+        same = (recorded.get("system_dic_bytes") == size and recorded.get("system_dic_mtime_ns") == mtime
+                and recorded.get("system_dic_sha256", "unknown") != "unknown")
+        ident["system_dic_sha256"] = recorded["system_dic_sha256"] if same else _sha256_file(path)
+        ident["system_dic_bytes"] = size
+        ident["system_dic_mtime_ns"] = mtime
+    except Exception:
+        ident["system_dic_sha256"] = "unknown"
+        ident["system_dic_bytes"] = "unknown"
     return ident
 
 
@@ -1690,6 +1689,6 @@ def write_tokenizer_meta(conn, tokenized_rows: int) -> dict:
     return ident
 
 
-def parallel_map(fn, items, workers, chunksize=1, ordered=True, stop=None):
+def parallel_map(fn, items, workers, ordered=True, stop=None):
     from aobana.indexing.preparation import bounded_map
     yield from bounded_map(fn, items, workers, ordered=ordered, stop=stop)

@@ -1,5 +1,4 @@
 import sqlite3
-import time
 
 from aobana.search.reading import _KANJI_RE
 

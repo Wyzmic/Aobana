@@ -87,12 +87,7 @@
 
     const savedOffTag = () => `<span class="muted">${esc(LANG === 'ja' ? `（${t('saved_media_off')}）` : `(${t('saved_media_off')})`)}</span>`;
 
-    function savedWorkBookmarks(w) {
-      if (!w) return [];
-      if (Array.isArray(w.bookmarks)) return w.bookmarks;
-      if (w.bookmark && typeof w.bookmark === 'object') return [w.bookmark];
-      return [];
-    }
+    const savedWorkBookmarks = w => rmWorkBookmarks(w || null);
 
     function savedReadingRows() {
       return Object.entries(savedWorks || {})

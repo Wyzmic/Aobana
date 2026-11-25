@@ -2,7 +2,6 @@ import os
 import re
 import sqlite3
 import collections
-import hashlib
 import time
 import unicodedata
 from sudachipy import tokenizer, dictionary
@@ -25,13 +24,12 @@ def get_tokenizer():
     return _TOKENIZER
 
 from aobana.utils import (
-    KANA_RE, KANJI_CHARS, KANJI_PATTERN,
-    ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, RUBY_RE,
-    norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, is_appledouble_name, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map,
+    RUBY_RE,
+    INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, sub_relpath, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map,
     strip_chinese_chunks, is_chinese_text, filtered_names, held_removals, ALLOW_REMOVAL_FLAG, name_key,
-    MEDIA_EXTS, media_walk, file_sha256, ensure_stat_columns,
+    MEDIA_EXTS, file_sha256, ensure_stat_columns,
     start_output, emit, say,
-    ensure_line_lengths, has_line_lengths, write_line_lengths, drop_orphan_lengths, token_lengths_blob,
+    ensure_line_lengths, has_line_lengths, write_line_lengths, token_lengths_blob,
     write_token_lengths, stored_display_length,
     ensure_ruby_lexicon, has_ruby_lexicon, write_ruby_lexicon, drop_ruby_lexicon,
 )

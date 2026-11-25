@@ -854,8 +854,10 @@
         if (!e.target || e.target.tagName !== 'DETAILS') return;
         if (typeof rmOnFoldToggle === 'function') rmOnFoldToggle(e.target);
         if (rmState.layout === 'paginated') {
+          const prevPage = rmState.pageIndex;
           rmMeasurePagination();
           rmApplyPaginatedOffset(Math.min(rmState.pageCount - 1, rmState.pageIndex));
+          if (rmState.pageIndex !== prevPage && typeof shieldLastControlTap === 'function') shieldLastControlTap();
           rmUpdateProgressUI();
         } else {
           rmScheduleProgressUI();

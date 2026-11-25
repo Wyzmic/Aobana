@@ -60,7 +60,7 @@
       if (bar) bar.setAttribute('content', { paper: '#f7f7f5', haze: '#e4eaf1', night: '#181a1b', midnight: '#000000' }[theme]);
       document.documentElement.setAttribute('data-theme', theme);
       var accent = get('accent');
-      if (['teal', 'green', 'purple', 'pink', 'red', 'orange', 'gray'].indexOf(accent) >= 0) document.documentElement.setAttribute('data-accent', accent);
+      if (['cyan', 'teal', 'green', 'indigo', 'purple', 'pink', 'red', 'orange', 'gold', 'gray'].indexOf(accent) >= 0) document.documentElement.setAttribute('data-accent', accent);
       else if (accent === 'device' && window.CSS && CSS.supports && CSS.supports('color', 'AccentColor')) {
         try {
           var vars = JSON.parse(get('accent_device') || 'null');

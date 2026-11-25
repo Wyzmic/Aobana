@@ -187,13 +187,22 @@ def lone_file(sources, folder):
     return inside[0]
 
 
+class _RelpathMap(dict):
+    def get(self, key, default=None):
+        v = super().get(key)
+        return super().get(name_key(key), default) if v is None and isinstance(key, str) else (default if v is None else v)
+
+    def __contains__(self, key):
+        return super().__contains__(key) or (isinstance(key, str) and super().__contains__(name_key(key)))
+
+
 def all_sources(conn):
     def rows(sql):
         cursor = conn.execute(sql)
         names = [d[0] for d in cursor.description]
         return [dict(zip(names, r)) for r in cursor]
-    metadata = {r['relpath']: r for r in rows('SELECT * FROM custom_source_meta')} if conn.execute(
-        'SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone() else {}
+    metadata = _RelpathMap({name_key(r['relpath']): r for r in rows('SELECT * FROM custom_source_meta')}) if conn.execute(
+        'SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone() else _RelpathMap()
     return metadata, [_source_fields(r, metadata) for r in rows('SELECT id, relpath, category, kind, lines, order_key FROM sources ORDER BY order_key, relpath')]
 
 
@@ -526,7 +535,7 @@ def file_page(conn, file, needle='', exact=False, ruby_only=False, stop=None, of
                     and (hi is None or s['section_no'] < hi or s['section_no'] == page[-1][1])]
     logical = source['relpath']
     if source['kind'] == 'md' and conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone():
-        meta = conn.execute('SELECT path FROM custom_source_meta WHERE relpath = ?', (source['relpath'],)).fetchone()
+        meta = conn.execute("SELECT path FROM custom_source_meta WHERE replace(relpath, char(92), '/') = ?", (name_key(source['relpath']),)).fetchone()
         logical = meta[0] if meta else logical
     return {'file': source['relpath'], 'path': logical, 'title': format_custom_title(logical), 'kind': source['kind'], 'lines': rows, 'sections': sections,
             'start': start, 'end': end, 'total': total, 'fold_lines': fold_lines, 'headed': len(titled),
@@ -538,9 +547,10 @@ def reader_place(conn, rowid, file, text):
                           ('/', name_key(file))).fetchone()
     if source is None:
         return None
-    metadata = {}
+    metadata = _RelpathMap()
     if conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone():
-        metadata = {r['relpath']: dict(r) for r in conn.execute('SELECT * FROM custom_source_meta WHERE relpath = ?', (source['relpath'],))}
+        metadata = _RelpathMap({name_key(r['relpath']): dict(r) for r in conn.execute(
+            "SELECT * FROM custom_source_meta WHERE replace(relpath, char(92), '/') = ?", (name_key(source['relpath']),))})
     fields = _source_fields(source, metadata)
     row = conn.execute(f'SELECT c0, c2 FROM {_content(conn)} WHERE id = ?', (rowid,)).fetchone()
     found = row is not None and row[0] == source['id'] and (not text or row[1] == text)

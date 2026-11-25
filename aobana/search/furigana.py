@@ -11,7 +11,7 @@ import threading
 from aobana.utils import (
     ALPHA_CHARS, BOOK_RUBY_RE, DISPLAY_NONWORD_RE, DISPLAY_PUNCT_RE, GLOSS_KANA_ONE_SCRIPT_RE, GlossRuby, KANJI_CHARS,
     RUBY_RE, SPACED_RUBY_PREV_RE, SubsGlossRuby, build_ruby_lexicon, fold_compat, has_ruby_lexicon, katakana_to_hiragana,
-    load_ruby_decisions, load_ruby_merges, load_ruby_trims, ruby_merge_key, ruby_reading,
+    load_kanji_readings, load_ruby_decisions, load_ruby_merges, load_ruby_trims, ruby_merge_key, ruby_reading,
     split_spaced_ruby, sudachi_pieces, work_folder,
 )
 from aobana import paths
@@ -196,6 +196,7 @@ def warm_ruby_lexicon():
     try:
         with tagger():
             pass
+        load_kanji_readings()
         if _lexicon_tables() is None:
             get_ruby_lexicon()
     finally:

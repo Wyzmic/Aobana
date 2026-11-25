@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.0: Titles in more than one media, and three more accent colors
+
+### Enhancements
+
+- **Titles in more than one media.** A title found in two media, such as an anime and its manga with the same name, is one entry per media in the title list of **Search**, each with its media's badge, and its counts and filter keep them apart.
+- **Three more accent colors.** **Settings** has Cyan, Indigo and Gold, eleven accent colors in all.
+- Shutting a fold near the end of a page keeps it where it was, instead of moving the page down.
+- In the **Haze** theme with an accent color, the sidebar, cards and text boxes take the accent's tint too, not only the page behind them.
+- In the **Paper** theme, the ending of a highlighted word in the results (such as the た of 食べた) is darker and easier to read.
+
+### Bug Fixes
+
+- The subtitles badge (**SUBS**, **字幕**) changed color with the accent color. It is now the same blue with every accent color, in **Search** and **Media**.
+- Clicking or tapping a fold's or an episode's header several times quickly selected the text below it. It no longer does.
+- On a Mac, scrolling past the top of **Search** or **Media** could open a gap under the top bar where the results showed through. The bars now move together.
+- Double-clicking a title in the title list of **Search** picked it and dropped it again. It is now picked once.
+- On a phone, a thin line of the list showed between the top bar of **Media** and the folder path under it. It no longer does.
+- A Custom library indexed on Windows and opened on macOS, Linux or Android showed its `.md` folders empty. They now open.
+
 ## 2.9: A faster Easiest and Hardest, and keyboard use
 
 ### Enhancements

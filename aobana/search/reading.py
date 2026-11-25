@@ -7,7 +7,7 @@ import unicodedata
 from dataclasses import dataclass
 
 from aobana.utils import (
-    KANJI_CHARS, _SPACED_EQ_RE, katakana_to_hiragana, load_kanji_readings, ruby_merge_key,
+    KANJI_CHARS, _SPACED_EQ_RE, load_kanji_readings, ruby_merge_key,
 )
 
 

@@ -1108,11 +1108,15 @@ def _reveal_target(media, folder, file, dbs, db_epub=None, db_manga=None):
             got = conn.execute('SELECT relpath FROM sources WHERE replace(relpath, char(92), ?) = ? LIMIT 1',
                                ('/', name_key(file))).fetchone()
             return (split(got[0]), True, paths.roots_value('custom')) if got else (None, 'not_indexed', None)
-        metadata = conn.execute('SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone()
-        sql = ('SELECT s.relpath, s.category, COALESCE(m.path, s.relpath), m.paired_folder FROM sources s '
-               'LEFT JOIN custom_source_meta m ON m.relpath = s.relpath ORDER BY s.relpath') if metadata else (
-               'SELECT relpath, category, relpath, NULL FROM sources ORDER BY relpath')
-        scoped = [row for row in conn.execute(sql)
+        # The metadata matched by name_key in Python: a join on replace() reads every pair of rows.
+        meta = {name_key(r[0]): (r[1], r[2]) for r in conn.execute(
+            'SELECT relpath, path, paired_folder FROM custom_source_meta')} if conn.execute(
+            'SELECT 1 FROM sqlite_master WHERE name = ?', ('custom_source_meta',)).fetchone() else {}
+        rows = []
+        for rel, category in conn.execute('SELECT relpath, category FROM sources ORDER BY relpath'):
+            path, paired = meta.get(name_key(rel), (None, None))
+            rows.append((rel, category, path or rel, paired))
+        scoped = [row for row in rows
                   if row[1] == folder or name_key(row[2]).startswith(name_key(folder) + '/')]
         children = [row for row in scoped if row[3] != folder]
         rels = children or scoped

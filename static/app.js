@@ -308,6 +308,7 @@
           if (s.scrollTop + s.clientHeight > s.scrollHeight - 600) moreSidebar();
         }, { passive: true });
         document.getElementById('folder-list-dynamic').addEventListener('click', e => {
+          if (e.detail > 1) { e.preventDefault(); return; }
           const link = e.target.closest('.folder-link[data-folder]');
           if (link) setFolder(link.dataset.folder || null, e);
         });

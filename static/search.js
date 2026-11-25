@@ -122,13 +122,34 @@
       note.hidden = !show;
     }
 
+    const FOLDER_MEDIA_KEYS = ['subs', 'epub', 'manga', 'custom'];
+    function splitFolderKey(f) {
+      if (typeof f === 'string') {
+        for (const m of FOLDER_MEDIA_KEYS) {
+          const prefix = m + '::';
+          if (f.startsWith(prefix)) return { media: m, name: f.slice(prefix.length) };
+        }
+      }
+      return { media: '', name: f || '' };
+    }
+    function folderMediaLabel(media) {
+      return media ? t('kind_' + media) : '';
+    }
+    function folderTagHtml(media) {
+      return media ? `<span class="media-kind ${media}">${esc(folderMediaLabel(media))}</span>` : '';
+    }
+    function folderDisplayText(f) {
+      const { media, name } = splitFolderKey(f);
+      return media ? `${name} (${folderMediaLabel(media)})` : name;
+    }
+
     function updateCountNote(data) {
       const note = document.getElementById('count-note');
       if (!note) return;
       const shown = (data && data.scoped && sidebarData && sidebarData.folder_counts) || {};
       const real = (data && data.folder_counts) || {};
       const lines = currentFolders.filter(f => (shown[f] || 0) > (real[f] || 0))
-        .map(f => t('count_note', { f, n: fmt(real[f] || 0) }));
+        .map(f => t('count_note', { f: folderDisplayText(f), n: fmt(real[f] || 0) }));
       note.textContent = lines.join(' ');
       note.hidden = !lines.length;
     }
@@ -357,8 +378,12 @@
       if ((currentFolders.length || pinnedOnly.length) && (multiPick || currentFolders.length > 1)) {
         const shown = [...pinnedFolders.filter(f => currentFolders.includes(f) || pinnedOnly.includes(f)),
                        ...currentFolders.filter(f => !pinnedFolders.includes(f))];
-        note.innerHTML = `<span class="filter-label">${esc(t('filtering'))}</span>` + shown.map(f => `
-          <span class="filter-chip${currentFolders.includes(f) ? '' : ' dim'}"><span class="filter-chip-name">${esc(f)}</span><button type="button" data-folder="${esc(f)}" title="${esc(t('remove_filter', { f }))}" aria-label="${esc(t('remove_filter', { f }))}">✕</button></span>`).join('');
+        note.innerHTML = `<span class="filter-label">${esc(t('filtering'))}</span>` + shown.map(f => {
+          const { media, name } = splitFolderKey(f);
+          const label = folderDisplayText(f);
+          return `
+          <span class="filter-chip${currentFolders.includes(f) ? '' : ' dim'}"><span class="filter-chip-name">${esc(name)}</span>${folderTagHtml(media)}<button type="button" data-folder="${esc(f)}" title="${esc(t('remove_filter', { f: label }))}" aria-label="${esc(t('remove_filter', { f: label }))}">✕</button></span>`;
+        }).join('');
         note.querySelectorAll('button[data-folder]').forEach(b => b.addEventListener('click', e => {
           const f = b.dataset.folder;
           unpinFolder(f);
@@ -412,10 +437,14 @@
         || (data.folder_counts && data.folder_counts[f] !== undefined)
         || currentFolders.includes(f)
         || pinnedFolders.includes(f);
+      const { media, name } = splitFolderKey(f);
       return `
           <li>
             <a href="#" data-folder="${esc(f)}" class="folder-link ${isSelected}" draggable="false">
-              <span class="folder-name">${markTitle(f, document.getElementById('folder-filter')?.value)}</span>
+              <span class="folder-label">
+                <span class="folder-name">${markTitle(name, document.getElementById('folder-filter')?.value)}</span>
+                ${folderTagHtml(media)}
+              </span>
               ${PARAMS.get('q') && hasCount ? `<span class="count-badge">${fmt(count)}</span>` : ''}
             </a>
           </li>`;
@@ -506,8 +535,13 @@
                    ...pinnedFolders.filter(f => !listed.includes(f)),
                    ...(multiPick ? unlisted : [])];
       const rest = [...listed.filter(f => !pinnedFolders.includes(f)), ...(multiPick ? [] : unlisted)];
-      const match = f => !needle || foldTitleFilter(f).includes(needle)
-        || foldTitleFilter(folderAuthors[f]).includes(needle);
+      const match = key => {
+        if (!needle) return true;
+        const { media, name: f } = splitFolderKey(key);
+        return foldTitleFilter(f).includes(needle)
+          || (media && foldTitleFilter(folderMediaLabel(media)).includes(needle))
+          || foldTitleFilter(folderAuthors[f]).includes(needle);
+      };
       sidebarPinned = top.filter(match).length;
       sidebarMatches = [...top.filter(match), ...rest.filter(match)];
       let html = `
@@ -560,6 +594,16 @@
       store.set('media', next);
       const url = new URL(window.location);
       url.searchParams.set('media', next);
+      if (next !== 'all') {
+        const folders = url.searchParams.getAll('folder');
+        if (folders.length) {
+          url.searchParams.delete('folder');
+          for (const f of folders) {
+            const { media, name } = splitFolderKey(f);
+            url.searchParams.append('folder', media === next ? name : f);
+          }
+        }
+      }
       window.location.href = url.toString();
     }
 
@@ -642,18 +686,26 @@
       if (!box || !column) return;
       const spacer = document.createElement('div');
       spacer.className = 'search-pin-spacer';
-      spacer.hidden = true;
       form.before(spacer);
       const phone = matchMedia('(max-width: 720px)');
       const side = document.querySelector('[data-tab-panel="search"] .sidebar');
       const results = document.getElementById('results');
       const pieces = () => [...form.querySelectorAll(':scope > .search-input-wrap, .search-options > :not(input[type=hidden])')];
       let lastY = window.scrollY;
+      let fullH = form.offsetHeight;
+      let baseMB = parseFloat(getComputedStyle(form).marginBottom) || 0;
       const update = () => {
-        const barBottom = document.querySelector('.topbar').getBoundingClientRect().bottom;
-        const gap = side && getComputedStyle(side).position === 'sticky' ? parseFloat(getComputedStyle(side).top) - barBottom : 8;
+        const barRect = document.querySelector('.topbar').getBoundingClientRect();
+        const barBottom = barRect.bottom;
+        const gap = side && getComputedStyle(side).position === 'sticky' ? parseFloat(getComputedStyle(side).top) - barRect.height : 8;
         const pinned = form.classList.contains('pinned');
-        const home = (pinned ? spacer : form).getBoundingClientRect();
+        if (!pinned) {
+          fullH = form.offsetHeight;
+          baseMB = parseFloat(getComputedStyle(form).marginBottom) || 0;
+        }
+        const home = pinned
+          ? { top: spacer.getBoundingClientRect().top, bottom: spacer.getBoundingClientRect().top + fullH }
+          : form.getBoundingClientRect();
         const hasResults = !!(results && results.firstElementChild);
         const away = form.classList.contains('pin-away');
         const down = window.scrollY - lastY > 4;
@@ -663,26 +715,21 @@
         const pin = hasResults && under;
         form.classList.toggle('row-stick', hasResults);
         form.classList.toggle('row-stuck', hasResults && !pin && home.top < barBottom + Math.max(0, gap) - 0.5);
-        form.style.setProperty('--stick-top', barBottom + 'px');
+        form.style.setProperty('--stick-top', barRect.height + 'px');
         form.style.setProperty('--stick-gap', Math.max(0, gap) + 'px');
         if (pin && !pinned) {
-          spacer.style.height = form.offsetHeight + 'px';
-          spacer.hidden = false;
           if (phone.matches && window.scrollY >= lastY) {
             form.style.transition = 'none';
             form.classList.add('pin-away');
             requestAnimationFrame(() => requestAnimationFrame(() => { form.style.transition = ''; }));
           }
-        } else if (!pin && pinned) {
-          spacer.hidden = true;
         }
         form.classList.toggle('pinned', pin);
         if (pin) {
           const col = column.getBoundingClientRect();
-          form.style.top = barBottom + 'px';
-          form.style.left = col.left + 'px';
-          form.style.width = col.width + 'px';
-          form.style.paddingTop = Math.max(0, gap) + 'px';
+          const padTop = Math.max(0, gap);
+          form.style.paddingTop = padTop + 'px';
+          form.style.marginTop = -padTop + 'px';
           const s = side && side.getBoundingClientRect();
           const from = s && s.width && s.right <= col.left ? s.right : 0;
           form.style.setProperty('--strip-l', (col.left - from) + 'px');
@@ -692,8 +739,9 @@
           const rowTop = box.getBoundingClientRect().top;
           const off = all.map(el => el.getBoundingClientRect().top > rowTop + 4);
           all.forEach((el, i) => el.classList.toggle('pin-off', off[i]));
+          form.style.marginBottom = (baseMB + fullH - form.offsetHeight + padTop) + 'px';
         } else {
-          form.style.top = form.style.left = form.style.width = form.style.paddingTop = '';
+          form.style.paddingTop = form.style.marginTop = form.style.marginBottom = '';
           pieces().forEach(el => el.classList.remove('pin-off'));
         }
         const y = window.scrollY;
@@ -774,7 +822,14 @@
       const known = currentFolders.every(f => counts[f] != null);
       const count = !n ? (sidebarData ? sidebarData.global_total : null)
         : known ? currentFolders.reduce((a, f) => a + counts[f], 0) : null;
-      el.textContent = n > 1 ? t('phone_titles_n', { n: fmt(n) }) : n ? currentFolders[0] : t('all');
+      if (n > 1) {
+        el.textContent = t('phone_titles_n', { n: fmt(n) });
+      } else if (n) {
+        const { media, name } = splitFolderKey(currentFolders[0]);
+        el.innerHTML = `<span class="phone-title-name">${esc(name)}</span>${folderTagHtml(media)}`;
+      } else {
+        el.textContent = t('all');
+      }
       const badge = el.nextElementSibling;
       badge.hidden = !PARAMS.get('q') || count == null;
       badge.textContent = count == null ? '' : fmt(count);
@@ -811,14 +866,17 @@
       const slot = bar.classList.contains('has-path') ? document.getElementById('topbar-path') : null;
       document.documentElement.style.setProperty('--bar-h', bar.getBoundingClientRect().height + 'px');
       document.documentElement.style.setProperty('--topbar-h', bar.offsetHeight + (slot ? slot.offsetHeight : 0) + 'px');
+      document.documentElement.style.setProperty('--page-w', document.documentElement.clientWidth + 'px');
     }
     document.addEventListener('DOMContentLoaded', () => {
       const bar = document.querySelector('.topbar');
       if (!bar) return;
       const ro = new ResizeObserver(() => { updateTopbarH(); queueFit(); });
       ro.observe(bar);
+      ro.observe(document.documentElement);
       const slot = document.getElementById('topbar-path');
       if (slot) ro.observe(slot);
+      updateTopbarH();
     });
 
     let lastScrollIntent = -Infinity;

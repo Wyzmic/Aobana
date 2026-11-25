@@ -5,7 +5,6 @@ import sys
 import re
 import unicodedata
 import sqlite3
-import hashlib
 import json
 import time
 import zipfile
@@ -57,7 +56,7 @@ DB_PATH = paths.epub_db()
 
 _TOKENIZER = None
 mode = tokenizer.Tokenizer.SplitMode.A
-from aobana.utils import SUDACHI_MAX_BYTES, sudachi_dictionary, sudachi_pieces as _sudachi_pieces
+from aobana.utils import sudachi_dictionary, sudachi_pieces as _sudachi_pieces
 
 
 def get_tokenizer():
@@ -67,8 +66,7 @@ def get_tokenizer():
     return _TOKENIZER
 
 from aobana.utils import (
-    KANA_RE, KANJI_CHARS, KANJI_PATTERN,
-    ALPHA_CHARS, ALPHA_PATTERN, RUBY_BASE_RE, BOOK_RUBY_RE, BOOK_BAR_RUBY_RE,
+    BOOK_RUBY_RE, BOOK_BAR_RUBY_RE,
     norm_relpath, INDEX_FORMAT, is_outdated, ensure_format_column, compact_if_worth, stop_requested, write_tokenizer_meta, ruby_index_extras, fold_compat, parallel_map, append_filtered_rows, refresh_auto_filtered,
     held_removals, ALLOW_REMOVAL_FLAG, name_key, start_output, emit, say, file_sha256, ensure_stat_columns,
 )
@@ -238,12 +236,6 @@ def format_merged_chapter_name(current_part: str, chapter_title: str) -> str:
     if ch_clean in STANDALONE_NON_PART_SECTIONS or any(ch_clean.startswith(s) for s in STANDALONE_NON_PART_SECTIONS):
         return ch_clean
     return f"{part_clean}｜{ch_clean}"
-
-def is_main_chapter_heading(label: str) -> bool:
-    clean = normalize_cjk_spacing(heading_test_text(label.strip()))
-    if TIMESTAMP_SCENE_RE.match(clean) or ILLUSTRATION_PLACEHOLDER_RE.match(clean):
-        return False
-    return bool(IN_FILE_CHAPTER_RE.match(clean) or IN_FILE_PART_RE.match(clean))
 
 def is_structural_chapter_heading(label: str) -> bool:
     clean = normalize_cjk_spacing(heading_test_text(label.strip()))
@@ -1806,7 +1798,6 @@ COMMIT_EVERY_SECONDS = 20
 
 from aobana.indexing import run_control as control, kanji_table, line_repeats, rebuild as rebuilding
 from aobana.indexing.preparation import file_stat, job_hash, known_hash, prepare_changed
-from aobana.utils import media_walk
 
 def build_tables(conn, top, db=None):
     db = db or DB_PATH
