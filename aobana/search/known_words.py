@@ -74,10 +74,20 @@ def _decode(data):
     raise KnownWordsError('not_utf8')
 
 
+def _looks_like_json(text):
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return False
+    return isinstance(parsed, (dict, list))
+
+
 def detect(text, filename=''):
     name = (filename or '').lower()
     head = text.lstrip()[:4096]
     if head.startswith('{') and ENVELOPE in head:
+        return 'reibun'
+    if name.endswith('.json') or (head.startswith(('{', '[')) and _looks_like_json(text)):
         return 'reibun'
     if re.search(r'^=== [A-Z]+ ===$', head, re.M):
         return 'jiten'

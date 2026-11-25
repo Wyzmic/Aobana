@@ -11,6 +11,7 @@ const rmNotesState = {
   notes: [],
   scope: 'part',
   editingId: '',
+  askingId: '',
   draftAnchor: null,
   draftQuote: '',
   draftQuoteFuri: '',
@@ -50,7 +51,8 @@ function rmExtractNodeText(node, includeFurigana) {
     }
     if (n.nodeType !== 1) return;
     const tag = n.tagName;
-    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'SVG') return;
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'SVG' || tag === 'BUTTON') return;
+    if (n.hasAttribute && n.hasAttribute('data-rm-ui')) return;
     if (n.classList && (n.classList.contains('rm-sent-break') || n.classList.contains('rm-part-nav-end'))) return;
     if (n.classList && n.classList.contains('rm-sub-ts')) {
       const p = rmGetPrefs();
@@ -232,6 +234,7 @@ async function rmLoadWorkNotes() {
   rmNotesState.workKey = wk;
   rmNotesState.notes = [];
   rmNotesState.editingId = '';
+  rmNotesState.askingId = '';
   rmUpdateNotesBtn();
   if (!wk) return;
   try {
@@ -443,11 +446,13 @@ function rmRenderNotesPanel() {
         return `<div class="rm-note-item" data-note-id="${esc(n.id)}">
           <div class="rm-note-item-head">
             <button type="button" class="rm-note-place" onclick="rmJumpToNote('${esc(n.id)}')">${esc(place)}</button>
-            <div class="rm-note-item-actions">
+            <div class="rm-note-item-actions"${rmNotesState.askingId === n.id ? ' data-asking="1"' : ''}>
               <button type="button" class="btn" onclick="rmJumpToNote('${esc(n.id)}')">${esc(t('rm_notes_jump'))}</button>
               <button type="button" class="btn" onclick="rmCopySingleNote('${esc(n.id)}')">${esc(t('rm_notes_copy'))}</button>
               <button type="button" class="btn" onclick="rmStartEditNote('${esc(n.id)}')">${esc(t('rm_notes_edit'))}</button>
-              <button type="button" class="btn" onclick="rmDeleteNote('${esc(n.id)}')">${esc(t('rm_notes_delete'))}</button>
+              ${rmNotesState.askingId === n.id
+                ? `<button type="button" class="btn" data-ask="1" onclick="rmAskDeleteNote('')">${esc(t('rm_notes_cancel'))}</button><button type="button" class="btn primary" data-ask="1" onclick="rmDeleteNote('${esc(n.id)}')">${esc(t('rm_notes_delete'))}</button>`
+                : `<button type="button" class="btn" onclick="rmAskDeleteNote('${esc(n.id)}', this)">${esc(t('rm_notes_delete'))}</button>`}
             </div>
           </div>
           ${q ? `<div class="rm-note-item-quote">${esc(q)}</div>` : ''}
@@ -524,8 +529,11 @@ async function rmSaveNote() {
       rmUpdateNotesBtn();
       rmRenderNotesPanel();
       rmToast(t('rm_notes_saved'));
+    } else {
+      rmToast(t('error'));
     }
   } catch (e) {
+    rmToast(t('error'));
   } finally {
     rmNotesState.saving = false;
   }
@@ -535,6 +543,7 @@ function rmStartEditNote(id) {
   const hit = rmNotesState.notes.find(n => n.id === id);
   if (!hit) return;
   rmNotesState.editingId = id;
+  rmNotesState.askingId = '';
   rmRenderNotesPanel();
   const ta = document.getElementById('rm-notes-input');
   if (ta) {
@@ -555,6 +564,15 @@ function rmCancelEditNote() {
   rmRenderNotesPanel();
 }
 
+// Delete asks once, on the note itself, as in 保存: Cancel appears before it, so a second click on the same place deletes
+function rmAskDeleteNote(id, btn) {
+  const from = askRect(btn);
+  rmNotesState.askingId = id || '';
+  if (id) rmNotesState.editingId = '';
+  rmRenderNotesPanel();
+  keepAskInPlace(document.querySelector('.rm-notes-list .rm-note-item-actions[data-asking]'), from);
+}
+
 async function rmDeleteNote(id) {
   if (!id || !rmState.media || !rmState.folder) return;
   const wk = rmNotesWorkKey();
@@ -564,17 +582,22 @@ async function rmDeleteNote(id) {
       headers: { 'Content-Type': 'application/json', ...API_HEADERS },
       body: JSON.stringify({ media: rmState.media, folder: rmState.folder, id }),
     });
-    if (!r.ok) return;
+    if (!r.ok) { rmToast(t('error')); return; }
     const data = await r.json();
     if (rmNotesWorkKey() !== wk) return;
     if (Array.isArray(data.notes)) {
       rmNotesState.notes = data.notes;
       if (rmNotesState.editingId === id) rmNotesState.editingId = '';
+      rmNotesState.askingId = '';
       rmUpdateNotesBtn();
       rmRenderNotesPanel();
       rmToast(t('rm_notes_deleted'));
+    } else {
+      rmToast(t('error'));
     }
-  } catch (e) {}
+  } catch (e) {
+    rmToast(t('error'));
+  }
 }
 
 async function rmJumpToNote(id) {

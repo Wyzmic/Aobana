@@ -88,9 +88,10 @@
         document.documentElement.classList.remove('rm-booting');
       }
       // 「読書モード」 for a folder of .txt and .md files, or one such file, as on a book's page.
-      const showReaderButton = on => {
+      const showReaderButton = (on, extra) => {
+        const allow = on || (typeof rmExtraCustomReadable === 'function' && rmExtraCustomReadable(path, file, extra));
         const row = head.querySelector('.custom-rm-row');
-        if (!on || typeof rmEntryButtonHTML !== 'function') { row?.remove(); return; }
+        if (!allow || typeof rmEntryButtonHTML !== 'function') { row?.remove(); return; }
         if (row) return;
         head.querySelector('h1').insertAdjacentHTML('afterend', `<div class="media-detail-meta-row custom-rm-row">${rmEntryButtonHTML('custom', path)}</div>`);
         const btn = document.getElementById('rm-entry-btn');
@@ -173,7 +174,7 @@
           if (!r.ok) throw new Error(await busyAnswer(r) ? 'busy' : 'folder');
           const data = await r.json();
           if (gen !== generation) return;
-          if (reset) showReaderButton(!!data.readable);
+          if (reset) showReaderButton(!!data.readable, data);
           if (reset && mode !== 'content' && !!data.parts_vary !== partsVary) { partsVary = !!data.parts_vary; redrawSort(); }
           // A title search's files come under their own heading, after the folders, as the Media list's names inside the works
           const filesHead = `<div class="media-inner-head">${esc(t('custom_files_head'))}</div>`;

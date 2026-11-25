@@ -13,6 +13,7 @@ from pathlib import Path
 from aobana.indexing.process_tree import OwnedProcess
 
 from aobana import paths
+from aobana.search import coverage
 from aobana.utils import media_walk, FILTER_COLUMNS, count_rows, filtered_rows, outdated_sources, missing_tables, ALLOW_REMOVAL_FLAG, JSONL_FLAG, name_key, trim_outdated, ruby_outdated, MEDIA_TABLES
 
 _LOCK = threading.Lock()
@@ -70,14 +71,22 @@ def _count_files(root, media, progress=None, count_other=True):
         return None
     last = time.monotonic()
     from aobana.utils import media_walk_roots
-    for _, _, kept, rest in media_walk_roots(root, media, deduplicate=False):
+    errors = []
+    for _, _, kept, rest in media_walk_roots(root, media, deduplicate=False, errors=errors):
         found += len(kept)
         if count_other:
             other += rest
         if progress and time.monotonic() - last > 0.25:
             last = time.monotonic()
             progress(found, other)
-    return {"files": found, "loose": 0, "other": other}
+    out = {"files": found, "loose": 0, "other": other}
+    # A folder the walk could not open would count 0 files, as if it were empty: say so instead.
+    tops = {os.path.normcase(os.path.abspath(f)) for f in paths.root_list(root)}
+    blocked = {os.path.normcase(os.path.abspath(e.filename)) for e in errors if getattr(e, "filename", None)}
+    if blocked:
+        out["unreadable"] = len(blocked - tops)
+        out["root_unreadable"] = bool(blocked & tops)
+    return out
 
 
 def _has_files(root, media):
@@ -141,6 +150,12 @@ def _figures_key():
     return [paths.roots_value(media) for media in _DISK_MEDIA]
 
 
+# Which of the folders exist: one renamed or deleted while the app runs is walked again, so its
+# files leave the count
+def _roots_present(key):
+    return [[os.path.isdir(folder) for folder in paths.root_list(root)] for root in key]
+
+
 def _load_figures():
     try:
         with open(_figures_path(), encoding="utf-8") as fh:
@@ -162,7 +177,7 @@ def _save_figures(doc):
 
 def _walk_figures(key, shown):
     started = time.time()
-    doc = {"key": key, "complete": False, **{k: None for k in _DISK_KEYS}}
+    doc = {"key": key, "present": _roots_present(key), "complete": False, **{k: None for k in _DISK_KEYS}}
     last_save = 0.0
 
     def publish(save=False):
@@ -202,7 +217,9 @@ def ensure_figures():
             _FSTATE["again"] = _FSTATE.get("key") != key
             return
         saved = _FSTATE.get("saved") or _load_figures()
-        good = bool(saved and saved.get("key") == key and saved.get("complete"))
+        present = _roots_present(key)
+        good = bool(saved and saved.get("key") == key and saved.get("complete")
+                    and saved.get("present", present) == present)
         if good and not _FIG_STALE["stale"]:
             _FSTATE["saved"] = saved
             return
@@ -243,9 +260,22 @@ def _add_notice(kind, seconds, **extra):
 
 
 def activity():
+    cov = coverage.progress()
     with _LOCK:
         return {"index": bool(_STATE.get("running")), "check": bool(_ASTATE.get("running")),
-                "figures": bool(_FSTATE.get("running")), "notices": [dict(n) for n in _NOTICES]}
+                "figures": bool(_FSTATE.get("running")), "notices": [dict(n) for n in _NOTICES],
+                "coverage": cov}
+
+
+def busy_reason():
+    if _STATE.get("running") or _STATE.get("moving"):
+        return "index"
+    if _ASTATE.get("running"):
+        return "check"
+    return None
+
+
+coverage.set_busy_check(busy_reason)
 
 
 def dismiss_notice(notice_id):
@@ -1447,8 +1477,8 @@ def start_indexing(only=None, outdated=False, tables=False, allow_removal=False)
     from aobana.indexing.run_control import writer_active
     if any(writer_active(_stage_inputs(stage)[2]) for stage, _ in stages):
         return False
-    with _LOCK:
-        if _STATE.get("running") or _STATE.get("moving") or _ASTATE.get("running"):
+    with _LOCK, coverage.start_lock():
+        if _STATE.get("running") or _STATE.get("moving") or _ASTATE.get("running") or coverage.running():
             return False
         if allow_removal and not tables:
             held = frozenset(_STATE.get("removal_held", {}))
@@ -1732,8 +1762,8 @@ def start_analysis(only=None):
         return False
     else:
         only = on[0] if len(on) == 1 else None
-    with _LOCK:
-        if _ASTATE.get("running") or _STATE.get("running") or _STATE.get("moving"):
+    with _LOCK, coverage.start_lock():
+        if _ASTATE.get("running") or _STATE.get("running") or _STATE.get("moving") or coverage.running():
             return False
         _ASTATE.clear()
         _ASTATE.update(running=True, stage="subs" if only != "epub" else "epub", done=0, total=0,

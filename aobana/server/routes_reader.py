@@ -546,7 +546,36 @@ from flask import Response
 from aobana import paths
 
 _READER_ALLOWED_MEDIA = ("epub", "subs", "manga", "custom")
+_READER_EXTRA_PROFILES = {}
+_CUSTOM_READER_HOOKS = []
 _READER_STATE_LOCK = threading.Lock()
+
+
+def register_reader_profile(key, default_layout=None, extra_enums=None):
+    _READER_EXTRA_PROFILES[str(key)] = {
+        "default_layout": default_layout,
+        "extra_enums": dict(extra_enums or {}),
+    }
+
+
+def register_custom_reader(files_fn, part_fn, profile_fn):
+    _CUSTOM_READER_HOOKS.append({
+        "files": files_fn,
+        "part": part_fn,
+        "profile": profile_fn,
+    })
+
+
+def _valid_prefs_media(media):
+    return media in _READER_ALLOWED_MEDIA or media in _READER_EXTRA_PROFILES
+
+
+def _custom_prefs_key(folder, file_key=""):
+    for hook in _CUSTOM_READER_HOOKS:
+        got = hook["profile"](folder, file_key)
+        if got and got in _READER_EXTRA_PROFILES:
+            return got
+    return "custom"
 _READER_NOTES_LOCK = threading.Lock()
 _EPUB_META_LOCK = threading.Lock()
 _EPUB_META_CACHE = OrderedDict()
@@ -664,10 +693,21 @@ def _clamp_font_family(val):
 
 def _clamp_prefs(raw, media=""):
     out = dict(_READER_PREFS_DEFAULT)
+    extra = _READER_EXTRA_PROFILES.get(media)
     if media == "subs":
         out["layout"] = "continuous"
+    elif extra and extra.get("default_layout") in _READER_LAYOUTS:
+        out["layout"] = extra["default_layout"]
+    if extra:
+        for ekey, allowed in extra.get("extra_enums", {}).items():
+            if allowed:
+                out[ekey] = allowed[0]
     if not isinstance(raw, dict):
         return out
+    if extra:
+        for ekey, allowed in extra.get("extra_enums", {}).items():
+            if raw.get(ekey) in allowed:
+                out[ekey] = raw[ekey]
     if raw.get("theme") in _READER_THEMES:
         out["theme"] = raw["theme"]
     out["font_family"] = _clamp_font_family(raw.get("font_family"))
@@ -724,6 +764,9 @@ def _clamp_media_prefs(raw):
         if m == "custom" and not (nested and isinstance(src, dict)):
             src = out["epub"]
         out[m] = _clamp_prefs(src, m)
+    for k in _READER_EXTRA_PROFILES:
+        src = raw.get(k) if isinstance(raw.get(k), dict) else None
+        out[k] = _clamp_prefs(src, k)
     return out
 
 
@@ -876,6 +919,16 @@ def _clean_work_state(raw, existing=None, media=None):
         elif isinstance(bm, dict) and isinstance(bm.get("file"), str):
             merged = [bm] + list(out.get("bookmarks") or [])
             out["bookmarks"] = _normalize_bookmarks({"bookmarks": merged}, now=now, media=media)
+    # One bookmark removed or added against the list on disk, so a second tab on the same work
+    # keeps the bookmarks the first one made
+    if isinstance(raw.get("bookmark_remove"), dict):
+        gone = _bookmark_place_key(raw["bookmark_remove"], media=media)
+        out.pop("bookmark", None)
+        out["bookmarks"] = [b for b in (out.get("bookmarks") or []) if _bookmark_place_key(b, media=media) != gone]
+    add = raw.get("bookmark_add")
+    if isinstance(add, dict) and isinstance(add.get("file"), str):
+        out.pop("bookmark", None)
+        out["bookmarks"] = _normalize_bookmarks({"bookmarks": [add] + list(out.get("bookmarks") or [])}, now=now, media=media)
     out["updated_at"] = now
     return out
 
@@ -2164,11 +2217,19 @@ def api_reading_chapters():
     if media == "custom":
         conn = server.get_custom_db()
         files = _custom_reader_files(conn, folder) if conn is not None else []
+        if not files and conn is not None:
+            for hook in _CUSTOM_READER_HOOKS:
+                got = hook["files"](conn, folder)
+                if got:
+                    files = got
+                    break
+        prefs_key = _custom_prefs_key(folder, files[0]["file"] if files else "")
         with _READER_STATE_LOCK:
             st = _read_reader_state()
         w = st["works"].get(f"{media}:{folder}")
-        return jsonify({"media": media, "folder": folder, "files": files,
-                        "prefs": st["prefs"][media], "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
+        return jsonify({"media": media, "folder": folder, "files": files, "prefs_key": prefs_key,
+                        "prefs": st["prefs"].get(prefs_key, st["prefs"][media]),
+                        "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
     with app.test_request_context(f"/api/episodes?folder={urllib.parse.quote(folder)}&media={urllib.parse.quote(media)}"):
         ep_resp = api_episodes()
     if isinstance(ep_resp, tuple):
@@ -2308,7 +2369,9 @@ def _subs_db_fallback(db_subs, folder, file_key, reason, detail=""):
 
 def _load_subtitle_episode(db_subs, folder, file_key):
     src = db_subs.execute("SELECT id, relpath FROM sources WHERE relpath = ?", (file_key,)).fetchone()
-    relpath = src["relpath"] if src else file_key
+    if src is None:
+        return None
+    relpath = src["relpath"]
     sub_path = paths.resolve_media_path("subs", relpath)
     if not sub_path or not os.path.isfile(sub_path):
         return _subs_db_fallback(db_subs, folder, relpath, "file_missing", relpath)
@@ -2440,7 +2503,7 @@ def _load_manga_volume(db_manga, folder, file_key):
         (series, volume),
     ).fetchone()
     if src is None:
-        return _manga_db_fallback(db_manga, folder, file_key, None, "file_missing", file_key)
+        return None
 
     source_id = src["id"]
     relpath = src["relpath"]
@@ -2572,6 +2635,8 @@ def _reading_part(media, folder, file_key):
         if db_subs is None:
             return jsonify({"error": "Subtitles database unavailable"}), 404
         res = _load_subtitle_episode(db_subs, folder, file_key)
+        if res is None:
+            return jsonify({"error": "Episode not found"}), 404
         return jsonify(res)
 
     if media == "manga":
@@ -2579,6 +2644,8 @@ def _reading_part(media, folder, file_key):
         if db_manga is None:
             return jsonify({"error": "Manga database unavailable"}), 404
         res = _load_manga_volume(db_manga, folder, file_key)
+        if res is None:
+            return jsonify({"error": "Volume not found"}), 404
         return jsonify(res)
 
     if media == "custom":
@@ -2586,6 +2653,14 @@ def _reading_part(media, folder, file_key):
         if conn is None:
             return jsonify({"error": "Custom database unavailable"}), 404
         res = _load_custom_file(conn, folder, file_key)
+        if res is None:
+            for hook in _CUSTOM_READER_HOOKS:
+                got = hook["part"](conn, folder, file_key)
+                if got is not None:
+                    res = got
+                    break
+        if res == "not_found":
+            return jsonify({"error": "File not found"}), 404
         if res is None:
             return jsonify({"error": "Only .txt and .md files open in Reading mode"}), 400
         return jsonify(res)
@@ -2631,9 +2706,7 @@ def _load_custom_file(conn, folder, file_key):
     from aobana.search.custom import file_page
     page = file_page(conn, file_key)
     if page is None:
-        return {"media": "custom", "folder": folder, "file": file_key, "source": "file",
-                "fallback_reason": None, "writing_mode": "horizontal", "css": "",
-                "html": "", "lines": [], "char_count": 0}
+        return "not_found"
     if page["kind"] not in _CUSTOM_READER_KINDS:
         return None
     headings = {s["section_no"]: s["heading"] for s in page["sections"] if s.get("heading")} if page["kind"] == "md" else {}
@@ -2738,15 +2811,17 @@ def api_reading_state():
     if request.method == "GET":
         media = (request.args.get("media") or "").strip().lower()
         folder = request.args.get("folder") or ""
-        if media and media not in _READER_ALLOWED_MEDIA:
+        if media and not _valid_prefs_media(media):
             return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
         with _READER_STATE_LOCK:
             st = _read_reader_state()
         if media and folder:
             w = st["works"].get(f"{media}:{folder}")
-            return jsonify({"prefs": st["prefs"][media], "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
+            prefs_key = _custom_prefs_key(folder) if media == "custom" else media
+            return jsonify({"prefs": st["prefs"].get(prefs_key, st["prefs"][media]), "prefs_key": prefs_key,
+                            "work": _work_for_read(w, media=media) if isinstance(w, dict) else w})
         if media:
-            return jsonify({"prefs": st["prefs"][media]})
+            return jsonify({"prefs": st["prefs"][media], "prefs_key": media})
         if request.args.get("titles") != "1":
             works_norm = {k: _work_for_read(v, media=k.split(":", 1)[0] if ":" in str(k) else None)
                           for k, v in st["works"].items() if isinstance(v, dict)}
@@ -2777,7 +2852,7 @@ def api_reading_state():
     if not isinstance(media, str) or not isinstance(folder, str):
         return jsonify({"error": "Invalid payload"}), 400
     media = media.strip().lower()
-    if media and media not in _READER_ALLOWED_MEDIA:
+    if media and not _valid_prefs_media(media):
         return jsonify({"error": "Reading mode supports epub, subs, manga and custom only"}), 400
     with _READER_STATE_LOCK:
         st = _read_reader_state()
@@ -2788,7 +2863,7 @@ def api_reading_state():
             merged.update(body["prefs"])
             st["prefs"][media] = _clamp_prefs(merged, media)
         work_out = None
-        if media and folder and isinstance(body.get("work"), dict):
+        if media in _READER_ALLOWED_MEDIA and folder and isinstance(body.get("work"), dict):
             wkey = f"{media}:{folder}"
             st["works"][wkey] = _clean_work_state(body["work"], st["works"].get(wkey), media=media)
             work_out = st["works"][wkey]

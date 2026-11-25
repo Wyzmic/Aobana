@@ -31,6 +31,19 @@ from aobana.server import updater
 from aobana.utils import fold_compat, normalize_query, index_busy, media_wanted, outdated_sources, parse_media, RUBY_RE, BOOK_RUBY_RE, MEDIA_NAMES
 
 app = Flask(__name__, template_folder='.', static_folder=os.path.join(paths.BASE_DIR, 'static'))
+
+
+def _hide_static_from_gallery():
+    static = os.path.realpath(app.static_folder)
+    if not static.startswith(('/storage/', '/sdcard/')):
+        return
+    try:
+        open(os.path.join(static, '.nomedia'), 'a').close()
+    except OSError:
+        pass
+
+
+_hide_static_from_gallery()
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
 
 
@@ -80,7 +93,7 @@ def favicon():
 
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "2.8"
+VERSION = "2.9"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"

@@ -71,7 +71,9 @@ APP_FILES = [
     "Aobana.bat", "aobana.sh", "requirements.txt", "constraints.txt",
     "data/ruby/ruby.tsv", "data/ruby/kanji_readings.tsv",
     "static/app.css", "static/i18n.js", "static/core.js", "static/search.js", "static/cards.js",
-    "static/media.js", "static/reader_notes.js", "static/saved.js", "static/custom.js", "static/settings.js",
+    "static/media.js", "static/reader_prefs.js", "static/reader_anchors.js", "static/reader_core.js",
+    "static/reader_layout.js", "static/reader_ui.js", "static/reader_manga.js", "static/reader_notes.js",
+    "static/saved.js", "static/custom.js", "static/settings.js",
     "static/library.js", "static/guide.js", "static/notices.js", "static/learn.js", "static/app.js",
     "static/aobana.svg", "static/fonts/NotoSansJP.ttf", "static/fonts/OFL.txt",
 ]
@@ -879,7 +881,7 @@ def check_release_notes():
     path = os.path.join(RELEASE, f"notes-{VERSION}.md")
     if not os.path.isfile(path):
         sys.exit(f"build: {os.path.relpath(path, ROOT)} is missing - write the release notes first "
-                 "(Downloads, What's Changed > Notable Changes; docs/style-guide.md section 8)")
+                 "(Downloads, What's Changed > Notable Changes; docs/writing-release-notes.md)")
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     m = re.search(r"^###\s+Notable Changes\s*$(.*?)(?=^##|\Z)", text, re.M | re.S)

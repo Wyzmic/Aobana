@@ -994,8 +994,8 @@ def _walk_key(name: str):
     return unicodedata.normalize("NFC", name_key(name)), name
 
 
-def media_walk(root: str, media: str):
-    for dirpath, dirnames, filenames in os.walk(root):
+def media_walk(root: str, media: str, errors=None):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=errors.append if errors is not None else None):
         dirnames.sort(key=_walk_key)
         filenames.sort(key=_walk_key)
         kept, other = [], 0
@@ -1007,11 +1007,11 @@ def media_walk(root: str, media: str):
         yield dirpath, kept, other
 
 
-def media_walk_roots(roots, media, duplicates=None, deduplicate=True):
+def media_walk_roots(roots, media, duplicates=None, deduplicate=True, errors=None):
     from aobana import paths
     seen = {}
     for index, root in enumerate(paths.root_list(roots)):
-        for directory, kept, other in media_walk(root, media):
+        for directory, kept, other in media_walk(root, media, errors):
             winners = []
             for filename in kept:
                 path = os.path.join(directory, filename)

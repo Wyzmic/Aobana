@@ -26,14 +26,23 @@
       if (savedPaneKnown(hash) && hash !== savedPaneOpen) openSavedPane(hash, false);
     });
 
-    function openSavedPane(pane, setHash = true) {
+    function openSavedPane(pane, setHash = true, focusTab = false) {
       if (!savedPaneKnown(pane)) pane = 'favorites';
       // Undo lives only while 続きから読む stays open
       if (pane !== 'reading') savedUndoDrop();
       savedPaneOpen = pane;
       store.set('aobana_saved_tab', pane);
-      document.getElementById('saved-tabs').innerHTML = SAVED_PANES.map(([key, label]) =>
-        `<button type="button" role="tab" class="nav-tab set-tab ${key === pane ? 'active' : ''}" aria-selected="${key === pane}" onclick="openSavedPane('${key}')">${esc(t(label))}</button>`).join('');
+      const bar = document.getElementById('saved-tabs');
+      const prevScroll = bar ? bar.scrollLeft : 0;
+      const hadFocus = focusTab || (bar && bar.contains(document.activeElement));
+      bar.innerHTML = SAVED_PANES.map(([key, label]) =>
+        `<button type="button" role="tab" class="nav-tab set-tab ${key === pane ? 'active' : ''}" data-tab-key="${key}" aria-selected="${key === pane}" onclick="openSavedPane('${key}')">${esc(t(label))}</button>`).join('');
+      bindTabStripKeys(bar, (key, focus) => openSavedPane(key, true, focus));
+      bar.scrollLeft = prevScroll;
+      const active = bar.querySelector('.set-tab.active');
+      scrollStripTo(bar, active);
+      requestAnimationFrame(() => scrollStripTo(bar, bar.querySelector('.set-tab.active')));
+      if (hadFocus && active) { try { active.focus({ preventScroll: true }); } catch (e) {} }
       document.querySelectorAll('[data-saved-pane]').forEach(p => { p.hidden = p.dataset.savedPane !== pane; });
       if (setHash) history.replaceState(history.state, '', location.pathname + location.search + '#saved-' + pane);
       updateSavedMeta();
@@ -190,7 +199,7 @@
         box.className = 'saved-undo';
         box.setAttribute('role', 'status');
         box.innerHTML = `<span class="saved-undo-text"></span><button type="button" class="btn primary" onclick="savedUndo()">${esc(t('saved_undo'))}</button>`;
-        document.body.append(box);
+        document.getElementById('task-stack').insertBefore(box, document.getElementById('coverage-notice'));
       }
       box.querySelector('.saved-undo-text').textContent = t('saved_reading_removed', { n: fmt(n) });
     }
@@ -216,10 +225,12 @@
     async function savedDeleteBookmark(i, bi) {
       const w = (document.querySelector('[data-saved-pane="reading"]')._rows || [])[i];
       if (!w) return;
-      const bms = savedWorkBookmarks(w).filter((_, idx) => idx !== bi);
-      const res = await apiPost('/api/reading/state', { media: w.media, folder: w.folder, work: { bookmarks: bms } }).catch(() => null);
-      if (res && savedWorks && savedWorks[w.wkey]) {
-        savedWorks[w.wkey] = { ...savedWorks[w.wkey], bookmarks: bms };
+      const bm = savedWorkBookmarks(w)[bi];
+      if (!bm) return;
+      // Only this bookmark goes, so one added in Reading mode meanwhile stays
+      const res = await apiPost('/api/reading/state', { media: w.media, folder: w.folder, work: { bookmark_remove: bm } }).catch(() => null);
+      if (res && res.work && Array.isArray(res.work.bookmarks) && savedWorks && savedWorks[w.wkey]) {
+        savedWorks[w.wkey] = { ...savedWorks[w.wkey], bookmarks: res.work.bookmarks };
         delete savedWorks[w.wkey].bookmark;
       }
       savedRedrawKeepingScroll();
@@ -298,13 +309,13 @@
           return `<div class="rm-note-item">
             <div class="rm-note-item-head">
               <button type="button" class="rm-note-place" ${on ? '' : 'disabled'} onclick="savedJumpNote(${gi}, ${ni})">${esc(savedNotePlace(n, g))}</button>
-              <div class="rm-note-item-actions">
+              <div class="rm-note-item-actions"${asking ? ' data-asking="1"' : ''}>
                 <button type="button" class="btn" ${on ? '' : 'disabled'} onclick="savedJumpNote(${gi}, ${ni})">${esc(t('rm_notes_jump'))}</button>
                 <button type="button" class="btn" onclick="savedCopyNotes(${gi}, ${ni}, true, this)">${esc(t('rm_notes_copy'))}</button>
                 <button type="button" class="btn" onclick="savedEditNote(${gi}, ${ni})">${esc(t('rm_notes_edit'))}</button>
                 ${asking
-                  ? `<button type="button" class="btn primary" onclick="savedDeleteNote(${gi}, ${ni})">${esc(t('rm_notes_delete'))}</button><button type="button" class="btn" onclick="savedAskDelete(null)">${esc(t('rm_notes_cancel'))}</button>`
-                  : `<button type="button" class="btn" onclick="savedAskDelete(${gi}, ${ni})">${esc(t('rm_notes_delete'))}</button>`}
+                  ? `<button type="button" class="btn" data-ask="1" onclick="savedAskDelete(null)">${esc(t('rm_notes_cancel'))}</button><button type="button" class="btn primary" data-ask="1" onclick="savedDeleteNote(${gi}, ${ni})">${esc(t('rm_notes_delete'))}</button>`
+                  : `<button type="button" class="btn" onclick="savedAskDelete(${gi}, ${ni}, this)">${esc(t('rm_notes_delete'))}</button>`}
               </div>
             </div>
             ${q ? `<div class="rm-note-item-quote">${esc(q)}</div>` : ''}
@@ -390,12 +401,14 @@
       renderSavedNotes();
     }
 
-    // Delete asks once, on the note itself (Delete, then Delete or Cancel), as Settings does
-    function savedAskDelete(gi, ni) {
+    // Delete asks once, on the note itself: Cancel appears before it, so a second click on the same place deletes
+    async function savedAskDelete(gi, ni, btn) {
       const { g, n } = gi == null ? {} : savedNoteAt(gi, ni);
+      const from = askRect(btn);
       savedNoteEditing = null;
       savedNoteAsking = n ? { wkey: g.wkey, id: n.id } : null;
-      renderSavedNotes();
+      await renderSavedNotes();
+      keepAskInPlace(document.querySelector('.rm-note-item-actions[data-asking]'), from);
     }
 
     async function savedDeleteNote(gi, ni) {

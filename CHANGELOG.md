@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.9: A faster Easiest and Hardest, and keyboard use
+
+### Enhancements
+
+- **A faster Easiest and Hardest.** The count behind the two Media sorts runs on the index workers set in **Settings**, about 5× faster on a large library, and its figures are kept after a restart. Its notice stays at the bottom right on every tab until closed.
+- **Keyboard use.** The dropdowns work with ↓ ↑ Home End, Enter and Escape, and an open window keeps the keyboard until it closes. **Enter** opens the sentence card picked with **D** and **A** in **Media**.
+
+**Reading mode**
+
+- The footer's count, % and bar count the text up to the end of the screen, so a part's last page or screen shows 100%. The saved place and a bookmark's % stay the first character on screen; a manga volume shows 100% on its last page.
+- **Contents** shows a file's folders as a tree that opens and shuts, with a filter from 20 items.
+- Deleting a note asks once, as in **Saved**. In both, the second **Delete** appears where the first one was, with **Cancel** before it, so notes can be deleted one after another by pressing one place.
+
+**The app**
+
+- **Index library** and **Check library** are grayed while the Easiest and Hardest count runs, and the count waits for an index run or a check to end.
+- The notices stack in one column at the bottom right, the newest lowest, with **Saved**'s **Undo** in the same column.
+- The tab strips of **Settings** and **Saved** scroll a tapped tab fully into view and take ← → Home End.
+- ↓ and ↑ scroll the page when there are no sentence cards, and Escape closes the phone's title sheet.
+- Screen readers hear the windows as dialogs, and the search, filter and port fields have names.
+- When the server cannot be reached, bookmarks, notes and Reading mode settings, the changes in **Settings** and a search say so, instead of looking saved or leaving the old results.
+
+### Bug Fixes
+
+- Two tabs open on one work could undo each other's bookmarks. Adding or deleting a bookmark, there or in **Saved**, now changes only that bookmark.
+- A media folder the app was not allowed to read showed 0 files. The Library and **Settings** now say it cannot be read, and so for folders inside it.
+- A media folder renamed or deleted while Aobana ran kept its files in the Library's figures. It is now counted again.
+- A `.json` file that is not a word list from Aobana Reibun, such as a reading-data or favorites backup, was read as known words. It is now refused.
+- A favorites file from a newer version was accepted, and one too big for the browser's storage showed as imported but was gone after a reload. Both now get the "could not be read" note, and the list stays as it was.
+- A `config.json` that could not be read was overwritten with the defaults at the next save. It is now kept as `config.json.bad`.
+- With **Match device**, Chrome on Android could show another accent color until the page was touched. It now reads the device's accent again after the page opens.
+- On a phone, the app's icon appeared in the gallery. It no longer does.
+
 ## 2.8: Bookmarks, Easiest and Hardest, and Settings → Data
 
 ### Enhancements

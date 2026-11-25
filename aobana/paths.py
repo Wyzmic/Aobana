@@ -230,12 +230,23 @@ STORE_DIR = _user_data_dir() if INSTALLED else (os.environ.get("AOBANA_DATA_DIR"
 CONFIG_PATH = os.path.join(STORE_DIR, "config.json")
 
 
-def _read_json(path):
+def _read_json(path, preserve_bad=False):
     try:
         with open(path, encoding="utf-8-sig") as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except OSError:
+        return {}
+    except ValueError:
+        # A config that cannot be read is kept aside, never overwritten by the next save
+        if preserve_bad:
+            bad = f"{path}.bad"
+            if os.path.exists(bad):
+                bad = f"{path}.{time.strftime('%Y%m%d-%H%M%S')}.bad"
+            try:
+                os.replace(path, bad)
+            except OSError:
+                pass
         return {}
 
 
@@ -287,7 +298,7 @@ def load_config():
 
 
 def _load_config():
-    cfg = _read_json(CONFIG_PATH)
+    cfg = _read_json(CONFIG_PATH, preserve_bad=True)
     if not INSTALLED:
         return cfg
     seed = _read_json(MARKER_PATH)

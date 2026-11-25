@@ -13,9 +13,11 @@
       let a = null;
       try { a = await fetch('/api/activity').then(r => r.json()); } catch (e) {}
       if (a) renderNotices(a.notices || []);
+      if (a) renderCoverageNotice(a.coverage);
       if (a) {
         const wasBusy = activityBusy;
-        activityBusy = !!(a.index || a.check || a.figures);
+        const cov = a.coverage || {};
+        activityBusy = !!(a.index || a.check || a.figures || cov.running || cov.blocked);
         if (activityBusy && !wasBusy) wakeOtherTabs();
       }
       activityPolling = false;
@@ -35,6 +37,39 @@
       if (box.dataset.html === html) return;
       box.dataset.html = html;
       box.innerHTML = html;
+    }
+    function renderCoverageNotice(cov) {
+      cov = cov || {};
+      const counting = !!cov.running;
+      if (counting !== coverageCounting) { coverageCounting = counting; if (typeof syncRunButtons === 'function') syncRunButtons(); }
+      let box = document.getElementById('coverage-notice');
+      const state = cov.running ? 'running' : cov.blocked ? 'blocked:' + cov.blocked : cov.finished ? 'finished:' + cov.finished.id : '';
+      if (!state) { if (box) box.remove(); return; }
+      if (!box || box.dataset.state !== state) {
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'coverage-notice';
+          box.setAttribute('role', 'status');
+          document.getElementById('task-stack').appendChild(box);
+        }
+        box.dataset.state = state;
+        box.className = 'task-notice' + (cov.blocked ? ' warn' : '');
+        box.innerHTML = cov.running
+          ? `<div><div>${esc(t('coverage_counting'))}</div><div class="progress"><div></div></div><div class="progress-text"></div></div>`
+          : cov.blocked ? `<span>${esc(t('coverage_wait_' + cov.blocked))}</span>`
+          : `<span>${esc(t('notice_coverage', { time: fmtDuration(cov.finished.seconds) }))}</span>
+             <button class="btn" type="button" onclick="dismissCoverageNotice(${Number(cov.finished.id)})">${esc(t('close'))}</button>`;
+      }
+      if (cov.running) {
+        const part = cov.total ? Math.min(100, 100 * cov.done / cov.total) : 0;
+        box.querySelector('.progress > div').style.width = part.toFixed(1) + '%';
+        box.querySelector('.progress-text').textContent = cov.remaining == null ? t('duration_unknown') : fmtEta(cov.remaining);
+      }
+    }
+    async function dismissCoverageNotice(id) {
+      document.getElementById('coverage-notice')?.remove();
+      const result = await apiPost('/api/activity/dismiss', { id, kind: 'coverage' }).catch(() => null);
+      if (result) wakeOtherTabs();
     }
     async function dismissNotice(id, btn) {
       btn.closest('.task-notice').remove();

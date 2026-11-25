@@ -90,6 +90,9 @@
       } catch (err) {
         if (err.name !== 'AbortError') {
             console.error("Fetch error:", err);
+            if (gen === searchGen) {
+              document.getElementById('results').innerHTML = `<div class="status-line error-text" style="padding:2em;">${esc(t('error'))}</div>`;
+            }
         }
       } finally {
         serverSearchInFlight = Math.max(0, serverSearchInFlight - 1);
@@ -107,14 +110,15 @@
     let readingDropped = [];
     function updateReadingNote() {
       const note = document.getElementById('reading-note');
+      const sep = LANG === 'ja' ? '・' : ', ';
       if (readingDropped.length) {
-        note.textContent = t('reading_fallback', { word: readingDropped.join('・') });
+        note.textContent = t('reading_fallback', { word: readingDropped.join(sep) });
         note.hidden = false;
         return;
       }
       const show = readingWords.length > 0 && allResults.length > 0 && searchParams().get('ruby_only') !== 'on'
         && !allResults.some(r => String(r.display_line || '').includes('class="hl-guess"'));
-      note.textContent = show ? t('reading_note', { word: readingWords.join('・') }) : '';
+      note.textContent = show ? t('reading_note', { word: readingWords.join(sep) }) : '';
       note.hidden = !show;
     }
 
@@ -879,7 +883,16 @@
       const slot = document.getElementById('topbar-path');
       if (!slot) return;
       const crumbs = slot.querySelector('.path-crumbs');
-      if (crumbs) crumbs.scrollLeft = crumbs.scrollWidth;
+      if (crumbs) {
+        crumbs.scrollLeft = crumbs.scrollWidth;
+        if (!crumbs.dataset.stripFocus) {
+          crumbs.dataset.stripFocus = '1';
+          crumbs.addEventListener('focusin', e => {
+            const item = e.target.closest('a, button');
+            if (item) scrollStripTo(crumbs, item);
+          });
+        }
+      }
       const row = slot.querySelector(MODE_ROWS);
       slot.querySelectorAll('.dock-off').forEach(el => el.classList.remove('dock-off'));
       if (!dockPhone.matches) return;

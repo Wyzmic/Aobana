@@ -1,5 +1,7 @@
 
+import concurrent.futures
 import json
+import multiprocessing
 import os
 import re
 import sqlite3
@@ -12,11 +14,13 @@ from aobana.search import iplusone
 # 1: the first form. Bump it when what a sentence counts changes (iplusone.row_units, analyze).
 COVERAGE_FORM = 1
 SAVE_EVERY = 5.0
-# The page shows the notice and its bar only for a count expected to take longer than this.
-NOTICE_SECONDS = 30
 # A first guess at the time a sentence takes (2.5 to 5.6 µs on a large library); a first run
 # also looks up every form in the dictionary once.
 DEFAULT_SECONDS_PER_ROW = 8e-6
+# A count of fewer rows than this runs in one process: starting the workers costs more.
+PARALLEL_FROM = 100_000
+# About this many rows go to a worker at a time.
+CHUNK_ROWS = 50_000
 # The tables, in the order counted.
 CORPORA = (("subs", "subtitles", "subs"), ("epub", "epubs", "books"),
            ("manga", "manga", "manga"), ("custom", "custom", "custom"))
@@ -24,8 +28,75 @@ CORPORA = (("subs", "subtitles", "subs"), ("epub", "epubs", "books"),
 _NO_TARGET = ("",)
 
 _LOCK = threading.Lock()
-_STATE = {"running": None, "done": 0, "total": 0, "started": None, "expected": None, "retry_after": 0.0}
+_STATE = {"running": None, "done": 0, "total": 0, "started": None, "expected": None, "retry_after": 0.0,
+          "blocked": None, "wanted": False}
+# The last count that ended with files counted, for the notice the page keeps until it is closed:
+# {"id", "seconds"}
+_FINISHED = {}
+_FINISHED_IDS = iter(range(1, 1 << 62))
+# Set by the server: what keeps a count from starting ("index", "check") or None. The count, an
+# index run and a check never run at once.
+_BUSY = [lambda: None]
+
+
+def set_busy_check(fn):
+    _BUSY[0] = fn
+
+
+def start_lock():
+    return _LOCK
+
+
+def running():
+    return _STATE["running"] is not None
 _READY = {}
+_DISK_MISS = None
+
+
+def _pack_figures(figures):
+    packed = {}
+    for (media, work), fig in figures.items():
+        packed.setdefault(media, {})[work] = fig
+    return packed
+
+
+def _unpack_figures(raw):
+    if not isinstance(raw, dict):
+        return None
+    out = {}
+    for media, works in raw.items():
+        if not isinstance(works, dict):
+            continue
+        for work, fig in works.items():
+            if isinstance(fig, dict):
+                out[(media, work)] = fig
+    return out
+
+
+def _load_ready(fingerprint, key):
+    global _DISK_MISS
+    path = _cache_path()
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    sig = (fingerprint, key, st.st_mtime_ns, st.st_size)
+    if _DISK_MISS == sig:
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        _DISK_MISS = sig
+        return None
+    if (isinstance(data, dict) and data.get("form") == COVERAGE_FORM and data.get("policy") == iplusone.POLICY
+            and data.get("fingerprint") == fingerprint and data.get("db_key") == key
+            and isinstance(data.get("figures"), dict)):
+        figs = _unpack_figures(data["figures"])
+        if figs is not None:
+            return figs
+    _DISK_MISS = sig
+    return None
 
 
 def _cache_path():
@@ -183,6 +254,157 @@ def _iter_media_rows(conn, media, table, todo, total_files):
         yield row
 
 
+def _add_sentence(c, known, total):
+    c[0] += 1
+    if total:
+        c[1] += 1
+        c[2] += known
+        c[3] += total
+        if known == total:
+            c[4] += 1
+        elif total - known == 1:
+            c[5] += 1
+
+
+_WORKER = {}
+
+
+def _init_count_worker(vocab_json):
+    _WORKER["vocab"] = iplusone.Vocabulary(vocab_json["singles"], vocab_json["phrases"],
+                                           vocab_json["fingerprint"], vocab_json["entries"])
+    _WORKER["conns"] = {}
+
+
+def _count_chunk(media, table, db_path, items):
+    vocab = _WORKER["vocab"]
+    conn = _WORKER["conns"].get(db_path)
+    if conn is None:
+        conn = _WORKER["conns"][db_path] = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    out = []
+    for sid, key, spans in items:
+        c = [0, 0, 0, 0, 0, 0]
+        for lo, hi in spans:
+            for row_sid, base_forms, clean_text in conn.execute(
+                    f"SELECT source_id, base_forms, clean_text FROM {table} WHERE rowid BETWEEN ? AND ?", (lo, hi)):
+                if row_sid == sid:
+                    _add_sentence(c, *sentence_counts(iplusone.row_units(base_forms, clean_text, media), vocab))
+        out.append((key, c))
+    return out
+
+
+def _spans(conn, media, table):
+    sql = None
+    if media == "subs":
+        from aobana.indexing.source_ranges import ready
+        if ready(conn):
+            sql = "SELECT source_id, first_rowid, last_rowid FROM source_ranges ORDER BY source_id, first_rowid"
+    elif media == "epub":
+        from aobana import utils
+        if utils.has_chapters(conn):
+            sql = "SELECT source_id, first_rowid, last_rowid FROM chapters ORDER BY source_id, first_rowid"
+    if sql is None:
+        sql = f"SELECT source_id, MIN(rowid), MAX(rowid) FROM {table} GROUP BY source_id"
+    out = {}
+    for sid, lo, hi in conn.execute(sql):
+        out.setdefault(sid, []).append((lo, hi))
+    return out
+
+
+def _db_file(conn):
+    for _, name, path in conn.execute("PRAGMA database_list"):
+        if name == "main":
+            return path
+    return None
+
+
+def can_count_in_parallel():
+    try:
+        import multiprocessing.synchronize
+        return True
+    except ImportError:
+        return False
+
+
+def _count_parallel(vocab, conns, plan, cache, stop, workers):
+    fp = vocab.fingerprint
+    tasks = []
+    for media, table, _ in CORPORA:
+        if media not in plan:
+            continue
+        done = cache["sources"].setdefault(media, {})
+        keep = {key for _, key, _, _ in plan[media]}
+        for key in [k for k in done if k not in keep]:
+            del done[key]
+        todo = [(sid, key, n) for sid, key, _, n in plan[media] if key not in done]
+        if not todo:
+            continue
+        spans = _spans(conns[media], media, table)
+        db_path = _db_file(conns[media])
+        chunk, rows = [], 0
+        for sid, key, n in todo:
+            chunk.append((sid, key, spans.get(sid, [])))
+            rows += n
+            if rows >= CHUNK_ROWS:
+                tasks.append((media, table, db_path, chunk, rows))
+                chunk, rows = [], 0
+        if chunk:
+            tasks.append((media, table, db_path, chunk, rows))
+        for sid, key, _ in todo:
+            if not spans.get(sid):
+                done[key] = [0, 0, 0, 0, 0, 0]
+    if not tasks:
+        _write_cache(cache)
+        return True
+    t0 = time.monotonic()
+    last_save = t0
+    counted = 0
+    ctx = multiprocessing.get_context("spawn")
+    pool = concurrent.futures.ProcessPoolExecutor(max_workers=workers, mp_context=ctx,
+                                                  initializer=_init_count_worker, initargs=(vocab.to_json(),))
+    finished = False
+    try:
+        futures = {pool.submit(_count_chunk, media, table, db_path, items): (media, rows)
+                   for media, table, db_path, items, rows in tasks}
+        pending = set(futures)
+        while pending:
+            got, pending = concurrent.futures.wait(pending, timeout=0.5,
+                                                   return_when=concurrent.futures.FIRST_COMPLETED)
+            for fut in got:
+                media, rows = futures[fut]
+                done = cache["sources"][media]
+                for key, c in fut.result():
+                    done[key] = c
+                counted += rows
+                with _LOCK:
+                    _STATE["done"] += rows
+            now = time.monotonic()
+            with _LOCK:
+                if _STATE["done"] and _STATE["total"] and _STATE["started"] is not None:
+                    _STATE["expected"] = (now - _STATE["started"]) * _STATE["total"] / _STATE["done"]
+            stopping = stop()
+            if stopping or now - last_save >= SAVE_EVERY:
+                cur = iplusone.current()
+                if cur is None or cur.fingerprint != fp:
+                    return False
+                _write_cache(cache)
+                last_save = now
+            if stopping:
+                return False
+        if counted >= 1000:
+            cache["seconds_per_row"] = (time.monotonic() - t0) / counted
+        _write_cache(cache)
+        finished = True
+        return True
+    finally:
+        pool.shutdown(wait=finished, cancel_futures=True)
+        if not finished:
+            for proc in list((getattr(pool, "_processes", None) or {}).values()):
+                try:
+                    proc.terminate()
+                except OSError:
+                    pass
+
+
 def _count(vocab, conns, plan, cache, stop):
     fp = vocab.fingerprint
     last_save = time.monotonic()
@@ -232,11 +454,12 @@ def _count(vocab, conns, plan, cache, stop):
                         c[5] += 1
                 counted += 1
                 if not counted % 2000:
-                    _STATE["done"] += 2000
-                    stopping = stop()
                     now = time.monotonic()
-                    if _STATE["done"] >= 2000 and _STATE["total"] and _STATE["started"] is not None:
-                        _STATE["expected"] = (now - _STATE["started"]) * _STATE["total"] / _STATE["done"]
+                    with _LOCK:
+                        _STATE["done"] += 2000
+                        if _STATE["done"] >= 2000 and _STATE["total"] and _STATE["started"] is not None:
+                            _STATE["expected"] = (now - _STATE["started"]) * _STATE["total"] / _STATE["done"]
+                    stopping = stop()
                     if stopping or now - last_save >= SAVE_EVERY:
                         cur = iplusone.current()
                         if cur is None or cur.fingerprint != fp:
@@ -274,14 +497,32 @@ def _run(fingerprint, stop):
         key = _db_key(conns)
         plan = {media: _sources(conn, media) for media, conn in conns.items()}
         cache = _read_cache(fingerprint)
-        rate = cache.get("seconds_per_row") or DEFAULT_SECONDS_PER_ROW
         todo = sum(n for media, items in plan.items() for _, k, _, n in items
                    if k not in cache["sources"].get(media, {}))
-        _STATE.update(done=0, total=todo, started=time.monotonic(), expected=todo * rate)
-        if _count(vocab, conns, plan, cache, stop):
-            _READY.clear()
-            _READY[(fingerprint, key)] = _figures(plan, cache["sources"])
-    except (sqlite3.Error, OSError):
+        workers = paths.index_workers()
+        parallel = workers > 1 and todo >= PARALLEL_FROM and can_count_in_parallel()
+        rate = cache.get("seconds_per_row") or DEFAULT_SECONDS_PER_ROW / (workers if parallel else 1)
+        with _LOCK:
+            _STATE.update(done=0, total=todo, started=time.monotonic(), expected=todo * rate)
+        if parallel:
+            whole = _count_parallel(vocab, conns, plan, cache, stop, workers)
+        else:
+            whole = _count(vocab, conns, plan, cache, stop)
+        if whole and todo:
+            with _LOCK:
+                _FINISHED.clear()
+                _FINISHED.update(id=next(_FINISHED_IDS), seconds=round(time.monotonic() - _STATE["started"]))
+        if whole:
+            figs = _figures(plan, cache["sources"])
+            packed = _pack_figures(figs)
+            if cache.get("db_key") != key or cache.get("figures") != packed:
+                cache["db_key"] = key
+                cache["figures"] = packed
+                _write_cache(cache)
+            with _LOCK:
+                _READY.clear()
+                _READY[(fingerprint, key)] = figs
+    except (sqlite3.Error, OSError, concurrent.futures.BrokenExecutor):
         failed = True
     finally:
         with _BACKGROUND_READERS_LOCK:
@@ -299,22 +540,78 @@ def status(dbs):
         return {"words": False}
     fp = vocab.fingerprint
     key = repr(_fingerprint_of(dbs))
-    figures = _READY.get((fp, key))
+    with _LOCK:
+        figures = _READY.get((fp, key))
+        idle = _STATE["running"] is None
+    # The figures saved by a count before a restart; not read while a count runs and saves every few seconds
+    if figures is None and idle:
+        loaded = _load_ready(fp, key)
+        if loaded is not None:
+            with _LOCK:
+                figures = _READY.get((fp, key))
+                if figures is None:
+                    _READY.clear()
+                    _READY[(fp, key)] = loaded
+                    figures = loaded
     if figures is not None:
         return {"words": True, "ready": True, "figures": figures}
     with _LOCK:
-        if _STATE["running"] is None and time.monotonic() >= _STATE.get("retry_after", 0.0):
-            _STATE.update(running=fp, done=0, total=0, started=time.monotonic(), expected=None)
-            threading.Thread(target=_run, args=(fp, lambda: iplusone.current() is None), daemon=True).start()
-    started = _STATE["started"] or time.monotonic()
-    elapsed = time.monotonic() - started
-    expected = _STATE["expected"]
-    total, done = _STATE["total"], min(_STATE["done"], _STATE["total"])
+        if _STATE["running"] is None:
+            _STATE["wanted"] = True
+            _start(fp)
+        running_now = _STATE["running"]
+        blocked = _STATE["blocked"]
+        started = _STATE["started"]
+        expected = _STATE["expected"]
+        total = _STATE["total"]
+        done = min(_STATE["done"], total)
+    if running_now is None and blocked:
+        return {"words": True, "ready": False, "blocked": blocked, "done": 0, "total": 0}
+    elapsed = time.monotonic() - (started or time.monotonic())
     return {"words": True, "ready": False, "elapsed": round(elapsed, 1),
             "remaining": round(max(0.0, expected - elapsed), 1) if expected is not None else None,
             "expected": round(expected, 1) if expected is not None else None,
-            "notice": expected is not None and expected > NOTICE_SECONDS,
             "done": done, "total": total}
+
+
+def _start(fp):
+    if _STATE["running"] is not None or not _STATE["wanted"]:
+        return
+    if time.monotonic() < _STATE.get("retry_after", 0.0):
+        return
+    busy = _BUSY[0]()
+    _STATE["blocked"] = busy
+    if busy:
+        return
+    _STATE.update(running=fp, wanted=False, done=0, total=0, started=time.monotonic(), expected=None)
+    _FINISHED.clear()
+    threading.Thread(target=_run, args=(fp, lambda: iplusone.current() is None), daemon=True).start()
+
+
+def progress():
+    with _LOCK:
+        if _STATE["running"] is None and _STATE["wanted"]:
+            vocab = iplusone.current()
+            if vocab is None:
+                _STATE.update(wanted=False, blocked=None)
+            else:
+                _start(vocab.fingerprint)
+        out = {"running": _STATE["running"] is not None,
+               "blocked": _STATE["blocked"] if _STATE["running"] is None and _STATE["wanted"] else None,
+               "finished": dict(_FINISHED) or None}
+        if out["running"]:
+            started = _STATE["started"] or time.monotonic()
+            elapsed = time.monotonic() - started
+            expected = _STATE["expected"]
+            out.update(done=min(_STATE["done"], _STATE["total"]), total=_STATE["total"],
+                       remaining=round(max(0.0, expected - elapsed), 1) if expected is not None else None)
+        return out
+
+
+def dismiss(notice_id):
+    with _LOCK:
+        if _FINISHED.get("id") == notice_id:
+            _FINISHED.clear()
 
 
 def _fingerprint_of(dbs):

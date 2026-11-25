@@ -4,31 +4,61 @@
       el.classList.add('dd');
       if (left) el.classList.add('left');
       el.innerHTML = `
-        <button type="button" class="dd-btn" title="${esc(title)}" aria-haspopup="listbox">
+        <button type="button" class="dd-btn" title="${esc(title)}" aria-haspopup="listbox" aria-expanded="false">
           ${icon ? `<span class="dd-icon">${icon}</span>` : ''}
           <span class="dd-label">${labelFor ? labelFor(cur) : `${cur.pre || ''}${esc(cur.label)}`}</span>${CARET}
         </button>
         <div class="dd-menu" role="listbox">
-          ${options.map(o => `<div class="dd-item ${o.value === cur.value ? 'selected' : ''}" role="option" data-value="${esc(o.value)}">${o.pre || ''}<span>${esc(o.label)}</span></div>`).join('')}
+          ${options.map(o => `<div class="dd-item ${o.value === cur.value ? 'selected' : ''}" role="option" tabindex="-1" aria-selected="${o.value === cur.value}" data-value="${esc(o.value)}">${o.pre || ''}<span>${esc(o.label)}</span></div>`).join('')}
         </div>`;
-      el.querySelector('.dd-btn').addEventListener('click', e => {
-        e.stopPropagation();
-        const open = !el.classList.contains('open');
-        document.querySelectorAll('.dd.open').forEach(d => d.classList.remove('open'));
+      const btn = el.querySelector('.dd-btn');
+      const items = [...el.querySelectorAll('.dd-item')];
+      const setOpen = open => {
+        document.querySelectorAll('.dd.open').forEach(d => {
+          d.classList.remove('open');
+          d.querySelector('.dd-btn')?.setAttribute('aria-expanded', 'false');
+        });
         el.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
           el.classList.remove('flip');
           if (el.querySelector('.dd-menu').getBoundingClientRect().left < 0) el.classList.add('flip');
         }
-      });
-      el.querySelectorAll('.dd-item').forEach(item => item.addEventListener('click', e => {
+      };
+      btn.addEventListener('click', e => {
         e.stopPropagation();
-        el.classList.remove('open');
-        if (item.dataset.value !== cur.value) onChange(item.dataset.value);
-      }));
+        setOpen(!el.classList.contains('open'));
+      });
+      btn.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!el.classList.contains('open')) setOpen(true);
+          const idx = Math.max(0, items.findIndex(i => i.classList.contains('selected')));
+          items[idx]?.focus();
+        }
+      });
+      items.forEach((item, idx) => {
+        const pick = () => {
+          setOpen(false);
+          if (item.dataset.value !== cur.value) onChange(item.dataset.value);
+          else btn.focus();
+        };
+        item.addEventListener('click', e => { e.stopPropagation(); pick(); });
+        item.addEventListener('keydown', e => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); }
+          else if (e.key === 'Home') { e.preventDefault(); items[0]?.focus(); }
+          else if (e.key === 'End') { e.preventDefault(); items[items.length - 1]?.focus(); }
+          else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); btn.focus(); }
+        });
+      });
     }
     document.addEventListener('click', e => {
-      document.querySelectorAll('.dd.open').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.dd.open').forEach(d => {
+        d.classList.remove('open');
+        d.querySelector('.dd-btn')?.setAttribute('aria-expanded', 'false');
+      });
       if (!e.target.closest('.topbar')) setMenu(false);
     });
 
@@ -271,6 +301,7 @@
         pinSearchBox();
         initSidebarTooltip();
         const filter = document.getElementById('folder-filter');
+        filter.setAttribute('aria-label', t('filter_folders'));
         filter.addEventListener('input', filterFolders);
         document.querySelector('.sidebar').addEventListener('scroll', e => {
           const s = e.currentTarget;
@@ -451,6 +482,75 @@
       }
     }
 
+    // An open window keeps the keyboard, as a native modal dialog does: focus moves to the window,
+    // Tab and Shift+Tab go round its own controls, and closing it gives focus back to what opened it.
+    // The window itself takes focus, not its first button, so Enter never confirms by accident.
+    const DIALOG_FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+    const dialogStack = [];
+    const dialogOpeners = new WeakMap();
+    const isShown = el => !!el && el.isConnected && el.getClientRects().length > 0;
+    function topDialog() {
+      for (let i = dialogStack.length - 1; i >= 0; i--) if (dialogStack[i].classList.contains('open')) return dialogStack[i];
+      return null;
+    }
+    function dialogFocusables(m) {
+      return [...m.querySelectorAll(DIALOG_FOCUSABLE)].filter(el => !el.closest('[hidden]') && isShown(el));
+    }
+    function dialogOpened(m) {
+      if (dialogStack.includes(m)) return;
+      const prev = document.activeElement;
+      const under = prev && prev.closest ? prev.closest('.modal-overlay.open') : null;
+      dialogOpeners.set(m, {
+        el: prev && prev !== document.body && !m.contains(prev) ? prev : null,
+        fallback: under && under !== m ? (dialogOpeners.get(under) || {}).el || null : null,
+      });
+      dialogStack.push(m);
+      if (m.contains(document.activeElement)) return;
+      const card = m.querySelector('[role="dialog"]') || m;
+      if (!card.hasAttribute('tabindex')) card.tabIndex = -1;
+      card.focus({ preventScroll: true });
+    }
+    function dialogClosed(m) {
+      const i = dialogStack.indexOf(m);
+      if (i < 0) return;
+      dialogStack.splice(i, 1);
+      const from = dialogOpeners.get(m) || {};
+      dialogOpeners.delete(m);
+      const active = document.activeElement;
+      if (active && active !== document.body && !m.contains(active)) return;
+      const back = [from.el, from.fallback].find(isShown);
+      if (back) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+      else if (active && m.contains(active)) active.blur();
+    }
+    function trapDialogTab(e) {
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const m = topDialog();
+      if (!m) return;
+      const items = dialogFocusables(m);
+      const card = m.querySelector('[role="dialog"]') || m;
+      const active = document.activeElement;
+      if (!items.length) { e.preventDefault(); card.focus({ preventScroll: true }); return; }
+      const first = items[0], last = items[items.length - 1];
+      const inside = m.contains(active) && active !== card && items.includes(active);
+      if (e.shiftKey && (!inside || active === first)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (!inside || active === last)) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const watch = new MutationObserver(records => {
+        for (const r of records) {
+          const m = r.target;
+          const open = m.classList.contains('open');
+          if (open && !dialogStack.includes(m)) dialogOpened(m);
+          else if (!open && dialogStack.includes(m)) dialogClosed(m);
+        }
+      });
+      document.querySelectorAll('.modal-overlay').forEach(m => {
+        watch.observe(m, { attributes: true, attributeFilter: ['class'] });
+        if (m.classList.contains('open')) dialogOpened(m);
+      });
+      document.addEventListener('keydown', trapDialogTab, true);
+    });
+
     function handleSearchTabClick(e) {
       if (TAB === 'search') {
         e.preventDefault();
@@ -561,7 +661,11 @@
           if (later && !later.hidden) closeUpdate();
           return;
         }
-        document.querySelectorAll('.dd.open').forEach(d => d.classList.remove('open'));
+        if (document.documentElement.classList.contains('sheet-open') && typeof closeTitleSheet === 'function') { closeTitleSheet(); return; }
+        document.querySelectorAll('.dd.open').forEach(d => {
+          d.classList.remove('open');
+          d.querySelector('.dd-btn')?.setAttribute('aria-expanded', 'false');
+        });
         setMenu(false);
       }
 
@@ -580,8 +684,8 @@
       }
 
       if (!isInputActive) {
-        const modal = document.getElementById('shortcuts-modal');
-        if (modal && modal.classList.contains('open')) return;
+        // Behind an open window the cards take no keys
+        if (topDialog()) return;
 
         if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) {
           e.preventDefault();
@@ -598,13 +702,19 @@
         }
 
         if (((e.key === 'd' || e.key === 'D') && !e.shiftKey) || e.key === 'ArrowDown') {
-          e.preventDefault();
-          lastNavTime = now;
-          updateActiveCard(activeCardIndex + 1);
+          const cards = getVisibleCards();
+          if (cards.length) {
+            e.preventDefault();
+            lastNavTime = now;
+            updateActiveCard(activeCardIndex + 1);
+          }
         } else if (((e.key === 'a' || e.key === 'A') && !e.shiftKey) || e.key === 'ArrowUp') {
-          e.preventDefault();
-          lastNavTime = now;
-          updateActiveCard(activeCardIndex - 1);
+          const cards = getVisibleCards();
+          if (cards.length) {
+            e.preventDefault();
+            lastNavTime = now;
+            updateActiveCard(activeCardIndex - 1);
+          }
         } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
           const cards = getVisibleCards();
           if (activeCardIndex >= 0 && activeCardIndex < cards.length) {
@@ -622,6 +732,17 @@
             const starBtn = card.querySelector('button[onclick*="toggleSave"]');
             if (starBtn) { e.preventDefault(); starBtn.click(); }
           }
+        } else if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
+          // The card D and A picked opens in Media at its line; a folder row opens or shuts.
+          // A focused button or link keeps its own Enter.
+          const focused = document.activeElement;
+          if (focused && focused !== document.body && focused.closest('a[href], button, summary, [tabindex]')) return;
+          const cards = getVisibleCards();
+          const card = cards[activeCardIndex];
+          if (!card || !card.classList.contains('keyboard-active')) return;
+          if (card.matches('.media-subfolder > summary')) { e.preventDefault(); card.click(); return; }
+          const open = card.querySelector('button[onclick^="openInMedia"]');
+          if (open && !open.disabled) { e.preventDefault(); open.click(); }
         }
       }
     });

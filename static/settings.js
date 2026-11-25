@@ -94,7 +94,7 @@
     function settingsPaneShown(pane) {
       return [...pane.children].some(card => getComputedStyle(card).display !== 'none');
     }
-    function renderSettingsTabs() {
+    function renderSettingsTabs(keepFocus = false) {
       const bar = document.getElementById('set-tabs');
       if (!bar) return;
       const panes = [...document.querySelectorAll('[data-set-pane]')];
@@ -105,12 +105,20 @@
       }
       const shown = panes.filter(settingsPaneShown);
       if (!shown.some(p => p.dataset.setPane === setPaneOpen)) setPaneOpen = 'general';
+      const prevScroll = bar.scrollLeft;
+      const hadFocus = keepFocus || bar.contains(document.activeElement);
       bar.innerHTML = shown.map(p => {
         const on = p.dataset.setPane === setPaneOpen;
-        return `<button type="button" role="tab" class="nav-tab set-tab ${on ? 'active' : ''}" aria-selected="${on}" onclick="openSettingsPane('${p.dataset.setPane}')">${esc(t(p.dataset.setLabel))}</button>`;
+        return `<button type="button" role="tab" class="nav-tab set-tab ${on ? 'active' : ''}" data-tab-key="${p.dataset.setPane}" aria-selected="${on}" onclick="openSettingsPane('${p.dataset.setPane}')">${esc(t(p.dataset.setLabel))}</button>`;
       }).join('');
       bar.hidden = shown.length < 2;
       panes.forEach(p => { p.hidden = p.dataset.setPane !== setPaneOpen; });
+      bindTabStripKeys(bar, (name, focus) => openSettingsPane(name, focus));
+      bar.scrollLeft = prevScroll;
+      const active = bar.querySelector('.set-tab.active');
+      scrollStripTo(bar, active);
+      requestAnimationFrame(() => scrollStripTo(bar, bar.querySelector('.set-tab.active')));
+      if (hadFocus && active) { try { active.focus({ preventScroll: true }); } catch (e) {} }
     }
     window.addEventListener('hashchange', () => {
       if (!document.getElementById('set-tabs') || TAB !== 'settings') return;
@@ -119,9 +127,9 @@
       const target = settingsHashTarget();
       if (target && !target.matches('[data-set-pane]')) settingsScrollTo(target);
     });
-    function openSettingsPane(name) {
+    function openSettingsPane(name, focusTab = false) {
       setPaneOpen = name;
-      renderSettingsTabs();
+      renderSettingsTabs(focusTab);
       const url = window.location.pathname + window.location.search + (name === 'general' ? '' : `#set-${name}`);
       history.replaceState(history.state, '', url);
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -245,7 +253,7 @@
       const res = await apiPost('/api/library', { media: { [which]: on } }).catch(() => ({ error: 'network' }));
       await refreshSettings();
       if (res.error) document.querySelector('#set-media .set-media-msg').innerHTML =
-        `<span class="warn">${esc(res.error === 'busy' ? t('lib_err_busy') : String(res.error).startsWith('overlap:') ? overlapText(res.error) : t('lib_err_notfound'))}</span>`;
+        `<span class="warn">${esc(res.error === 'busy' ? t('lib_err_busy') : res.error === 'network' ? t('error') : String(res.error).startsWith('overlap:') ? overlapText(res.error) : t('lib_err_notfound'))}</span>`;
     }
 
     function askDrop(which) {
@@ -273,7 +281,12 @@
       if (res.error) msg = `<span class="warn">${esc(res.error === 'busy' ? t('set_drop_busy') : t('load_failed'))}</span>`;
       else if ((res.kept || []).length) msg = `<span class="warn">${esc(t('set_drop_kept'))}</span>`;
       let lib;
-      try { lib = await fetch('/api/library').then(r => r.json()); } catch (e) { return; }
+      try { lib = await fetch('/api/library').then(r => r.json()); } catch (e) {
+        document.querySelectorAll('#set-media button').forEach(b => b.disabled = false);
+        const box = document.querySelector('#set-media .set-media-msg');
+        if (box) box.innerHTML = msg;
+        return;
+      }
       renderMediaCard(lib, msg);
       renderDbCard(lib);
     }
@@ -326,9 +339,13 @@
         facts = `<div>${esc(t('lib_not_set'))}</div>`;
       } else if (!disk) {
         facts = counting ? `<div>${esc(t('lib_counting'))}</div>` : `<div class="warn">${esc(t('lib_missing'))}</div>`;
+      } else if (disk.root_unreadable && !disk.files) {
+        facts = `<div class="warn">${esc(t('lib_unreadable'))}</div>`;
       } else {
         const more = disk.counting ? ' ' + esc(t('lib_counting')) : '';
         facts += `<div>${esc(t('lib_disk_' + which, { n: fmt(disk.files) }))}${more}</div>`;
+        if (disk.root_unreadable) facts += `<div class="warn">${esc(t('lib_unreadable_one'))}</div>`;
+        if (disk.unreadable) facts += `<div class="warn">${esc(t('lib_unreadable_inside', { n: fmt(disk.unreadable) }))}</div>`;
         if (disk.other) facts += `<div>${esc(t('lib_other_' + which, { n: fmt(disk.other) }))}</div>`;
         if (disk.filtered) facts += `<div>${esc(t('lib_filtered', { n: fmt(disk.filtered) }))}</div>`;
       }
@@ -636,6 +653,8 @@
       try {
         const doc = JSON.parse(await file.text());
         items = Array.isArray(doc) ? doc : (doc && Array.isArray(doc.items) ? doc.items : null);
+        // A file from a newer version is not read as this one
+        if (doc && !Array.isArray(doc) && Number(doc.version) > 1) items = null;
       } catch (e) { items = null; }
       if (!items) { favNote(t('fav_bad_file'), true); return; }
       // The file's entries, cleaned and each once; then the choice: add to these, or replace them
@@ -684,6 +703,16 @@
       box.hidden = false;
     }
 
+    // The list is kept only once the browser has stored it: a file too big for its storage leaves the
+    // list as it was
+    function favStore(list) {
+      const json = JSON.stringify(list);
+      store.set('savedSentences', json);
+      if (store.get('savedSentences') === json) { savedSentences = list; return true; }
+      favNote(t('fav_bad_file'), true);
+      return false;
+    }
+
     function applyFavImport(how) {
       if (!favPending) return;
       const items = favPending.items;
@@ -694,17 +723,13 @@
       if (how === 'replace') {
         // The list a replace took the place of, kept until the next replace
         store.set('savedSentences_before_replace', store.get('savedSentences', '[]'));
-        savedSentences = items.slice();
-        store.set('savedSentences', JSON.stringify(savedSentences));
+        if (!favStore(items.slice())) return;
         favNote(t('fav_replaced', { n: fmt(items.length) }));
         return;
       }
       const have = new Set(savedSentences.map(s => s.id));
       const incoming = items.filter(s => !have.has(s.id));
-      if (incoming.length) {
-        savedSentences = savedSentences.concat(incoming);
-        store.set('savedSentences', JSON.stringify(savedSentences));
-      }
+      if (incoming.length && !favStore(savedSentences.concat(incoming))) return;
       favNote(t('fav_imported', { added: fmt(incoming.length), same: fmt(items.length - incoming.length) }));
     }
 
@@ -975,7 +1000,7 @@
       const v = value || document.getElementById('workers-input').value.trim();
       const res = await apiPost('/api/library', { index_workers: v }).catch(() => ({ error: 'network' }));
       if (res.error) {
-        note.textContent = t('workers_bad', { max: workersFacts ? fmt(workersFacts.max) : '' });
+        note.textContent = res.error === 'network' ? t('error') : t('workers_bad', { max: workersFacts ? fmt(workersFacts.max) : '' });
         note.className = 'notice warn'; note.hidden = false; return;
       }
       await refreshSettings();
@@ -1079,7 +1104,7 @@
       const value = document.getElementById('port-input').value.trim();
       const note = document.getElementById('port-note');
       const res = await apiPost('/api/library', { port: value, profile: profileSnapshot() }).catch(() => ({ error: 'network' }));
-      if (res.error) { note.textContent = t('port_bad'); note.className = 'notice warn'; note.hidden = false; return; }
+      if (res.error) { note.textContent = res.error === 'network' ? t('error') : t('port_bad'); note.className = 'notice warn'; note.hidden = false; return; }
       handoffPending = Number(value) !== Number(location.port || 80);
       note.className = 'notice';
       await refreshSettings();
@@ -1113,21 +1138,23 @@
       const res = await apiPost('/api/library/open', { which, index }).catch(() => ({ error: 'network' }));
       if (res.error) {
         msg.classList.add('warn');
-        msg.textContent = res.error === 'not_found' ? t('lib_err_notfound') : t('lib_error', { e: res.error });
+        msg.textContent = res.error === 'not_found' ? t('lib_err_notfound') : res.error === 'network' ? t('error') : t('lib_error', { e: res.error });
       }
     }
 
     // Subtitles, books and manga each have their own section and settings, shared in no way.
     const READER_SETTINGS_MEDIA = [['subs', 'media_subs'], ['epub', 'media_epub'], ['manga', 'media_manga'], ['custom', 'media_custom']];
-    function readerSettingsSection(media) {
+    function readerSettingsSection(media, opts = {}) {
       const p = rmGetPrefs(media);
-      const seg = (key, opts) => `<div class="seg seg-fit">${opts.map(([val, lbl]) => {
+      const fixed = typeof rmFixedPrefs === 'function' ? rmFixedPrefs(media) : {};
+      const setter = opts.setter || 'setReaderPref';
+      const seg = (key, options) => `<div class="seg seg-fit">${options.map(([val, lbl]) => {
         const arg = typeof val === 'string' ? `'${val}'` : String(val);
-        return `<button type="button" class="seg-btn ${p[key] === val ? 'active' : ''}" onclick="setReaderPref('${media}', '${key}', ${arg})">${esc(lbl)}</button>`;
+        return `<button type="button" class="seg-btn ${p[key] === val ? 'active' : ''}" onclick="${setter}('${media}', '${key}', ${arg})">${esc(lbl)}</button>`;
       }).join('')}</div>`;
       const row = (label, body) => `<div class="rm-set-row"><span class="rm-set-label">${esc(label)}</span>${body}</div>`;
       const range = (key, min, max, step, val, fmtJs, shown) => `<div class="rm-range-row">
-              <input type="range" min="${min}" max="${max}" step="${step}" value="${val}" oninput="this.nextElementSibling.textContent=${fmtJs}" onchange="setReaderPref('${media}', '${key}', Number(this.value))">
+              <input type="range" min="${min}" max="${max}" step="${step}" value="${val}" oninput="this.nextElementSibling.textContent=${fmtJs}" onchange="${setter}('${media}', '${key}', Number(this.value))">
               <span class="rm-range-val">${shown}</span>
             </div>`;
       const themes = [
@@ -1141,22 +1168,23 @@
         row(t('rm_font_size'), range('font_size', 12, 36, 1, p.font_size, "this.value+'px'", `${p.font_size}px`)),
         row(t('rm_line_height'), range('line_height', 1, 2.6, 0.05, p.line_height, 'Number(this.value).toFixed(2)', Number(p.line_height).toFixed(2))),
         row(t('rm_max_width'), range('max_width', 10, 72, 2, p.max_width, "this.value+'em'", `${p.max_width}em`)),
-        row(t('rm_max_height'), range('max_height', 10, 72, 2, p.max_height || 36, "this.value+'em'", `${p.max_height || 36}em`)),
+        fixed.writing_mode === 'horizontal' ? '' : row(t('rm_max_height'), range('max_height', 10, 72, 2, p.max_height || 36, "this.value+'em'", `${p.max_height || 36}em`)),
       ].join('');
       const rows = [row(t('rm_theme'), `<div class="rm-theme-grid">${themes.map(([v, lbl]) =>
-        `<button type="button" class="btn rm-theme-chip ${p.theme === v ? 'active' : ''}" onclick="setReaderPref('${media}', 'theme', '${v}')">${esc(lbl)}</button>`
+        `<button type="button" class="btn rm-theme-chip ${p.theme === v ? 'active' : ''}" onclick="${setter}('${media}', 'theme', '${v}')">${esc(lbl)}</button>`
       ).join('')}</div>`)];
       if (media === 'manga') {
         rows.push(row(t('rm_manga_layout'), seg('manga_layout', [['single', t('rm_manga_single')], ['strip', t('rm_manga_strip')]])));
         rows.push(row(t('rm_manga_boxes'), seg('manga_boxes', [['hover', t('rm_manga_boxes_hover')], ['always', t('rm_manga_boxes_always')], ['off', t('rm_manga_boxes_off')]])));
         rows.push(row(t('rm_image_scale'), range('image_scale', 25, 100, 5, p.image_scale || 80, "this.value+'%'", `${p.image_scale || 80}%`)));
       } else {
-        rows.push(row(t('rm_dir'), seg('writing_mode', [['auto', t('rm_dir_auto')], ['vertical', t('rm_dir_vertical')], ['horizontal', t('rm_dir_horizontal')]])));
-        rows.push(row(t('rm_layout'), seg('layout', [['paginated', t('rm_layout_paginated')], ['continuous', t('rm_layout_continuous')]])));
+        if (!fixed.writing_mode) rows.push(row(t('rm_dir'), seg('writing_mode', [['auto', t('rm_dir_auto')], ['vertical', t('rm_dir_vertical')], ['horizontal', t('rm_dir_horizontal')]])));
+        if (!fixed.layout) rows.push(row(t('rm_layout'), seg('layout', [['paginated', t('rm_layout_paginated')], ['continuous', t('rm_layout_continuous')]])));
         rows.push(textRows);
         if (media === 'epub') rows.push(row(t('rm_image_scale'), range('image_scale', 25, 100, 5, p.image_scale || 80, "this.value+'%'", `${p.image_scale || 80}%`)));
       }
       if (media === 'subs') rows.push(row(t('rm_sub_timestamps'), seg('sub_timestamps', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      if (opts.extraRows) rows.push(opts.extraRows(row, seg));
       rows.push(row(t('rm_progress_show'), seg('show_progress', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_auto_hide_bar'), seg('auto_hide_bar', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_hide_bar_scroll'), seg('hide_bar_scroll', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
@@ -1170,7 +1198,11 @@
           <div class="rm-set-grid">${textRows}</div>
         </div>`;
       }
-      return `<section class="set-reader-media" id="set-reader-${media}">${html}</section>`;
+      if (opts.resetFn) {
+        html += `<div class="btns" style="margin-top:0.8em;"><button type="button" class="btn" onclick="${opts.resetFn}('${media}')">${esc(t('rm_reset_defaults'))}</button></div>`;
+      }
+      const secId = opts.id || `set-reader-${media.replace(/[^a-z0-9_-]/gi, '-')}`;
+      return `<section class="set-reader-media" id="${secId}">${html}</section>`;
     }
     // One media's settings at a time, picked in a row of buttons; the last pick is kept.
     function readerSettingsMedia(shown) {
@@ -1181,11 +1213,16 @@
       store.set('set_reader_media', media);
       renderReaderSettings();
     }
-    function renderReaderSettings(msg = '', media = '') {
+    function renderReaderSettings(msg = '', media = '', warn = false) {
       const card = document.getElementById('set-reader');
       if (!card || typeof rmGetPrefs !== 'function') return;
-      // Only the media that are on in Settings, in the app's order: subtitles, books, manga.
-      const shown = READER_SETTINGS_MEDIA.filter(([m]) => MEDIA_ON[m]);
+      // Only the media that are on in Settings, in the app's order: subtitles, books, manga; then any
+      // profile that asks for a button of its own.
+      const profiles = typeof RM_EXTRA_PROFILES === 'undefined' ? {} : RM_EXTRA_PROFILES;
+      const extra = Object.entries(profiles)
+        .filter(([, o]) => o.settingsTab && (!o.settingsTab.shown || o.settingsTab.shown()))
+        .map(([m, o]) => [m, o.settingsTab.label]);
+      const shown = READER_SETTINGS_MEDIA.filter(([m]) => MEDIA_ON[m]).concat(extra);
       card.hidden = !shown.length;
       if (!shown.length) { card.innerHTML = ''; return; }
       const open = readerSettingsMedia(shown);
@@ -1194,17 +1231,22 @@
       card.innerHTML = `
         <h3>${esc(t('set_reader_title'))}</h3>
         <p class="muted" style="margin:0 0 0.7em; font-size:0.9em;">${esc(t('set_reader_lead'))}</p>
-        ${picker}${readerSettingsSection(open)}`;
+        ${picker}${readerSettingsSection(open, profiles[open]?.settingsTab?.opts || {})}`;
       if (msg && media) {
-        const sec = document.getElementById(`set-reader-${media}`);
-        if (sec) sec.insertAdjacentHTML('beforeend', `<div class="notice ok" style="margin:0.8em 0 0;">${esc(msg)}</div>`);
+        const sec = document.getElementById(`set-reader-${media.replace(/[^a-z0-9_-]/gi, '-')}`);
+        if (sec) sec.insertAdjacentHTML('beforeend', `<div class="notice ${warn ? 'warn' : 'ok'}" style="margin:0.8em 0 0;">${esc(msg)}</div>`);
       }
       if (typeof rmFontSyncOpenPopup === 'function') rmFontSyncOpenPopup();
     }
 
     async function setReaderPref(media, key, val) {
       if (typeof rmUpdatePrefs !== 'function') return;
-      await rmUpdatePrefs({ [key]: val }, { media });
-      renderReaderSettings(t('set_reader_saved'), media);
+      const saved = await rmUpdatePrefs({ [key]: val }, { media, checkSaved: true });
+      const prof = typeof RM_EXTRA_PROFILES !== 'undefined' && RM_EXTRA_PROFILES[media];
+      if (prof && typeof prof.onSettingsSaved === 'function') {
+        prof.onSettingsSaved(media, saved);
+        return;
+      }
+      renderReaderSettings(saved ? t('set_reader_saved') : t('error'), media, !saved);
     }
 

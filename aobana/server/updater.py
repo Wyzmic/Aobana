@@ -78,7 +78,8 @@ def start(release, lang, current, exit_soon):
 
 
 def _fail(code):
-    status.update(state="error", error=code)
+    with _lock:
+        status.update(state="error", error=code)
 
 
 def _run(release, asset, lang, current, exit_soon):
@@ -93,15 +94,17 @@ def _run(release, asset, lang, current, exit_soon):
         req = urllib.request.Request(asset["browser_download_url"],
                                      headers={"User-Agent": f"Aobana/{current}"})
         with urllib.request.urlopen(req, timeout=30) as resp, open(target, "wb") as out:
-            if not status["total"]:
-                status["total"] = int(resp.headers.get("Content-Length") or 0)
+            with _lock:
+                if not status["total"]:
+                    status["total"] = int(resp.headers.get("Content-Length") or 0)
             while True:
                 chunk = resp.read(256 * 1024)
                 if not chunk:
                     break
                 out.write(chunk)
                 digest.update(chunk)
-                status["done"] += len(chunk)
+                with _lock:
+                    status["done"] += len(chunk)
     except Exception:
         return _fail("download")
     if (asset.get("size") and os.path.getsize(target) != int(asset["size"])) or \
@@ -115,7 +118,8 @@ def _run(release, asset, lang, current, exit_soon):
         _spawn_helper(target, lang)
     except Exception:
         return _fail("install")
-    status["state"] = "installing"
+    with _lock:
+        status["state"] = "installing"
     exit_soon()
 
 

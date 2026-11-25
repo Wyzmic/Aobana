@@ -6,6 +6,7 @@
     let anActing = false;
     let libLoading = false, libUpdating = false;
     let libStarting = false;
+    let coverageCounting = false;
     function libBusy() { return indexRunning || anRunning || anActing || libLoading || libUpdating || libStarting; }
     function setLibStarting(on) { libStarting = on; syncRunButtons(); }
     async function anAct(work) {
@@ -20,9 +21,9 @@
       const run = document.getElementById('lib-run');
       const optimize = document.getElementById('lib-optimize');
       const check = document.getElementById('an-run');
-      if (run) run.disabled = libBusy() || !MEDIAS_ON.length;
-      if (optimize) optimize.disabled = libBusy() || optimizeDoneThisVisit;
-      if (check) check.disabled = libBusy() || nothingToCheck();
+      if (run) run.disabled = libBusy() || coverageCounting || !MEDIAS_ON.length;
+      if (optimize) optimize.disabled = libBusy() || coverageCounting || optimizeDoneThisVisit;
+      if (check) check.disabled = libBusy() || coverageCounting || nothingToCheck();
       document.querySelectorAll('#an-report [data-run-lock]').forEach(b => { b.disabled = libBusy(); });
       anSaveButton();
     }

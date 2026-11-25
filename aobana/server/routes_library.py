@@ -2,6 +2,7 @@ import os
 import sqlite3
 from aobana import paths
 from aobana.server import folder_picker
+from aobana.search import coverage
 from aobana.server import library
 from flask import jsonify, request
 from aobana.server import app as server
@@ -22,7 +23,11 @@ def api_activity():
 @app.route("/api/activity/dismiss", methods=["POST"])
 def api_activity_dismiss():
     server._require_page()
-    library.dismiss_notice((request.get_json(silent=True) or {}).get("id"))
+    body = request.get_json(silent=True) or {}
+    if body.get("kind") == "coverage":
+        coverage.dismiss(body.get("id"))
+    else:
+        library.dismiss_notice(body.get("id"))
     return jsonify({"ok": True})
 
 
@@ -120,7 +125,7 @@ def api_library_analyse():
     server._require_page()
     only = (request.get_json(silent=True) or {}).get("only")
     started = library.start_analysis(only)
-    return jsonify({"started": started, **library.analysis_status()})
+    return jsonify({"started": started, "coverage": coverage.running(), **library.analysis_status()})
 
 
 @app.route("/api/library/analyse/stop", methods=["POST"])
@@ -276,7 +281,8 @@ def api_index_start():
         only = None
     started = library.start_indexing(only, bool(body.get("outdated")),
                                      tables=bool(body.get("tables")), allow_removal=bool(body.get("allow_removal")))
-    return jsonify({**library.index_status(), "started": started is True, "nothing": started == "nothing"})
+    return jsonify({**library.index_status(), "started": started is True, "nothing": started == "nothing",
+                    "coverage": coverage.running()})
 
 
 @app.route("/api/index/stop", methods=["POST"])

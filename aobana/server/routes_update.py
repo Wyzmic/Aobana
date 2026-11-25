@@ -42,7 +42,8 @@ def api_update_apply():
 
 @app.route("/api/update/status", methods=["GET"])
 def api_update_status():
-    return jsonify(updater.status)
+    with updater._lock:
+        return jsonify(dict(updater.status))
 
 
 release_notes = {}

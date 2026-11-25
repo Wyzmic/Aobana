@@ -311,6 +311,13 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncTheme(); });
     if (document.body) applyAccent();
     else document.addEventListener('DOMContentLoaded', applyAccent);
+    // Chrome on Android can answer AccentColor with another colour for a while after the page
+    // opens, until the first tap. The device's accent is asked again a few times, and at the first
+    // touch or key.
+    function recheckDeviceAccent() { if (store.get('accent') === 'device') applyAccent(); }
+    window.addEventListener('load', () => [300, 1000, 3000].forEach(ms => setTimeout(recheckDeviceAccent, ms)));
+    ['pointerdown', 'keydown', 'scroll'].forEach(type =>
+      window.addEventListener(type, recheckDeviceAccent, { once: true, passive: true, capture: true }));
 
     const PARAMS = new URLSearchParams(window.location.search);
     const TAB = PARAMS.get('view') === 'saved' ? 'saved'
@@ -616,5 +623,53 @@
 
     function setTitle(part) {
       document.title = part ? `${part} | ${t('app')}` : t('app');
+    }
+
+    // A Delete that asks: the confirming Delete takes the place of the one pressed. When the row
+    // grows (Cancel added) and wraps, its other buttons hide while it asks.
+    function askRect(btn) {
+      if (!btn || !btn.getBoundingClientRect) return null;
+      const r = btn.getBoundingClientRect();
+      return { right: r.right, top: r.top };
+    }
+    function keepAskInPlace(row, from) {
+      const yes = row && row.querySelector('.btn.primary');
+      if (!yes || !from) return;
+      const r = yes.getBoundingClientRect();
+      if (Math.abs(r.right - from.right) > 2 || Math.abs(r.top - from.top) > 2) row.classList.add('asking-tight');
+    }
+
+    // Scrolls item fully into view inside strip only, never moving the page.
+    function scrollStripTo(strip, item) {
+      if (!strip || !item || strip.scrollWidth <= strip.clientWidth) return;
+      const sr = strip.getBoundingClientRect();
+      const ir = item.getBoundingClientRect();
+      if (ir.width <= 0 || sr.width <= 0) return;
+      const pad = 8;
+      const max = Math.max(0, strip.scrollWidth - strip.clientWidth);
+      if (ir.left < sr.left + pad) {
+        strip.scrollLeft = Math.max(0, strip.scrollLeft + (ir.left - sr.left) - pad);
+      } else if (ir.right > sr.right - pad) {
+        strip.scrollLeft = Math.min(max, strip.scrollLeft + (ir.right - sr.right) + pad);
+      }
+    }
+
+    function bindTabStripKeys(strip, onPick) {
+      if (!strip || strip.dataset.stripKeys) return;
+      strip.dataset.stripKeys = '1';
+      strip.addEventListener('keydown', e => {
+        const tabs = [...strip.querySelectorAll('[role="tab"]:not([disabled])')];
+        const i = tabs.indexOf(document.activeElement);
+        if (i < 0 || tabs.length < 2) return;
+        let next = -1;
+        if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+        else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = tabs.length - 1;
+        if (next < 0) return;
+        e.preventDefault();
+        const key = tabs[next].dataset.tabKey;
+        if (key) onPick(key, true);
+      });
     }
 
