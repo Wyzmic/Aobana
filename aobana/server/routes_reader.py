@@ -619,20 +619,23 @@ _READER_PREFS_DEFAULT = {
     "font_weight": 400,
     "line_height": 1.85,
     "font_family": "",
-    "max_width": 44,
-    "max_height": 36,
+    "width_pct": 75,
+    "height_pct": 85,
+    "scroll_size_pct": 75,
     "image_scale": 80,
     "furigana": "on",
     "writing_mode": "auto",
     "layout": "paginated",
-    "sub_timestamps": False,
+    "sub_timestamps": True,
     "manga_boxes": "hover",
     "manga_layout": "single",
     "edge_click_nav": True,
-    "edge_click_width": 12,
+    "scroll_turn_page": True,
+    "edge_click_width": 25,
     "show_progress": True,
     "auto_hide_bar": False,
     "hide_bar_scroll": False,
+    "fallback_notice": True,
 }
 
 _READER_THEMES = ("app", "paper", "haze", "sepia", "night", "midnight")
@@ -729,13 +732,14 @@ def _clamp_prefs(raw, media=""):
     if raw.get("manga_layout") in _READER_MANGA_LAYOUTS:
         out["manga_layout"] = raw["manga_layout"]
     for key, lo, hi, cast in (
-        ("font_size", 12, 36, int),
+        ("font_size", 8, 72, int),
         ("font_weight", 200, 900, int),
         ("line_height", 1.0, 2.6, float),
-        ("max_width", 10, 72, int),
-        ("max_height", 10, 72, int),
+        ("width_pct", 10, 100, int),
+        ("height_pct", 10, 100, int),
+        ("scroll_size_pct", 10, 100, int),
         ("image_scale", 25, 100, int),
-        ("edge_click_width", 5, 35, int),
+        ("edge_click_width", 5, 40, int),
     ):
         if key in raw:
             try:
@@ -744,7 +748,7 @@ def _clamp_prefs(raw, media=""):
                     out[key] = round(val, 2) if cast is float else val
             except (TypeError, ValueError):
                 pass
-    for bkey in ("sub_timestamps", "show_progress", "edge_click_nav", "auto_hide_bar", "hide_bar_scroll"):
+    for bkey in ("sub_timestamps", "show_progress", "edge_click_nav", "scroll_turn_page", "auto_hide_bar", "hide_bar_scroll", "fallback_notice"):
         if isinstance(raw.get(bkey), bool):
             out[bkey] = raw[bkey]
     return out
@@ -2702,46 +2706,207 @@ def _custom_reader_files(conn, folder):
     return files
 
 
+def _custom_file_rows(conn, page):
+    path = paths.resolve_media_path("custom", page["file"])
+    if not path:
+        return None, "file_missing"
+    from aobana import utils
+    from aobana.indexing import subtitle_input
+    try:
+        with open(path, "rb") as fh:
+            text = subtitle_input.decode_bytes(fh.read())[0]
+    except (OSError, UnicodeError, ValueError) as exc:
+        return None, f"file_unreadable:{type(exc).__name__}"
+    trim, ruby = paths.custom_trim(), paths.custom_ruby()
+
+    def reading(line):
+        if not ruby:
+            return line, []
+        plain, marks, _ = utils.custom_ruby(line)
+        return plain, marks
+
+    rows, headings = [], {}
+    if page["kind"] == "txt":
+        gap = 0
+        for line in text.splitlines():
+            if trim:
+                line = line.strip(" \t\u3000")
+            for old, new in utils.CUSTOM_STR_REPLACEMENTS:
+                line = line.replace(old, new)
+            if not line:
+                gap = 1
+                continue
+            line, marks = reading(line)
+            rows.append({"line": line, "marks": marks, "gap_before": gap, "section_no": None, "block": ""})
+            gap = 0
+        return (rows, headings), None
+    from aobana.custom_source import clean_path, link_target
+    from aobana.indexing.custom_markdown import inline_links, inline_styles, links, parse
+    pages = {"path": {}, "name": {}}
+
+    def resolve(target, wiki=False):
+        if re.match(r"^(?:https?://|mailto:)", target, re.I):
+            return "url:" + target
+        if not pages["path"]:
+            for (rel,) in conn.execute("SELECT relpath FROM sources WHERE kind = 'md'"):
+                key = clean_path(utils.name_key(rel))
+                pages["path"].setdefault(key.casefold(), rel)
+                pages["name"].setdefault(posixpath.splitext(key.rsplit("/", 1)[-1])[0].casefold(), rel)
+        if wiki:
+            rel = pages["name"].get(clean_path(utils.name_key(target.rsplit("/", 1)[-1])).casefold())
+            return "file:" + rel if rel else None
+        # A Notion export names a page with an id that its file name may have lost: both sides are
+        # compared without it, as the indexer places subpages
+        path = link_target(utils.name_key(page["file"]), target)
+        if not path or not path.lower().endswith(".md"):
+            return None
+        rel = pages["path"].get(path.casefold())
+        return "file:" + rel if rel else None
+
+    clean = clean_path(utils.name_key(page["file"]))
+    stem = os.path.splitext(clean)[0] + "/"
+    navigation = {target for _, target, _ in links(text) if (link_target(clean, target) or "").startswith(stem)}
+    got = conn.execute("SELECT title FROM sources WHERE relpath = ?", (page["file"],)).fetchone()
+    title = got[0] if got else os.path.splitext(clean.split("/")[-1])[0]
+    body, sections = parse(text, title, navigation, blocks=True)
+    headings = {n: h for n, h, _ in sections if h}
+    for line, gap, number, _heading, (kind, num, raw) in body:
+        if kind == "link":
+            link_kind, label, target = raw
+            rows.append({"line": "", "marks": [], "gap_before": gap, "section_no": number, "block": "link",
+                         "label": label, "link": resolve(target, link_kind == "wiki")})
+            continue
+        if trim:
+            line = line.strip(" \t\u3000")
+        line, marks = reading(line)
+        if kind != "code":
+            marks = marks + inline_styles(raw, line, lambda part: reading(part)[0])
+            for mark in inline_links(raw, line, lambda part: reading(part)[0]):
+                mark[3] = resolve(mark[3])
+                if mark[3]:
+                    marks.append(mark)
+        # A code line keeps its indent on screen, which the trim setting takes off the stored line
+        code = raw.rstrip() if kind == "code" else None
+        rows.append({"line": line, "marks": marks, "gap_before": gap, "section_no": number, "block": kind, "number": num, "code": code})
+    return (rows, headings), None
+
+
+def _custom_link_html(label, link, style=""):
+    kind, _, target = (link or "").partition(":")
+    text, attr = _html_mod.escape(label), _html_mod.escape(target, quote=True)
+    styled = f' style="{style}"' if style else ""
+    if kind == "url":
+        return f'<a class="rm-md-url" href="{attr}" data-rm-url="{attr}" target="_blank" rel="noopener noreferrer"{styled}>{text}</a>'
+    if kind == "file":
+        return f'<a class="rm-md-page" data-rm-custom-file="{attr}"{styled}>{text}</a>'
+    return f'<span class="rm-md-gone">{text}</span>'
+
+
 def _load_custom_file(conn, folder, file_key):
-    from aobana.search.custom import file_page
+    from aobana.search.custom import draw_line, file_page
     page = file_page(conn, file_key)
     if page is None:
         return "not_found"
     if page["kind"] not in _CUSTOM_READER_KINDS:
         return None
-    headings = {s["section_no"]: s["heading"] for s in page["sections"] if s.get("heading")} if page["kind"] == "md" else {}
+    # The file is read when it is there, as a subtitle, book or volume is; the index's lines are
+    # drawn when it is gone or cannot be read, and the notice says so.
+    got, reason = _custom_file_rows(conn, page)
+    if got is not None:
+        rows, headings = got
+        for row in rows:
+            if row["block"] == "link":
+                row["display_line"] = _custom_link_html(row["label"], row["link"])
+            else:
+                row["display_line"] = (_html_mod.escape(row["code"]) if row["block"] == "code"
+                                       else draw_line(row["line"], row["marks"], page["file"]))
+                # A line that is one page link alone, which the index keeps as text, looks like a
+                # subpage link
+                row["page_link"] = row["block"] == "" and any(
+                    m[0] == "md_link" and m[1] == 0 and m[2] == len(row["line"]) and str(m[3]).startswith("file:")
+                    for m in row["marks"])
+        source = "file"
+    else:
+        _log_reader_fallback("custom", page["file"], reason.split(":")[0], reason)
+        rows = page["lines"]
+        headings = {s["section_no"]: s["heading"] for s in page["sections"] if s.get("heading")} if page["kind"] == "md" else {}
+        source = "db"
     blocks, cur, para, count, chars = [], [], [], 0, 0
+    state = {"kind": "", "list": ""}
     last_sec = None
+
+    def close_list():
+        if state["list"]:
+            cur.append(f"</{state['list']}>")
+            state["list"] = ""
 
     def close_para():
         if para:
-            cur.append('<p class="rm-custom-p">' + "<br>".join(para) + "</p>")
+            kind = state["kind"]
+            if kind == "code":
+                cur.append('<pre><code>' + "\n".join(para) + "</code></pre>")
+            elif kind == "quote":
+                cur.append('<blockquote><p class="rm-custom-p">' + "<br>".join(para) + "</p></blockquote>")
+            elif kind in ("li", "ol"):
+                cur.append("<li>" + "<br>".join(para) + "</li>")
+            else:
+                cur.append('<p class="rm-custom-p">' + "<br>".join(para) + "</p>")
             para.clear()
 
     def close_section():
         close_para()
+        close_list()
         if cur:
             blocks.append(f'<section class="rm-epub-spine" data-member="sec-{len(blocks)}">' + "".join(cur) + "</section>")
             cur.clear()
 
-    for row in page["lines"]:
+    for row in rows:
         _part_check()
         sec = row.get("section_no")
+        kind = row.get("block") or ""
         new_heading = sec != last_sec and sec in headings
-        if new_heading or (count >= _CUSTOM_SECTION_LINES and row.get("gap_before")) or count >= _CUSTOM_SECTION_MAX:
+        if new_heading or (count >= _CUSTOM_SECTION_LINES and row.get("gap_before") and kind != "code") or count >= _CUSTOM_SECTION_MAX:
             close_section()
             count = 0
         if new_heading:
             cur.append(f"<h2>{_html_mod.escape(headings[sec])}</h2>")
-        elif row.get("gap_before"):
+        if kind == "link":
             close_para()
+            close_list()
+            state["kind"] = "link"
+            cur.append(f'<p class="rm-md-link" data-rm-ui>{row["display_line"]}</p>')
+            last_sec = sec
+            continue
+        if row.get("page_link"):
+            close_para()
+            close_list()
+            state["kind"] = "link"
+            cur.append(f'<p class="rm-custom-p rm-md-link">{row["display_line"]}</p>')
+            count += 1
+            last_sec = sec
+            continue
+        # A list item, a new block kind or a blank line starts a block; code keeps its blank lines
+        if kind != state["kind"] or kind in ("li", "ol") or (row.get("gap_before") and kind != "code"):
+            close_para()
+            if kind in ("li", "ol"):
+                tag = "ol" if kind == "ol" else "ul"
+                if state["list"] != tag:
+                    close_list()
+                    start = f' start="{int(row["number"])}"' if tag == "ol" and row.get("number") not in (None, 1) else ""
+                    cur.append(f"<{tag}{start}>")
+                    state["list"] = tag
+            else:
+                close_list()
+            state["kind"] = kind
+        elif kind == "code" and row.get("gap_before"):
+            para.append("")
         last_sec = sec
         para.append(row["display_line"])
         count += 1
         chars += len(row.get("line") or "")
     close_section()
-    return {"media": "custom", "folder": folder, "file": page["file"], "source": "file",
-            "fallback_reason": None, "writing_mode": "horizontal", "css": "",
+    return {"media": "custom", "folder": folder, "file": page["file"], "source": source,
+            "fallback_reason": reason if source == "db" else None, "writing_mode": "horizontal", "css": "",
             "html": "\n".join(blocks), "lines": [], "char_count": chars}
 
 

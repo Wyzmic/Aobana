@@ -287,13 +287,7 @@
         return;
       }
       const furi = !!rmNotesState.copyFuri;
-      const bar = `<div class="saved-notes-toolbar">
-        <span class="rm-set-label">${esc(t('rm_notes_copy_furi'))}</span>
-        <div class="seg seg-fit">
-          <button type="button" class="seg-btn ${furi ? 'active' : ''}" onclick="savedSetCopyFuri(true)">${esc(t('lib_cache_on'))}</button>
-          <button type="button" class="seg-btn ${furi ? '' : 'active'}" onclick="savedSetCopyFuri(false)">${esc(t('lib_cache_off'))}</button>
-        </div>
-      </div>`;
+      const bar = `<div class="saved-notes-toolbar">${rmNotesCopyRowsHtml()}</div>`;
       pane.innerHTML = bar + groups.map((g, gi) => {
         const on = !!MEDIA_ON[g.media];
         const quotes = g.notes.some(n => rmNoteShownQuote(n, furi));
@@ -352,23 +346,17 @@
       return notes.map(n => n.part_title || !byFile.has(n.file) ? n : { ...n, part_title: byFile.get(n.file) });
     }
 
-    function savedSetCopyFuri(on) {
-      rmNotesState.copyFuri = !!on;
-      try { localStorage.setItem(RM_NOTES_COPY_FURI_KEY, on ? '1' : '0'); } catch (e) {}
-      renderSavedNotes();
-    }
-
     function savedJumpNote(gi, ni) {
       const { g, n } = savedNoteAt(gi, ni);
       if (!n) return;
       jumpToReadingMode({ media: g.media, folder: g.folder, file: n.file, target: n, explicitStart: true, toast: t('rm_notes_jumped') });
     }
 
-    // One note (ni ≥ 0, with its quote) or the work's notes, as Markdown, as the Notes drawer copies them
+    // One note (ni ≥ 0, with its quote) or the work's notes, as the Notes drawer copies them
     async function savedCopyNotes(gi, ni, withQuotes, btn) {
       const { g, n } = savedNoteAt(gi, ni);
       if (!g) return;
-      const md = rmFormatNotesMarkdown(n ? [n] : g.notes, !!rmNotesState.copyFuri, true, withQuotes, { work: g.folder, place: x => savedNotePlace(x, g) });
+      const md = rmFormatNotes(n ? [n] : g.notes, !!rmNotesState.copyFuri, true, withQuotes, { work: g.folder, place: x => savedNotePlace(x, g) });
       if (!(await copyToClipboard(md))) return;
       // A control's words are its .lbl's data-label, not DOM text (core.js); read once, so a second press keeps them
       if (btn._label == null) btn._label = labelText(btn);

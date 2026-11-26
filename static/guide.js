@@ -73,7 +73,7 @@
 
         <h2>メディア</h2>
         <p><a href="/?tab=media">メディア</a>タブには、インデックス済みのすべての作品・書籍・漫画・カスタムのカテゴリが一覧で表示されます。一覧の「本文」は、表示中のタブの全作品の台詞・文を検索し、ヒットを押すとその行から開きます。「タイトル」で絞り込むと、名前が合う話・章・巻、カスタムのフォルダ・ファイルも「作品の中」に表示し、名前の合った部分を太字にします。カスタムのフォルダでは、名前が合うフォルダを先に、ファイルを「フォルダの中」に表示します。作品を開くと、各話・各章・各巻を最初から順に読めます。漫画の文にはページ番号が付きます。ページ番号を押すとそのページが開き、← で次のページ、→ で前のページへ進みます。巻の終わりでは次の巻へ続きます。「← メディア一覧」とブラウザの戻る操作では、並び順、読み込んだ一覧とスクロール位置を復元します。検索語を復元するのはブラウザの戻る・進むと再読み込みだけで、パスや一覧、タブを押して開いたページは検索語なしで表示されます。他のタブから戻ると現在のメディア画面を保ちます。字幕の期はフォルダ名・ファイル名の明確な手掛かりでまとめ、判別できる OVA・スペシャル・劇場版もグループにします。判別できない話は通常の行で表示します。グループが1つなら開き、複数なら閉じた状態で始まります。戻ったときは開閉状態を復元します。上部の選択中のメディア・検索アイコンを押すと、そのページの先頭へ移動できます。</p>
-        <p>字幕・書籍・漫画の作品ページでは「読書モード」で元のファイル（字幕・EPUB・mokuro）をそのまま読めます（元のファイルが読めないときはインデックス済みのテキストを案内付きで表示します）。カスタムでは .txt と .md のフォルダとファイルのページに「読書モード」があり、インデックス済みのテキストを読みます。表示形式（ページ送り・スクロール）は文字方向とは別の設定で、字幕は「スクロール」、ほかは「ページ送り」が既定です。作品ごとに位置を記憶し、しおりは100件まで挟めます（B キーで今の位置に挟む・外す）。しおりは「目次」の「しおり」タブと保存タブに並びます。「メモ」（N キー）で今の位置にメモを残せ、先に文を選ぶとその文を引用にします。メモや本文は Markdown でコピーでき、ふりがなを含めるかも選べます。読んだ作品とメモは<a href="/?tab=saved">保存</a>タブの「続きから読む」と「読書メモ」にまとまります。位置・しおり・メモは<a href="/?tab=settings#lib-reader-backup">設定</a>タブの「データ」で書き出し・読み込みできます。表示設定は字幕・書籍・漫画・カスタムで別々で、読書モード内と<a href="/?tab=settings#set-reader">設定</a>タブの「読書モード」の両方から変えられます。</p>
+        <p>字幕・書籍・漫画の作品ページでは「読書モード」で元のファイル（字幕・EPUB・mokuro）をそのまま読めます（元のファイルが読めないときはインデックス済みのテキストを案内付きで表示します）。カスタムでは .txt と .md のフォルダとファイルのページに「読書モード」があり、インデックス済みのテキストを読みます。表示形式（ページ送り・スクロール）は文字方向とは別の設定で、字幕は「スクロール」、ほかは「ページ送り」が既定です。読み進めた位置は作品ごとに自動で保存されます。しおりは100件まで挟めます（B キーで今の位置に挟む・外す）。しおりは「目次」の「しおり」タブと保存タブに並びます。「メモ」（N キー）で今の位置にメモを残せ、先に文を選ぶとその文を引用にします。メモや本文をコピーでき、ふりがなを含めるかやメモを Markdown でコピーするかも選べます。読んだ作品とメモは<a href="/?tab=saved">保存</a>タブの「続きから読む」と「読書メモ」にまとまります。位置・しおり・メモは<a href="/?tab=settings#lib-reader-backup">設定</a>タブの「データ」で書き出し・読み込みできます。表示設定は字幕・書籍・漫画・カスタムで別々で、読書モード内と<a href="/?tab=settings#set-reader">設定</a>タブの「読書モード」の両方から変えられます。</p>
 
         <p><b>Q</b> で、検索・メディア・保存・ライブラリの表示中の検索欄や絞り込み欄に移り、入力内容を選択できます。</p>
         <h2>ショートカット</h2>
@@ -94,7 +94,20 @@
         <p>言語、テーマ、アクセントは「設定 → 一般」で変えられます。ショートカット一覧は ? キー、右上のボタン（パソコン）、このガイドの上のボタンで開けます。</p>
 
         <h2>アプリの終了</h2>
-        <p>Aobana は「露草 / Aobana」という名前のウィンドウ（macOS と Linux ではターミナル）で動いています。終了するにはそのウィンドウを閉じます。ブラウザのタブを閉じるだけでは止まりません。</p>
+        <p>上部バーの右端にある ✕ を押して選びます。ブラウザのタブを閉じるだけでは止まりません。</p>
+        <ul>
+          <li><b>Aobana を終了</b> — Aobana を止め、そのウィンドウを閉じます。使ったタブは開いたまま「Aobana を終了しました」と表示され、次に起動したときに「検索」を開きます。ブラウザは、何も操作していないタブしかページから閉じられません。</li>
+          <li><b>タブを残して終了</b> — タブはそのページのまま残り、次に起動すると、新しいタブを開かずにそのタブを使います。</li>
+        </ul>
+        <p>Aobana は「露草 / Aobana」という名前のウィンドウ（macOS と Linux ではターミナル）で動いていて、最初は最小化されています。そのウィンドウを閉じても終了します。表示したいときは、「設定 → 一般」で「コンソールウィンドウ」（macOS と Linux では「ターミナル」）を「表示」にします。</p>
+
+        <h2>スマートフォン（Android）</h2>
+        <p>Termux:Widget のショートカット「Aobana」をタップすると起動し、ブラウザで開きます。起動中にもう一度タップすると、Aobana のタブに戻ります。</p>
+        <ul>
+          <li><b>終了</b> — ✕ の「Aobana を終了」で Aobana が止まり、Termux も閉じます。「タブを残して終了」はタブをそのページのまま残します。Termux で Ctrl-C を押すか、セッションを閉じても「Aobana を終了」と同じように終了します。Android の設定から Termux を止めるのではなく、この方法で終了してください。</li>
+          <li><b>ブラウザ</b> — Yomitan が使えるのは Firefox です。Firefox は最近使ったアプリに残しておいてください。スワイプして閉じたあとは、ショートカットが新しいタブで Aobana を開きます。Chrome などの Chromium 系ブラウザでは、Aobana 用に開いたタブを使い回します。</li>
+          <li><b>Yomitan と戻る操作</b> — Yomitan は、文字のない所をタップすると閉じます。戻るボタンや戻るジェスチャーは、開いているメニューやパネルを先に閉じます。</li>
+        </ul>
       `,
       en: `
         <h1>Guide</h1>
@@ -170,7 +183,7 @@ Custom folder/
 
         <h2>Media</h2>
         <p>The <a href="/?tab=media">Media</a> tab lists every indexed show, book, manga series and Custom category. In the list, "Content" searches the lines of every work on the tab, and a hit opens its work at that line. "Titles" also lists the episodes, chapters, volumes and Custom folders and files whose names match, under "Inside the works", the matching part of each name in bold. In a Custom folder, it lists the matching folders first, then the files under "Inside the folders". Open one to read its episodes, chapters or volumes in order; manga lines carry their page number. Click it to open that page: ← turns to the next page and → to the previous one, on into the next or previous volume. "← All media" and browser Back restore your sort, loaded titles and scrolling position. Only the browser's Back, Forward and reload bring back a search: a page opened by a click (the path, a row, a tab) opens without it. Returning from another app tab keeps the current Media view. Subtitle seasons use explicit folder or filename clues, with OVA, special and film groups when recognized. Unclassified episodes stay as ordinary rows. One group opens by default; multiple groups start collapsed, and your open groups restore on return. Click the active Media or Search icon at the top to scroll that page to the top.</p>
-        <p>On subtitle, book and manga pages, press "Reading mode" to read from the original file (subtitle, EPUB or mokuro); if the file cannot be read, indexed text is shown with a notice. In Custom, folders and files of .txt and .md have "Reading mode" too, and it reads their indexed text. The layout (Paginated or Scroll) is its own setting, apart from the writing direction: subtitles default to "Scroll", the rest to "Paginated". Your place is remembered per work, and a work holds up to 100 bookmarks (B adds one at your place, or removes it). They are listed in the "Bookmarks" tab of Contents and in the Saved tab. "Notes" (the N key) keeps a note at your place, with the text you selected first as its quote. Notes and the text can be copied as Markdown, with or without furigana. The works you read and their notes are listed under "Continue reading" and "Reading notes" in the <a href="/?tab=saved">Saved</a> tab. Places, bookmarks and notes can be exported and imported under "Data" in <a href="/?tab=settings#lib-reader-backup">Settings</a>. Display options are kept separately for subtitles, books, manga and Custom, and can be changed inside Reading mode or under "Reading mode" in <a href="/?tab=settings#set-reader">Settings</a>.</p>
+        <p>On subtitle, book and manga pages, press "Reading mode" to read from the original file (subtitle, EPUB or mokuro); if the file cannot be read, indexed text is shown with a notice. In Custom, folders and files of .txt and .md have "Reading mode" too, and it reads their indexed text. The layout (Paginated or Scroll) is its own setting, apart from the writing direction: subtitles default to "Scroll", the rest to "Paginated". Your reading progress is saved automatically for each work. A work holds up to 100 bookmarks (B adds one at your place, or removes it). They are listed in the "Bookmarks" tab of Contents and in the Saved tab. "Notes" (the N key) keeps a note at your place, with the text you selected first as its quote. Notes and the text can be copied with or without furigana, and notes can be copied as plain text or Markdown. The works you read and their notes are listed under "Continue reading" and "Reading notes" in the <a href="/?tab=saved">Saved</a> tab. Places, bookmarks and notes can be exported and imported under "Data" in <a href="/?tab=settings#lib-reader-backup">Settings</a>. Display options are kept separately for subtitles, books, manga and Custom, and can be changed inside Reading mode or under "Reading mode" in <a href="/?tab=settings#set-reader">Settings</a>.</p>
 
         <p><b>Q</b> focuses and selects the visible search or filter field on Search, Media, Saved and Library. It is a quick way to start again.</p>
         <h2>Keyboard shortcuts</h2>
@@ -191,7 +204,20 @@ Custom folder/
         <p>Language, theme and accent are in Settings → General. The keyboard shortcuts open with the ? key, the button at the top right (on a computer) or the button at the top of this guide.</p>
 
         <h2>Quitting</h2>
-        <p>Aobana runs in a window titled "露草 / Aobana" (a Terminal window on macOS and Linux). Close it to quit; closing the browser tab does not stop Aobana.</p>
+        <p>Press the ✕ at the right of the top bar and choose. Closing the browser tab does not stop Aobana.</p>
+        <ul>
+          <li><b>Quit Aobana</b>: stops Aobana and closes its window. A tab you have used stays open and says Aobana has quit; the next time you start Aobana, it opens Search. Browsers let a page close only a tab nothing was done in.</li>
+          <li><b>Quit and keep tabs</b>: the tabs stay on their page, and the next start uses them instead of opening a new tab.</li>
+        </ul>
+        <p>Aobana runs in a window titled "露草 / Aobana" (a Terminal window on macOS and Linux), minimized at first. Closing that window quits too. To see it, set "Console window" ("Terminal window" on macOS and Linux) to "Shown" in Settings → General.</p>
+
+        <h2>On a phone (Android)</h2>
+        <p>Tap the "Aobana" shortcut of Termux:Widget to start it; it opens in your browser. Tapping it again while Aobana runs goes back to its tab.</p>
+        <ul>
+          <li><b>Quitting</b>: "Quit Aobana" in the ✕ menu stops Aobana and closes Termux. "Quit and keep tabs" leaves the tab on its page. Ctrl-C in Termux, or closing its session, quits as "Quit Aobana" does. Quit this way rather than stopping Termux from Android's settings.</li>
+          <li><b>Browser</b>: Yomitan works in Firefox. Keep Firefox in your recent apps: after it was swiped away, the shortcut opens Aobana in a new tab. In Chrome and other Chromium browsers, the shortcut reuses the tab it opened for Aobana.</li>
+          <li><b>Yomitan and Back</b>: Yomitan closes when you tap where there is no text. The Back button or gesture closes an open menu or panel first.</li>
+        </ul>
       `,
     };
     const REIBUN_CODE = '1429349152';
@@ -227,7 +253,7 @@ Custom folder/
       nav.className = 'guide-toc';
       nav.setAttribute('aria-label', t('guide_toc'));
       nav.innerHTML = `<button type="button" class="icon-btn guide-toc-btn" aria-expanded="false" aria-label="${esc(t('guide_toc'))}" title="${esc(t('guide_toc'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 7h12M6 12h12M6 17h12"/></svg><span>${esc(t('guide_toc'))}</span></button>`
-        + `<ol class="guide-toc-list" hidden>${heads.map(h => `<li><a href="#${esc(h.id)}">${esc(h.textContent.trim().replace(/^\d+\.\s*/, ''))}</a></li>`).join('')}</ol>`;
+        + `<ol class="guide-toc-list" hidden>${heads.map(h => `<li><a role="button" tabindex="0" data-to="${esc(h.id)}">${esc(h.textContent.trim().replace(/^\d+\.\s*/, ''))}</a></li>`).join('')}</ol>`;
       (body.querySelector('h1') || body).append(nav);
       const button = nav.querySelector('.guide-toc-btn'), list = nav.querySelector('.guide-toc-list');
       const links = [...list.querySelectorAll('a')];
@@ -243,12 +269,33 @@ Custom folder/
         button.setAttribute('aria-expanded', String(open));
         if (open) { mark(); list.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest' }); }
       };
-      links.forEach((a, i) => a.onclick = e => {
-        e.preventDefault();
-        closeGuideToc();
-        heads[i].scrollIntoView({ block: 'start' });
+      // A section is a button with no link behind it, so a long press on a phone opens no link menu.
+      links.forEach((a, i) => {
+        a.onclick = e => {
+          e.preventDefault();
+          closeGuideToc();
+          heads[i].scrollIntoView({ block: 'start' });
+        };
+        a.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); a.click(); } };
       });
       document.addEventListener('click', e => { if (!nav.contains(e.target)) closeGuideToc(); });
+      // On a touch screen a jump leaves the browser's address bar shown, and it covers the page's
+      // last lines, which only a finger's scroll uncovers. Room below the last section lets it come
+      // to the top like the others, so all of it shows.
+      if (TOUCH_ONLY) {
+        const room = document.createElement('div');
+        room.setAttribute('aria-hidden', 'true');
+        body.append(room);
+        const last = heads[heads.length - 1];
+        const fit = () => {
+          room.style.height = '0px';
+          const section = room.getBoundingClientRect().top - last.getBoundingClientRect().top;
+          const margin = parseFloat(getComputedStyle(last).scrollMarginTop) || 0;
+          room.style.height = Math.max(0, Math.ceil(window.innerHeight - margin - section)) + 'px';
+        };
+        fit();
+        window.addEventListener('resize', fit);
+      }
       let ticking = false;
       window.addEventListener('scroll', () => {
         if (list.hidden || ticking) return;

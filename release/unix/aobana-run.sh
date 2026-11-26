@@ -7,6 +7,10 @@ cd "$HERE/app" || exit 1
 "$PY" -m aobana --open-only && exit 0
 
 if [ -t 1 ] || [ -n "$AOBANA_NO_TERMINAL" ]; then
+    case "$(ps -o comm= -p "$PPID" 2>/dev/null)" in
+        bash|zsh|fish|sh|dash|ksh|mksh|tcsh|csh|nu|xonsh) ;;
+        *) export AOBANA_APP_WINDOW=1 ;;
+    esac
     exec "$PY" -m aobana
 fi
 

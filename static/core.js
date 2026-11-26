@@ -58,13 +58,16 @@
       root.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
     }
 
+    const TOUCH_ONLY = !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);
     const LABEL_CONTROLS = '.brand, .nav-tab, .seg-btn, .dd-btn, .dd-item, .exact-chip, .sq-btn, .btn, .icon-btn, '
-      + '.search-btn, .reveal-btn, .path-back, .modal-close, .menu-btn, .sidebar-more, .media-kind, summary, label[for], '
+      + '.search-btn, .reveal-btn, .path-back, .path-crumbs, .modal-close, .menu-btn, .sidebar-more, .media-kind, summary, label[for], '
       + '.rm-topbar-title, .rm-drawer-head, .rm-set-label, .rm-range-val, .rm-footer, .rm-toc-group, .rm-toc-item, '
-      + '.rm-bm-where, .rm-toast, .rm-sub-ts';
+      + '.rm-bm-where, .rm-bm-name, .rm-toast, .rm-sub-ts, .rm-font-btn, .rm-font-opt, .rm-note-place, .rm-fallback-banner, '
+      + '.anki-check, .anki-deck, .known-cols label, .an-keeper-label, .history-chip button, .filter-chip button, .guide-toc-list a, .quit-note'
+      + (TOUCH_ONLY ? ', .folder-link, .media-row, .filter-chip' : '');
     function hideLabelText(node) {
       const parent = node.parentElement;
-      if (!parent || !node.data.trim() || parent.closest('svg, style, script, textarea')) return;
+      if (!parent || !node.data.trim() || parent.closest('svg, style, script, textarea, select, option')) return;
       const span = document.createElement('span');
       span.className = 'lbl';
       span.dataset.label = node.data;
@@ -207,15 +210,66 @@
     function shieldTapPoint(x, y) {
       if (!document.body || !Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) return;
       clearTapShield();
-      const el = document.createElement('div');
+      tapShieldEl = makeShield(x, y, 48);
+      document.body.appendChild(tapShieldEl);
+      // Yomitan reads a tap some time after the finger lifts, so a touch screen keeps the cover longer;
+      // the next touch removes it at once.
+      tapShieldTimer = setTimeout(clearTapShield, TOUCH_ONLY ? 400 : 160);
+    }
+    // An empty <button>: Yomitan looks up a button's own text (text-source-generator.js), here none
+    function makeShield(x, y, size) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.tabIndex = -1;
       el.className = 'tap-shield';
       el.setAttribute('aria-hidden', 'true');
       el.setAttribute('data-rm-ui', '1');
-      el.style.cssText = `position:fixed;left:${Math.round(x - 24)}px;top:${Math.round(y - 24)}px;width:48px;height:48px;z-index:2147483640;background:rgba(0,0,0,0.01);`;
-      document.body.appendChild(el);
-      tapShieldEl = el;
-      tapShieldTimer = setTimeout(clearTapShield, 160);
+      el.style.cssText = `all:unset;position:fixed;left:${Math.round(x - size / 2)}px;top:${Math.round(y - size / 2)}px;width:${size}px;height:${size}px;z-index:2147483640;background:rgba(0,0,0,0.01);pointer-events:auto;`;
+      return el;
     }
+    // A tap outside an open menu on a touch screen only closes it. Yomitan reads that tap when the
+    // finger lifts, before the click, so the point is covered from the touch on; the click is then
+    // sent to the cover, where each menu's own outside-click rule closes it, and the page under
+    // the finger gets nothing. A mouse is left alone. The font list closes on pointerdown itself.
+    const OPEN_POPUPS = [
+      ['.dd.open', '.dd'],
+      ['#rm-font-popup', '#rm-font-popup, .rm-font-btn'],
+      ['#rm-bm-menu:not([hidden])', '#rm-bm-menu, #rm-bm-btn'],
+      ['.topbar.open', '.topbar'],
+      ['.guide-toc-list:not([hidden])', '.guide-toc'],
+    ];
+    let outsideShield = null;
+    function clearOutsideShield() {
+      if (!outsideShield) return;
+      clearTimeout(outsideShield.timer);
+      outsideShield.el.remove();
+      outsideShield = null;
+    }
+    window.addEventListener('pointerdown', e => {
+      clearOutsideShield();
+      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+      if (!e.isPrimary || !e.target || !e.target.closest || !document.body) return;
+      let host = null;
+      for (const [open, inside] of OPEN_POPUPS) {
+        const menu = document.querySelector(open);
+        if (!menu || e.target.closest(inside)) continue;
+        host = menu.closest('.rm-dialog') || document.body;
+        break;
+      }
+      if (!host) return;
+      const el = makeShield(e.clientX, e.clientY, 64);
+      host.appendChild(el);
+      outsideShield = { el, timer: setTimeout(clearOutsideShield, 1000) };
+    }, true);
+    window.addEventListener('pointercancel', clearOutsideShield, true);
+    window.addEventListener('click', e => {
+      if (!outsideShield) return;
+      if (e.target === outsideShield.el) { setTimeout(clearOutsideShield, 0); return; }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      outsideShield.el.click();
+      clearOutsideShield();
+    }, true);
     function shieldLastControlTap() {
       if (lastControlTap && performance.now() - lastControlTap.at < 200) {
         shieldTapPoint(lastControlTap.x, lastControlTap.y);
@@ -223,10 +277,10 @@
     }
     function maybeShieldDisappearedControl(hit) {
       if (!hit || hit.done) return;
-      hit.done = true;
       if (hit.x < 0 || hit.y < 0 || hit.x >= window.innerWidth || hit.y >= window.innerHeight) return;
       const top = document.elementFromPoint(hit.x, hit.y);
       if (!top || (!hit.ctrl.contains(top) && !top.closest(LABEL_CONTROLS))) {
+        hit.done = true;
         shieldTapPoint(hit.x, hit.y);
       }
     }
@@ -483,6 +537,10 @@
     // Chrome on Android can answer AccentColor with another colour for a while after the page
     // opens, until the first tap. The device's accent is asked again a few times, and at the first
     // touch or key.
+    // Colours fade again (theme, accent, a chip pressed) once the page is drawn as it opened.
+    function endPreload() { requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove('preload'))); }
+    if (document.readyState === 'complete') endPreload();
+    else { window.addEventListener('load', endPreload); setTimeout(endPreload, 3000); }
     function recheckDeviceAccent() { if (store.get('accent') === 'device') applyAccent(); }
     window.addEventListener('load', () => [300, 1000, 3000].forEach(ms => setTimeout(recheckDeviceAccent, ms)));
     ['pointerdown', 'keydown', 'scroll'].forEach(type =>
@@ -842,3 +900,110 @@
       });
     }
 
+
+    // The browser's Back, a phone's back gesture too, closes what is open on top of the page first,
+    // the topmost first, and leaves Reading mode before it leaves the page, on every screen. Each
+    // thing that opens adds a history entry of its own, its guard; Back off a guard closes its
+    // thing. A thing closed any other way leaves its guard behind, dead: the entry is never taken
+    // back, since a page may be leaving at that moment, and Back steps over a dead guard, so no
+    // press is lost on one. Each entry carries the time it was made (aobanaSeq), which tells Back
+    // from Forward. A window that cannot be closed (the first-run setup, an update under way) gets
+    // no guard.
+    const shownById = id => { const el = document.getElementById(id); return !!(el && !el.hidden); };
+    function closableModal() {
+      return [...document.querySelectorAll('.modal-overlay.open')].find(m =>
+        !(m.id === 'welcome-modal' && typeof setupMode === 'function' && setupMode())
+        && !(m.id === 'update-modal' && document.querySelector('#update-modal [onclick="closeUpdate()"]')?.hidden !== false));
+    }
+    function closeMenus() {
+      document.querySelectorAll('.dd.open').forEach(d => {
+        d.classList.remove('open');
+        d.querySelector('.dd-btn')?.setAttribute('aria-expanded', 'false');
+      });
+      if (typeof setMenu === 'function') setMenu(false);
+    }
+    const BACK_LAYERS = [
+      ['reader', () => typeof isReadingModeOpen === 'function' && isReadingModeOpen(), () => closeReadingMode(true)],
+      ['rm-toc', () => shownById('rm-toc-drawer'), () => rmToggleToc(false)],
+      ['rm-settings', () => shownById('rm-settings-panel'), () => rmToggleSettings(false)],
+      ['rm-notes', () => shownById('rm-notes-panel'), () => rmToggleNotes(false)],
+      ['rm-bm', () => shownById('rm-bm-menu'), () => { document.getElementById('rm-bm-menu').hidden = true; rmFocusStage(); }],
+      ['modal', () => !!closableModal(), () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))],
+      ['sheet', () => document.documentElement.classList.contains('sheet-open'), () => closeTitleSheet()],
+      ['guide-toc', () => !!document.querySelector('.guide-toc-list:not([hidden])'), () => closeGuideToc()],
+      ['menu', () => !!document.querySelector('.dd.open, .topbar.open'), closeMenus],
+    ];
+    const historyPush = history.pushState.bind(history);
+    const historyReplace = history.replaceState.bind(history);
+    const stateOf = s => (s && typeof s === 'object') ? s : {};
+    let backLastSeq = 0;
+    function backSeq() { backLastSeq = Math.max(Date.now(), backLastSeq + 1); return backLastSeq; }
+    function backGuard(s) { return (s && s.aobanaGuard && s.aobanaGuard === s.aobanaSeq && s.aobanaLayer) || ''; }
+    function backLayer(name) { return BACK_LAYERS.find(l => l[0] === name); }
+    function backLayerOpen(name) { const l = backLayer(name); try { return !!(l && l[1]()); } catch (e) { return false; } }
+    function backDead(s) { const name = backGuard(s); return !!name && !backLayerOpen(name); }
+    // Entries other code makes get their time; a replaced entry keeps its time and its guard.
+    history.pushState = function (state, title, url) {
+      historyPush({ ...stateOf(state), aobanaSeq: backSeq() }, title, url);
+      backAt = history.state;
+    };
+    history.replaceState = function (state, title, url) {
+      const cur = stateOf(history.state);
+      const keep = { aobanaSeq: cur.aobanaSeq || backSeq() };
+      if (backGuard(cur)) { keep.aobanaGuard = cur.aobanaGuard; keep.aobanaLayer = cur.aobanaLayer; }
+      historyReplace({ ...stateOf(state), ...keep }, title, url);
+      backAt = history.state;
+    };
+    if (!stateOf(history.state).aobanaSeq) historyReplace({ ...stateOf(history.state), aobanaSeq: backSeq() }, '');
+    let backAt = history.state;
+    let backFlow = '';
+    let backFlowTimer = 0;
+    function backStepOver(dir) {
+      backFlow = dir;
+      clearTimeout(backFlowTimer);
+      backFlowTimer = setTimeout(() => { backFlow = ''; }, 1000);
+      history[dir]();
+    }
+    // Registered before every other popstate listener (core.js loads first), so a press that only
+    // closes something reaches none of them.
+    window.addEventListener('popstate', e => {
+      const was = backAt, now = e.state;
+      backAt = now;
+      if (backFlow) {
+        const dir = backFlow;
+        backFlow = '';
+        clearTimeout(backFlowTimer);
+        if (backDead(now)) { e.stopImmediatePropagation(); backStepOver(dir); }
+        return;
+      }
+      const forward = !!(was && now && was.aobanaSeq && now.aobanaSeq && now.aobanaSeq > was.aobanaSeq);
+      if (forward) {
+        if (backDead(now)) { e.stopImmediatePropagation(); backStepOver('forward'); }
+        return;
+      }
+      const name = backGuard(was);
+      if (name) {
+        e.stopImmediatePropagation();
+        if (backLayerOpen(name)) { backOpen.delete(name); backLayer(name)[2](); }
+        // A dead guard showed what the entry under it shows, so Back goes on from that entry.
+        else history.back();
+        return;
+      }
+      if (backDead(now)) { e.stopImmediatePropagation(); backStepOver('back'); }
+    });
+    window.addEventListener('pageshow', e => { if (e.persisted) backAt = history.state; });
+    const backOpen = new Set();
+    function backSync() {
+      for (const [name] of BACK_LAYERS) {
+        const open = backLayerOpen(name);
+        if (open && !backOpen.has(name)) {
+          backOpen.add(name);
+          // Its guard may be here already: a reload in Reading mode, or Forward onto it.
+          if (backGuard(history.state) === name) continue;
+          const seq = backSeq();
+          try { historyPush({ ...stateOf(history.state), aobanaSeq: seq, aobanaGuard: seq, aobanaLayer: name }, ''); } catch (e) {}
+          backAt = history.state;
+        } else if (!open) backOpen.delete(name);
+      }
+    }
+    new MutationObserver(backSync).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['class', 'hidden'] });

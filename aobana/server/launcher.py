@@ -50,24 +50,42 @@ def port_taken_message():
             pass
 
 
+KEPT_TAB_WAIT = 1.5
+UPDATE_TAB_WAIT = 8.0
+
+
 def page_waiting():
     try:
-        with urllib.request.urlopen(f"{URL}api/update", timeout=3) as r:
+        with urllib.request.urlopen(f"{URL}api/update", timeout=1) as r:
             return bool(json.loads(r.read().decode("utf-8")).get("page_waiting"))
     except Exception:
         return False
 
 
-def wait_and_open(proc=None, timeout=120.0, after_update=False):
+def take_kept_tab():
+    try:
+        os.remove(paths.KEPT_TAB_PATH)
+        return True
+    except OSError:
+        return False
+
+
+def wait_and_open(proc=None, timeout=120.0, after_update=False, kept_tab=False):
     end = time.monotonic() + timeout
+    tab_wait = UPDATE_TAB_WAIT if after_update else (KEPT_TAB_WAIT if kept_tab else 0.0)
     while time.monotonic() < end and (proc is None or proc.poll() is None):
         if server_up():
-            if after_update:
-                wait_end = time.monotonic() + 8
-                while time.monotonic() < wait_end:
+            # After an update, an older page polls every 2 s; after a kept tab, an open tab
+            # retries every 0.2 s, so a closed tab delays launch by under a second instead of 8 s.
+            if tab_wait > 0:
+                wait_end = time.monotonic() + tab_wait
+                while True:
                     if page_waiting():
                         return True
-                    time.sleep(0.5)
+                    left = wait_end - time.monotonic()
+                    if left <= 0:
+                        break
+                    time.sleep(min(0.05, left))
             webbrowser.open(URL)
             return True
         time.sleep(0.1)
@@ -81,6 +99,49 @@ def console_python():
         if os.path.exists(candidate):
             return candidate
     return exe
+
+
+def console_minimized():
+    try:
+        return not paths.console_shown()
+    except Exception:
+        return False
+
+
+def windows_start_options():
+    if sys.platform != "win32" or not console_minimized():
+        return {}
+    try:
+        import ctypes
+        if ctypes.windll.kernel32.GetConsoleWindow():
+            return {}
+    except Exception:
+        return {}
+    info = subprocess.STARTUPINFO()
+    info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    info.wShowWindow = 7
+    return {"startupinfo": info}
+
+
+def terminal_window(minimize):
+    if sys.platform == "win32" or os.environ.get("AOBANA_APP_WINDOW") != "1":
+        return
+    try:
+        if not sys.stdout.isatty():
+            return
+        sys.stdout.write("\033[2t" if minimize else "\033[1t")
+        sys.stdout.flush()
+    except Exception:
+        return
+    window = os.environ.get("WINDOWID")
+    if sys.platform.startswith("linux") and window and os.environ.get("DISPLAY"):
+        import shutil
+        if shutil.which("xdotool"):
+            try:
+                subprocess.run(["xdotool", "windowminimize" if minimize else "windowactivate", window],
+                               timeout=3, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
 
 
 def main():
@@ -103,15 +164,23 @@ def main():
             pass
     from aobana.server import updater
     after_update = updater.after_update() is not None
+    kept_tab = take_kept_tab()
     os.chdir(HERE)
-    with subprocess.Popen([console_python(), "-m", "aobana.server.app"]) as proc:
-        threading.Thread(target=wait_and_open, kwargs={"proc": proc, "after_update": after_update},
+    minimized = console_minimized()
+    if minimized:
+        terminal_window(True)
+    with subprocess.Popen([console_python(), "-m", "aobana.server.app"], **windows_start_options()) as proc:
+        threading.Thread(target=wait_and_open,
+                         kwargs={"proc": proc, "after_update": after_update, "kept_tab": kept_tab},
                          daemon=True).start()
         try:
-            return proc.wait()
+            code = proc.wait()
         except BaseException:
             proc.kill()
             raise
+    if minimized and code not in (0, 75):
+        terminal_window(False)
+    return code
 
 
 if __name__ == "__main__":

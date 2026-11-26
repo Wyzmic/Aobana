@@ -28,6 +28,7 @@
       fallbackNoticed: false,
       historySession: 0,
       historyDepth: 0,
+      partMemory: new Map(),
     };
 
     let rmIgnorePopCount = 0;
@@ -183,8 +184,17 @@
         if (mStage && mStage.classList.contains('rm-manga-strip')) {
           const sr = mStage.getBoundingClientRect();
           const els = mStage.querySelectorAll('[data-page]');
+          const vText = mStage.classList.contains('rm-manga-vtext');
           for (const el of els) {
             const er = el.getBoundingClientRect();
+            if (vText) {
+              if (er.left < sr.right - 8) {
+                page = parseInt(el.dataset.page || String(page), 10) || page;
+                pageFrac = Math.max(0, Math.min(1, (er.right - sr.right) / Math.max(1, er.width)));
+                break;
+              }
+              continue;
+            }
             if (er.bottom > sr.top + 8) {
               page = parseInt(el.dataset.page || String(page), 10) || page;
               pageFrac = Math.max(0, Math.min(1, (sr.top - er.top) / Math.max(1, er.height)));
@@ -260,13 +270,22 @@
         let lo = 0, hi = txt.length - 1;
         while (lo < hi) {
           const mid = (lo + hi) >> 1;
-          // An Ext-B kanji or emoji is two code units: measured whole, never by one half
-          const at = mid > 0 && rmIsLowSurrogate(txt.charCodeAt(mid)) ? mid - 1 : mid;
+          // Skip collapsed whitespace whose zero rect would misplace the binary search, and
+          // measure Ext-B kanji or emoji whole, never by one half.
+          let probe = mid;
+          while (probe <= hi && RM_ANCHOR_WS_RE.test(txt[probe])) probe++;
+          if (probe > hi) {
+            probe = mid - 1;
+            while (probe >= lo && RM_ANCHOR_WS_RE.test(txt[probe])) probe--;
+            if (probe < lo) break;
+          }
+          const at = probe > 0 && rmIsLowSurrogate(txt.charCodeAt(probe)) ? probe - 1 : probe;
           range.setStart(entry.node, at);
           range.setEnd(entry.node, Math.min(txt.length, at + (txt.codePointAt(at) > 0xffff ? 2 : 1)));
-          const cr = range.getBoundingClientRect();
-          if (rmRectBeforeStart(cr, vr, vertical, paginated, topPad)) lo = mid + 1;
-          else hi = mid;
+          const cr = range.getClientRects()[0] || range.getBoundingClientRect();
+          if (!cr || (cr.width < 0.2 && cr.height < 0.2)) { lo = mid + 1; continue; }
+          if (rmRectBeforeStart(cr, vr, vertical, paginated, topPad)) lo = Math.max(mid, probe) + 1;
+          else hi = Math.min(mid, probe);
         }
         let raw = lo > 0 && rmIsLowSurrogate(txt.charCodeAt(lo)) ? lo - 1 : lo;
         while (raw < txt.length && RM_ANCHOR_WS_RE.test(txt[raw])) raw++;
@@ -390,15 +409,31 @@
       if (!sc) return base;
       return `${base}|${Math.round(rmState.dir === 'vertical' ? rmGetRtlDist(sc) : sc.scrollTop)}`;
     }
+    // A page in page view is read from its first character, so that character is the page's
+    // landing: a setting changed after a page turn keeps it, as one changed after a landing does.
     function rmLayoutAnchor() {
       if (rmLanded && rmLanded.key === rmPositionKey()) return rmLanded.anchor;
-      rmLanded = null;
-      return rmReadAnchor();
+      const a = rmReadAnchor();
+      rmLanded = (a && a.anchor_v && rmState.layout === 'paginated' && rmState.media !== 'manga')
+        ? { anchor: a, key: rmPositionKey() }
+        : null;
+      return a;
     }
 
+    // A page is read from its top. When a new anchor (a place saved on another screen, the top of
+    // scroll view, a jump) lands below its page's first character, that character is kept instead:
+    // keeping the anchor would put it at the top of the next layout and the text above it on the
+    // page before, which looks like a page turned by itself. An anchor kept from the last landing
+    // stays, so a setting turned off and on again comes back to the same page.
     function rmRestoreAnchor(anchor) {
+      const chained = !!(rmLanded && rmLanded.anchor === anchor);
       const ok = rmRestoreAnchorAt(anchor);
-      rmLanded = (ok && anchor && anchor.anchor_v) ? { anchor, key: rmPositionKey() } : null;
+      let kept = (ok && anchor && anchor.anchor_v) ? anchor : null;
+      if (kept && !chained && rmState.layout === 'paginated' && rmState.media !== 'manga') {
+        const top = rmReadAnchor();
+        if (top && top.anchor_v && top.file === kept.file && kept.char_offset > top.char_offset) kept = top;
+      }
+      rmLanded = kept ? { anchor: kept, key: rmPositionKey() } : null;
       return ok;
     }
 
@@ -416,9 +451,10 @@
       const prevT = root.style.transform;
       root.style.transform = '';
       const range = document.createRange();
+      const chLen = loc.node.nodeValue.codePointAt(loc.rawIdx) > 0xffff ? 2 : 1;
       range.setStart(loc.node, loc.rawIdx);
-      range.setEnd(loc.node, Math.min(loc.node.nodeValue.length, loc.rawIdx + 1));
-      const cr = range.getBoundingClientRect();
+      range.setEnd(loc.node, Math.min(loc.node.nodeValue.length, loc.rawIdx + chLen));
+      const cr = range.getClientRects()[0] || range.getBoundingClientRect();
       const rr = root.getBoundingClientRect();
       root.style.transform = prevT;
       const vertical = rmState.dir === 'vertical';
@@ -436,9 +472,13 @@
           const el = mStage.querySelector(`[data-page="${pno}"]`);
           if (el) {
             rmBarIgnoreScrollUntil = Date.now() + 200;
-            const targetTop = el.offsetTop + Math.round((anchor.page_frac || 0) * el.offsetHeight);
-            mStage.scrollTop = Math.max(0, targetTop);
-            rmBarLastPos = mStage.scrollTop;
+            if (mStage.classList.contains('rm-manga-vtext') && typeof rmMangaScrollToCard === 'function') {
+              rmMangaScrollToCard(mStage, el, anchor.page_frac || 0);
+            } else {
+              const targetTop = el.offsetTop + Math.round((anchor.page_frac || 0) * el.offsetHeight);
+              mStage.scrollTop = Math.max(0, targetTop);
+              rmBarLastPos = mStage.scrollTop;
+            }
           }
           rmState.mangaPage = pno;
           rmUpdateProgressUI();
@@ -474,6 +514,27 @@
         const activeSc = rmScrollerEl();
         if (!activeRoot || !activeSc) return false;
         rmApplyPaginatedOffset(Math.max(0, rmAnchorPageInSection(anchor, activeRoot)));
+        // Verify the anchored character sits inside the rendered page viewport; adjust by a page
+        // if fractional column rounding ever placed it just outside.
+        const baseOff = rmState.secCharStarts[rmState.secIndex] || 0;
+        const loc = rmLocateAnchorOffset(activeRoot, Math.max(0, (anchor.char_offset || 0) - baseOff), anchor.quote);
+        if (loc) {
+          const vertical = rmState.dir === 'vertical';
+          const range = document.createRange();
+          const chLen = loc.node.nodeValue.codePointAt(loc.rawIdx) > 0xffff ? 2 : 1;
+          range.setStart(loc.node, loc.rawIdx);
+          range.setEnd(loc.node, Math.min(loc.node.nodeValue.length, loc.rawIdx + chLen));
+          for (let i = 0; i < 3; i++) {
+            const cr = range.getClientRects()[0] || range.getBoundingClientRect();
+            if (!cr || (cr.width < 0.2 && cr.height < 0.2)) break;
+            const vr = activeSc.getBoundingClientRect();
+            const mid = vertical ? (cr.top + cr.bottom) * 0.5 : (cr.left + cr.right) * 0.5;
+            const step = mid > (vertical ? vr.bottom : vr.right) ? 1 : (mid < (vertical ? vr.top : vr.left) ? -1 : 0);
+            const nxt = rmState.pageIndex + step;
+            if (!step || nxt < 0 || nxt >= rmState.pageCount) break;
+            rmApplyPaginatedOffset(nxt);
+          }
+        }
         return true;
       }
 

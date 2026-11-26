@@ -440,7 +440,7 @@
       const { media, name } = splitFolderKey(f);
       return `
           <li>
-            <a href="#" data-folder="${esc(f)}" class="folder-link ${isSelected}" draggable="false">
+            <a role="button" tabindex="0" data-folder="${esc(f)}" class="folder-link ${isSelected}" draggable="false">
               <span class="folder-label">
                 <span class="folder-name">${markTitle(name, document.getElementById('folder-filter')?.value)}</span>
                 ${folderTagHtml(media)}
@@ -546,7 +546,7 @@
       sidebarMatches = [...top.filter(match), ...rest.filter(match)];
       let html = `
         <li>
-          <a href="#" data-folder="" class="folder-link ${!currentFolders.length ? 'selected' : ''}" id="folder-all" draggable="false">
+          <a role="button" tabindex="0" data-folder="" class="folder-link ${!currentFolders.length ? 'selected' : ''}" id="folder-all" draggable="false">
             <span>${esc(t('all'))}</span>
             ${!PARAMS.get('q') || sidebarData.global_total == null ? '' : `<span class="count-badge">${fmt(sidebarData.global_total)}</span>`}
           </a>
@@ -654,7 +654,7 @@
       box.innerHTML = currentFolders.map(f => `<input type="hidden" name="folder" value="${esc(f)}">`).join('');
     }
 
-    window.addEventListener('popstate', () => { if (TAB === 'search') location.reload(); });
+    window.addEventListener('popstate', () => { if (TAB === 'search' && !isReadingModeOpen()) location.reload(); });
 
     if (window.visualViewport && matchMedia('(pointer: coarse)').matches) {
       const TYPED = 'input[type=text], input[type=search], input:not([type]), textarea';

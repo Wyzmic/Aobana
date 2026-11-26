@@ -90,8 +90,8 @@ Aobana is installed.
      in Settings, under Media.
   2. Add the Termux:Widget widget to your home screen and tap "Aobana".
      It opens in Firefox if it is installed (Yomitan works there), else your default browser.
-     If no browser opens, allow Termux "Display over other apps" in Android's settings.
-  3. Closing Termux stops the server.
+  3. To quit, press the ✕ at the right of Aobana's top bar and "Quit Aobana": the server stops
+     and Termux closes. Ctrl-C in Termux, or closing its session, stops the server too.
 
 Update: run the same command again.
 Uninstall: curl -fsSL https://raw.githubusercontent.com/Wyzmic/Aobana/main/termux/uninstall.sh | bash

@@ -1,5 +1,53 @@
 # Changelog
 
+## 3.1: Quit from the page, Yomitan on a phone, and minimized console
+
+### Enhancements
+
+- **Quit from the page.** The **✕** at the right of the top bar quits Aobana. **Quit Aobana** stops it and shows that it has quit; the next start opens **Search**. **Quit and keep tabs** leaves every tab on its page, and the next start uses them again instead of opening a new tab.
+- **Yomitan on a phone.** A tap on a menu, a sheet, a title, a row, a link in a book or the Guide's contents no longer starts a lookup, and a long press no longer opens the browser's link menu. With a mouse, titles and rows are still looked up.
+- **The console window starts minimized.** The window Aobana runs in (the Terminal on macOS and Linux) starts minimized and comes back by itself if Aobana fails to start. **Console window** in the **Settings** tab shows it again.
+
+**The app**
+
+- Starting Aobana while one of its tabs is still open uses that tab instead of opening another, also after the console window or Terminal was closed. When Aobana comes back on a new build, such as after an update, a kept tab reloads in place and reopens Reading mode at the same page.
+- A tab that loads while Aobana is not running says so (**Aobana is not running**) and loads the page by itself once Aobana runs, instead of the browser's error page.
+- The browser's **Back**, and a phone's back gesture, close what is open first, the topmost first: a window, a menu, the title sheet of **Search**, the Guide's contents, Reading mode's panels, then Reading mode itself. Only then does it leave the page.
+- The filter chip of **Search** can no longer be selected, like a row in **Media**.
+- The top bar's tabs have a name for screen readers when only their icon shows.
+
+**Reading mode**
+
+- **Scroll to turn page** (**Swipe to turn page** on a touch screen): when it is off, the mouse wheel, a trackpad and a swipe turn no page in page view; the keys and the page edges still do. It is in Reading mode's display panel and the **Settings** tab, for books, subtitles, manga and Custom, and on by default.
+- On a phone, a tap on a page edge turns the page (**Tap edges to turn page**, **Tap zone width**). One of the two switches always stays on: turning off the last one turns the other back on. While text is selected, an edge tap only clears the selection, and the next one turns the page. Moving **Tap zone width** tints both edges.
+- The display panel shows the two page-turn switches only where they work: in page view, and for manga in single pages.
+- **Content width** and **Content height** are a share of the screen, from 10% to 100%, so the text area stays the same when the font size changes. A window smaller than the text area makes it smaller, down to a thin margin. Scroll view has a size of its own, **Content size (scroll)** in the **Settings** tab. While one of them moves, the margins around the text are tinted. A width or height set in 3.0 goes back to the new defaults: 75% wide, 85% high, 75% in scroll view.
+- **Font size** goes from 8 px to 72 px, and **Subtitle timestamps** are on by default. In the display panel, **Subtitle timestamps** is hidden when subtitles are shown from the index (which does not store times).
+- **Click zone width** (**Tap zone width** on a touch screen) is 25% by default and goes up to 40%. In page view a zone stops at the edge of the text or the manga page, so it never covers them, and at least a 30 px strip stays free on each side so an edge can always be clicked or tapped without touching the text.
+- Notes are copied as plain text by default, with quotes in 「」 (Japanese) or `"..."` (English). A **Copy as Markdown** switch sits beside **Include furigana** in the Notes panel, the **Saved** tab, and **Settings** (shared by every medium).
+- Manga shown as text, when its page images are missing or it is read from the index, scrolls in vertical writing, the cards running right to left, and looks more compact. **Writing direction** in the display panel switches it to horizontal writing.
+- Custom's .txt and .md files open from the file, and a .md keeps its formatting: bold, italic, strikethrough, highlights, inline code, lists, quotes and code blocks. When the file is missing, the indexed text is shown, with a notice, as for subtitles, books and manga.
+- Links in a Custom .md work in Reading mode. A link to a subpage, such as an album's songs exported from Notion, or to another page of the library opens that page, and **Back** returns to the link. A web address opens in a new tab. On a phone, a tap on a link does not start Yomitan.
+- **Missing file notice** in the **Settings** tab turns off the notice that Reading mode is showing the indexed text because the original file is missing. It is on by default.
+- Going back to a chapter or volume with the arrow keys or the top bar's previous and next buttons opens it where you left it, until Reading mode closes. A chapter not yet opened, **Contents** and the buttons at a chapter's end open at the start.
+
+### Bug Fixes
+
+- On a phone, tapping an open menu or sheet, such as the theme and accent menus in **Settings**, the sort menus, the i+1 menu or the title sheet, made Yomitan look up the page text under it. A tap outside an open menu closed it, started Yomitan and also opened what was under the finger. A tap on a menu now only does what the menu does, and a tap outside it only closes it. With Yomitan's scan key on a computer, the text under an open menu is no longer looked up either.
+- On a phone, tapping a title in **Search**, a row in **Media** or the filter chip made Yomitan look up its name, and so did tapping the folder path of **Media**, Reading mode's font list, bookmark names and note places, the Anki deck names, the columns when importing known words, the ✕ of recent searches and filter chips, and the Guide's contents. A tap on them no longer starts a lookup. With a mouse, titles and rows are still looked up.
+- On a phone, choosing a section in the Guide's contents made Yomitan look up the text that scrolled under the finger. It no longer does.
+- On a phone, jumping to the last sections in the **Guide**'s contents could leave them partly hidden behind the browser's bar. The last section now scrolls to the top of the screen.
+- On a phone, tapping a link inside a book, such as the contents or a footnote, started Yomitan. It now goes to the link without a lookup.
+- A long press on a title in **Search**, a section of the Guide's contents, or a link inside a book on a touch screen opened the browser's link menu for an address that leads nowhere. It no longer does.
+- In Reading mode's page view, changing a setting such as the font size, line height or width could show the text after the page you were reading and put its first lines on the page before. The page you are reading now stays, and a setting changed back shows the same page again.
+- In Reading mode's page view, moving a slider such as the width or height could show the start of the next sentence at the end of the page, and leave it there after letting go. The page now ends at a whole sentence while the slider moves.
+- Switching a manga from single pages to the scroll strip could move to the next page. It now keeps the page you were on, and the page counter follows the strip as you scroll.
+- In Reading mode opened from **Search**, **Back** after following a link reloaded the page and closed Reading mode. It now returns to the link.
+- Opening Reading mode on a fresh page load (such as jumping to a bookmark or note from **Saved**, or reloading a kept tab) could land one page early in page view. It now opens on the target page.
+- On a phone, the shortcut opened a second Aobana tab, or showed Firefox's last tab, whatever it was. It now opens the Aobana tab last on screen, at the page you left; Chrome reuses the tab it opened for Aobana.
+- On a phone, Ctrl-C in Termux, or closing its session, left Aobana running with no session to stop it. It now quits Aobana.
+- The phone installer asked to allow Termux *Display over other apps*, which Termux from Google Play does not offer. It now says how to quit Aobana.
+
 ## 3.0: Titles in more than one media, and three more accent colors
 
 ### Enhancements

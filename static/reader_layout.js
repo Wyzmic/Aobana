@@ -201,12 +201,16 @@
 
     // Push a sentence that straddles a column edge onto the next page so EPUB pagination never
     // cuts mid-sentence (quotes stay together; a sentence longer than one full page stays as is).
-    function rmApplySentencePageBreaks(root, scroller, pageW, pageH, vertical) {
+    // When `stopNode` is set (live slider drag), stop once two pages past `stopNode` are laid out
+    // so the visible page keeps exact sentence breaks without laying out the rest of a long chapter.
+    // Returns true when stopped early so the caller finishes the remaining pages on release.
+    let rmBreaksPartial = false;
+    function rmApplySentencePageBreaks(root, scroller, pageW, pageH, vertical, stopNode = null) {
       rmClearSentenceBreaks(root);
-      if (!root || !scroller || root.classList.contains('rm-image-page')) return;
+      if (!root || !scroller || root.classList.contains('rm-image-page')) return false;
       const actW = scroller.clientWidth || pageW;
       const actH = scroller.clientHeight || pageH;
-      if (actW < 100 || actH < 100) return;
+      if (actW < 100 || actH < 100) return false;
       const pageSize = vertical ? actH : actW;
       const pageBlockSize = vertical ? actW : actH;
       const stride = Math.max(1, pageSize + RM_PAGE_GAP);
@@ -219,12 +223,25 @@
         !el.querySelector(childBlock) &&
         (el.textContent || '').trim().length > 0
       );
-      if (!blocks.length) return;
+      if (!blocks.length) return false;
 
       const range = document.createRange();
       let rootRect = root.getBoundingClientRect();
       let pushes = 0;
       const MAX_PUSHES = 500;
+      let stopPage = -1;
+      const measureStopPage = () => {
+        if (!stopNode || !root.contains(stopNode)) return;
+        try {
+          range.selectNodeContents(stopNode);
+          const rects = range.getClientRects();
+          const r = (rects && rects.length ? rects[0] : null) || range.getBoundingClientRect();
+          if (r && (r.width >= 0.5 || r.height >= 0.5)) {
+            const mid = vertical ? ((r.top + r.bottom) * 0.5 - rootRect.top) : ((r.left + r.right) * 0.5 - rootRect.left);
+            stopPage = Math.max(0, Math.floor((mid + RM_PAGE_GAP * 0.5) / stride));
+          }
+        } catch (_) {}
+      };
 
       const setSentRange = (sent) => {
         try {
@@ -272,6 +289,10 @@
         const last = vertical ? (br.bottom - rootRect.top - 1) : (br.right - rootRect.left - 1);
         const bStart = Math.max(0, Math.floor((first + RM_PAGE_GAP * 0.5) / stride));
         const bEnd = Math.max(0, Math.floor((last + RM_PAGE_GAP * 0.5) / stride));
+        if (stopNode && stopPage < 0 && (block.contains(stopNode) || (block.compareDocumentPosition(stopNode) & Node.DOCUMENT_POSITION_PRECEDING))) {
+          measureStopPage();
+        }
+        if (stopPage >= 0 && bStart > stopPage + 1) return true;
         if (bStart >= bEnd) continue;
 
         let sentFrom = 0;
@@ -344,7 +365,9 @@
           }
           if (!pushed) break;
         }
+        if (stopNode && block.contains(stopNode)) measureStopPage();
       }
+      return false;
     }
 
     // Scale EPUB illustrations in continuous scrolling modes using image_scale (25%–100% of stage),
@@ -427,24 +450,67 @@
       });
     }
 
-    function rmMeasurePagination() {
+    // Resolve width_pct / height_pct against the display's maximized reading area, clamped to the
+    // current window so shrinking a desktop window keeps box size steady until it meets the text.
+    const RM_MIN_EDGE_ZONE = 30;
+    function rmBoxTargets(stage, p) {
+      const isPhone = window.innerWidth <= 720;
+      const padX = isPhone ? 18 : 36;
+      const padY = isPhone ? 18 : 36;
+      const stageW = (stage && stage.clientWidth > 0) ? stage.clientWidth : window.innerWidth;
+      const stageH = (stage && stage.clientHeight > 0) ? stage.clientHeight : window.innerHeight;
+      const availW = Math.max(120, stageW - padX);
+      const availH = Math.max(120, stageH - padY);
+      const scrW = (window.screen && window.screen.availWidth) || stageW;
+      const scrH = (window.screen && window.screen.availHeight) || stageH;
+      const winChromeH = (!isPhone && window.outerHeight > window.innerHeight && Math.abs(window.outerWidth - window.innerWidth) <= 24)
+        ? Math.min(160, window.outerHeight - window.innerHeight) : 0;
+      const uiW = Math.max(0, window.innerWidth - stageW);
+      const uiH = Math.max(0, window.innerHeight - stageH);
+      const refW = isPhone ? availW : Math.max(availW, Math.max(120, scrW - uiW - padX));
+      const refH = isPhone ? availH : Math.max(availH, Math.max(120, scrH - winChromeH - uiH - padY));
+      const wPct = Math.max(10, Math.min(100, Number(p.width_pct) || 75)) / 100;
+      const hPct = Math.max(10, Math.min(100, Number(p.height_pct) || 85)) / 100;
+      const sPct = Math.max(10, Math.min(100, Number(p.scroll_size_pct) || 75)) / 100;
+      const targetW = Math.floor(Math.max(120, refW * wPct));
+      const targetH = Math.floor(Math.max(120, refH * hPct));
+      const scrollW = Math.floor(Math.max(120, refW * sPct));
+      const scrollH = Math.floor(Math.max(120, refH * sPct));
+      // In page view a strip of RM_MIN_EDGE_ZONE px stays free on each side, so a page edge can be
+      // clicked or tapped without touching the text; a wide page gets narrower, the text is never covered
+      const edgeFreeW = stageW - 2 * RM_MIN_EDGE_ZONE;
+      return {
+        availW,
+        availH,
+        targetW,
+        targetH,
+        scrollW,
+        scrollH,
+        pageW: Math.floor(Math.max(120, Math.min(availW, targetW, edgeFreeW))),
+        pageH: Math.floor(Math.max(120, Math.min(availH, targetH))),
+      };
+    }
+
+    function rmSyncBoxVars(stage, p) {
+      if (!stage) return null;
+      const box = rmBoxTargets(stage, p || rmGetPrefs());
+      stage.style.setProperty('--rm-max-w', box.scrollW + 'px');
+      stage.style.setProperty('--rm-max-h', box.scrollH + 'px');
+      return box;
+    }
+
+    function rmMeasurePagination(anchor = null) {
       const stage = document.getElementById('rm-stage');
       const scroller = rmScrollerEl();
       const root = document.getElementById('rm-epub-root');
       if (!stage || !scroller || !root) return;
+      const p = rmGetPrefs();
+      const box = rmSyncBoxVars(stage, p);
 
       if (rmState.layout === 'paginated') {
         const isPhone = window.innerWidth <= 720;
-        const padY = isPhone ? 18 : 36;
-        const p = rmGetPrefs();
-        const edgePx = Math.ceil(stage.clientWidth * RM_EDGE_ROOM);
-        const padX = isPhone ? 18 : Math.max(56, edgePx * 2 + 16);
-        const availW = Math.max(220, stage.clientWidth - padX);
-        const availH = Math.max(200, stage.clientHeight - padY);
-        const maxPx = (p.max_width || 44) * p.font_size;
-        const maxHPx = (p.max_height || 36) * p.font_size;
-        const pageW = Math.max(220, Math.min(availW, maxPx));
-        const pageH = Math.max(200, Math.min(availH, maxHPx));
+        const pageW = box.pageW;
+        const pageH = box.pageH;
         const imgW = Math.max(220, stage.clientWidth - (isPhone ? 12 : 32));
         const imgH = Math.max(200, stage.clientHeight - (isPhone ? 12 : 24));
         stage.style.setProperty('--rm-page-w', pageW + 'px');
@@ -457,14 +523,25 @@
         rmState.pageH = actH;
         if (root.classList.contains('rm-image-page')) {
           rmState.pageCount = 1;
+          rmBreaksPartial = false;
           return;
         }
         const prevT = root.style.transform;
         root.style.transform = '';
         if (rmHtmlPart(rmState.part)) {
-          // While a slider is dragged the pages flow without sentence breaks; letting go lays them out.
-          if (rmDragAnchor) rmClearSentenceBreaks(root);
-          else rmApplySentencePageBreaks(root, scroller, actW, actH, rmState.dir === 'vertical');
+          // Clear prior breaks before locating stopNode so p.normalize() never detaches it.
+          // During a slider drag, place sentence breaks through the page holding the anchor so
+          // incomplete next-sentence text never flashes in; letting go finishes the remaining pages.
+          rmClearSentenceBreaks(root);
+          let stopNode = null;
+          if (rmDragActive && anchor && anchor.anchor_v) {
+            const baseOff = rmState.secCharStarts[rmState.secIndex] || 0;
+            const loc = rmLocateAnchorOffset(root, Math.max(0, (anchor.char_offset || 0) - baseOff), anchor.quote);
+            if (loc) stopNode = loc.node;
+          }
+          rmBreaksPartial = rmApplySentencePageBreaks(root, scroller, actW, actH, rmState.dir === 'vertical', stopNode);
+        } else {
+          rmBreaksPartial = false;
         }
         if (rmState.dir === 'vertical') {
           const stride = actH + RM_PAGE_GAP;
@@ -480,6 +557,7 @@
         rmState.pageCount = 1;
         rmResizeEpubImages();
       }
+      if (typeof rmSyncEdgeZones === 'function') rmSyncEdgeZones();
     }
 
     function rmReadScrollRatio() {
@@ -519,6 +597,7 @@
     }
 
     function rmTurnPage(delta) {
+      rmClearDragAnchor();
       if (rmState.media === 'manga' && typeof rmTurnMangaPage === 'function') {
         rmTurnMangaPage(delta);
         return;
@@ -597,6 +676,7 @@
     }
 
     function rmGoToAnchorInPart(member, frag, allowMemberFallback = false) {
+      rmClearDragAnchor();
       const part = rmState.part;
       if (!rmHtmlPart(part)) return false;
       if (rmState.layout === 'paginated') {
@@ -657,7 +737,31 @@
       return true;
     }
 
+    const RM_LINK_SELECTOR = '#rm-epub-root a[data-rm-href], #rm-epub-root a[href^="#"], #rm-epub-root a[data-rm-custom-file], #rm-epub-root a[data-rm-url]';
+
+    // A link in a Custom .md: a web address opens in a new tab, a page of the same work opens
+    // in Reading mode, and Back returns to where the link was
+    async function rmFollowCustomLink(a) {
+      const url = a.getAttribute('data-rm-url');
+      if (url) {
+        window.open(url, '_blank', 'noopener');
+        return;
+      }
+      const file = a.getAttribute('data-rm-custom-file') || '';
+      const idx = rmState.files.findIndex(f => f.file === file);
+      if (idx < 0) {
+        rmToast(t('rm_link_not_found'));
+        return;
+      }
+      const beforePos = rmCapturePos();
+      if (idx !== rmState.partIndex && !(await rmLoadPart(idx, {}))) return;
+      rmPushLinkHistory(beforePos, rmCapturePos());
+      saveMediaState();
+      rmSaveProgressNow(false);
+    }
+
     async function rmFollowLink(a) {
+      if (a.hasAttribute('data-rm-url') || a.hasAttribute('data-rm-custom-file')) return rmFollowCustomLink(a);
       const target = a.getAttribute('data-rm-href') || '';
       const cut = target.indexOf('#');
       const member = target ? (cut >= 0 ? target.slice(0, cut) : target) : '';
@@ -688,9 +792,33 @@
       rmSaveProgressNow(false);
     }
 
-    function rmStepPart(delta) {
+    // Stepping between chapters with the arrow keys or top-bar buttons remembers where each
+    // chapter was left for this reading session, so an accidental step and return goes back to
+    // the same place. Unvisited chapters, Contents and end-of-chapter buttons open at the start.
+    function rmRememberPartPlace() {
+      const curItem = rmState.files[rmState.partIndex];
+      if (!curItem || !rmState.part || rmState.partCtrl || rmState.part.file !== curItem.file) return;
+      if (rmState.media !== 'manga' && !document.getElementById('rm-epub-root')) return;
+      const anchor = rmReadAnchor();
+      if (anchor) rmState.partMemory.set(curItem.file, anchor);
+    }
+
+    function rmStepPart(delta, remember = true) {
       const nxt = rmState.partIndex + delta;
-      if (nxt >= 0 && nxt < rmState.files.length) rmLoadPart(nxt, {});
+      if (nxt < 0 || nxt >= rmState.files.length) return;
+      if (remember) {
+        rmRememberPartPlace();
+        const saved = rmState.partMemory.get(rmState.files[nxt].file);
+        if (saved) {
+          rmLoadPart(nxt, {
+            targetAnchor: saved.anchor_v ? saved : null,
+            targetRatio: saved.scroll_ratio,
+            targetPage: saved.page || 1,
+          });
+          return;
+        }
+      }
+      rmLoadPart(nxt, {});
     }
 
     let rmWheelLock = 0;
@@ -701,6 +829,7 @@
 
       sc.onscroll = () => {
         if (rmState.layout !== 'paginated') {
+          if (!rmDragActive && Date.now() >= rmBarIgnoreScrollUntil) rmClearDragAnchor();
           rmScheduleProgressUI();
           rmScheduleSaveProgress();
           rmOnBarScroll();
@@ -715,6 +844,7 @@
             : (rmState.dir === 'vertical' ? -e.deltaX : e.deltaX);
           if (Math.abs(raw) < 4) return;
           e.preventDefault();
+          if (rmGetPrefs().scroll_turn_page === false) return;
           const now = Date.now();
           if (now - rmWheelLock < 120) return;
           rmWheelLock = now;
@@ -745,7 +875,7 @@
       };
 
       stage.onclick = e => {
-        const link = e.target.closest('#rm-epub-root a[data-rm-href], #rm-epub-root a[href^="#"]');
+        const link = e.target.closest(RM_LINK_SELECTOR);
         if (link) {
           e.preventDefault();
           rmFollowLink(link);
@@ -754,7 +884,7 @@
         if (e.target.closest('a, button, input, summary')) return;
         const side = rmEdgeHitSide(e.clientX, stage);
         if (rmEdgeNavActive() && side) {
-          if (window.getSelection && String(window.getSelection()).trim()) return;
+          if (rmEdgeTapSelection()) return;
           const forward = rmState.dir === 'vertical' ? side === 'left' : side === 'right';
           rmTurnPage(forward ? 1 : -1);
           return;
@@ -775,6 +905,21 @@
         }
       };
 
+      // A tap on a link inside the book follows it and Yomitan reads nothing. Yomitan reads the
+      // word under the finger when it lifts, before the click, so the point is covered from the
+      // touch on and the click that lands on the cover follows the link. A mouse is left alone.
+      stage.onpointerdown = e => {
+        if ((e.pointerType !== 'touch' && e.pointerType !== 'pen') || !e.isPrimary) return;
+        const link = e.target.closest(RM_LINK_SELECTOR);
+        if (!link) return;
+        const el = makeShield(e.clientX, e.clientY, 48);
+        const done = () => { clearTimeout(timer); el.remove(); stage.removeEventListener('pointercancel', done); };
+        const timer = setTimeout(done, 1000);
+        el.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); done(); rmFollowLink(link); };
+        stage.addEventListener('pointercancel', done);
+        (stage.closest('.rm-dialog') || document.body).appendChild(el);
+      };
+
       stage.ontouchstart = e => {
         if (e.touches.length !== 1) return;
         rmState.touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
@@ -785,6 +930,7 @@
         const dy = e.changedTouches[0].clientY - rmState.touchStart.y;
         const dt = Date.now() - rmState.touchStart.t;
         rmState.touchStart = null;
+        if (rmGetPrefs().scroll_turn_page === false) return;
         if (dt < 500 && Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
           const forward = rmState.dir === 'vertical' ? dx > 0 : dx < 0;
           rmTurnPage(forward ? 1 : -1);

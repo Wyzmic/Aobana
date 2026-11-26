@@ -187,7 +187,7 @@ def containers(lines, navigation):
     return hidden, headings
 
 
-def parse(text, title, navigation=()):
+def parse(text, title, navigation=(), blocks=False):
     source = text.lstrip('\ufeff').splitlines()
     original = _blank_comments(text.lstrip('\ufeff')).splitlines()
     erased = {i for i, (a, b) in enumerate(zip(source, original)) if a.strip() and not b.strip()} if len(source) == len(original) else set()
@@ -198,6 +198,13 @@ def parse(text, title, navigation=()):
     rows, sections = [], [(0, None, 0)]
     section, heading, gap, first_heading, fenced = 0, None, 0, True, None
     skip_next, table = False, False
+    def link_rows(found):
+        # The reader's own rows for links the index leaves out: a subpage, a wiki page or a web
+        # address alone on its line. They take no gap, so the next line keeps the index's.
+        if blocks:
+            for kind, label, target in found:
+                rows.append(('', gap, section, heading, ('link', None, (kind, label.strip() or target, target))))
+
     for index, raw in enumerate(original):
         if skip_next:
             skip_next = False
@@ -216,6 +223,7 @@ def parse(text, title, navigation=()):
         if fence and fence[1][0] == fenced[0] and len(fence[1]) >= fenced[1] and not raw.strip()[len(fence[1]):].strip():
             fenced = None
             continue
+        block = ('code', None, raw) if fenced else None
         if fenced:
             line = raw
         else:
@@ -228,6 +236,7 @@ def parse(text, title, navigation=()):
                 raw = _cells(raw)
                 if not raw:
                     continue
+                block = ('table', None, raw)
             elif RULE.match(raw):
                 gap = 1
                 continue
@@ -256,25 +265,72 @@ def parse(text, title, navigation=()):
                 continue
             prefix = None if table else PREFIX.match(raw)
             value = raw[prefix.end():] if prefix and prefix[0].strip() else raw
+            if block is None:
+                mark = prefix[0] if prefix else ''
+                number = re.search(r'(\d+)[.)]\s', mark)
+                kind = 'ol' if number else 'li' if re.search(r'[-+*]\s', mark) else 'quote' if '>' in mark else ''
+                block = (kind, int(number[1]) if number else None, value)
             if prefix and prefix[0].strip() and (quoted := HEADING.match(value)):
                 value = quoted[2]
             if WIKI.search(value) and not WIKI.sub('', value).strip():
+                link_rows([('wiki', _wiki(m), m[2]) for m in WIKI.finditer(value) if not m[1]])
                 continue
             found = list(scan_links(value.strip()))
             if any(not m[1] and _target(m[3]) in navigation for m in found):
+                link_rows([('page', _label(m[2]), _target(m[3])) for m in found if not m[1] and _target(m[3]) in navigation])
                 value = replace_links(value, lambda m: '' if m[1] or _target(m[3]) in navigation else _label(m[2]))
             elif len(found) == 1 and found[0].span() == (0, len(value.strip())):
                 if found[0][1] or re.match(r'^(?:https?://|mailto:)', _target(found[0][3]), re.I):
+                    if not found[0][1]:
+                        link_rows([('url', _label(found[0][2]), _target(found[0][3]))])
                     continue
             value = replace_links(value, lambda m: '' if m[1] else _label(m[2]))
             value = re.sub(r'(!?)\[([^]]+)\]\[([^]]*)\]',
                            lambda m: '' if m[1] else m[2] if (m[3] or m[2]).casefold() in references else m[0], value)
             value = re.sub(r'(?<![\]!\\])\[([^\[\]]+)\](?![\[(:])',
                            lambda m: m[1] if m[1].casefold() in references else m[0], value)
+            addresses = [u.strip('<>') for u in URL.findall(value)]
             value = re.sub(' ?' + URL.pattern, '', value, flags=re.I)
             line = _label(re.sub(r'(?<!\\)\\$', '', value))
             if not line.strip():
+                link_rows([('url', u, u) for u in addresses])
                 continue
-        rows.append((line, gap, section, heading))
+        rows.append((line, gap, section, heading, block) if blocks else (line, gap, section, heading))
         gap = 0
     return rows, sections
+
+
+INLINE = (('md_code', re.compile(r'(`+)(.+?)\1'), 2), ('md_b', re.compile(r'\*\*(.+?)\*\*|__(.+?)__'), 0),
+          ('md_s', re.compile(r'~~(.+?)~~'), 1), ('md_mark', re.compile(r'==(.+?)=='), 1),
+          ('md_i', re.compile(r'(?<![A-Za-z0-9*])\*(?!\s)([^*]+?)(?<!\s)\*(?![A-Za-z0-9*])|(?<![A-Za-z0-9_])_(?!\s)([^_]+?)(?<!\s)_(?![A-Za-z0-9_])'), 0))
+
+
+def inline_links(raw, line, clean=lambda s: s):
+    marks, at = [], 0
+    for m in scan_links(raw):
+        if m[1]:
+            continue
+        text = clean(_label(m[2])).strip()
+        found = line.find(text, at) if text else -1
+        if found < 0:
+            continue
+        marks.append(['md_link', found, found + len(text), _target(m[3])])
+        at = found + len(text)
+    return marks
+
+
+def inline_styles(raw, line, clean=lambda s: s):
+    marks = []
+    for kind, pattern, group in INLINE:
+        at = 0
+        for m in pattern.finditer(raw):
+            inner = m[group] if group else next(g for g in m.groups() if g is not None)
+            text = clean(_label(inner)).strip()
+            if not text:
+                continue
+            found = line.find(text, at)
+            if found < 0:
+                continue
+            marks.append([kind, found, found + len(text), ''])
+            at = found + len(text)
+    return marks

@@ -314,7 +314,7 @@
       for (;;) {
         await sleep(2000);
         try {
-          const info = await (await fetch('/api/update?waiting=1', { cache: 'no-store' })).json();
+          const info = await (await fetch(`/api/update?waiting=1${document.visibilityState === 'visible' ? '&shown=1' : ''}`, { cache: 'no-store' })).json();
           if (info.current !== from) { location.reload(); return; }
           if (wentDown) return failed();
         } catch (e) { wentDown = true; }

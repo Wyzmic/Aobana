@@ -59,6 +59,7 @@
       var bar = document.querySelector('meta[name="theme-color"]');
       if (bar) bar.setAttribute('content', { paper: '#f7f7f5', haze: '#e4eaf1', night: '#181a1b', midnight: '#000000' }[theme]);
       document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.classList.add('preload');
       var accent = get('accent');
       if (['cyan', 'teal', 'green', 'indigo', 'purple', 'pink', 'red', 'orange', 'gold', 'gray'].indexOf(accent) >= 0) document.documentElement.setAttribute('data-accent', accent);
       else if (accent === 'device' && window.CSS && CSS.supports && CSS.supports('color', 'AccentColor')) {
@@ -127,27 +128,27 @@
       <span class="brand-name"><ruby>露草<rt>あおばな</rt></ruby></span>
     </a>
     <nav class="nav-tabs">
-      <a class="nav-tab" data-tab="search" href="/" draggable="false" onclick="handleSearchTabClick(event)">
+      <a class="nav-tab" data-tab="search" data-i18n-aria="tab_search" aria-label="検索" href="/" draggable="false" onclick="handleSearchTabClick(event)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <span data-i18n="tab_search">検索</span>
       </a>
-      <a class="nav-tab" data-tab="media" href="/?tab=media" draggable="false" onclick="handleMediaTabClick(event)">
+      <a class="nav-tab" data-tab="media" data-i18n-aria="tab_media" aria-label="メディア" href="/?tab=media" draggable="false" onclick="handleMediaTabClick(event)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>
         <span data-i18n="tab_media">メディア</span>
       </a>
-      <a class="nav-tab" data-tab="saved" href="/?tab=saved" draggable="false">
+      <a class="nav-tab" data-tab="saved" data-i18n-aria="tab_saved" aria-label="保存" href="/?tab=saved" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
         <span data-i18n="tab_saved">保存</span>
       </a>
-      <a class="nav-tab" data-tab="library" href="/?tab=library" draggable="false">
+      <a class="nav-tab" data-tab="library" data-i18n-aria="tab_library" aria-label="ライブラリ" href="/?tab=library" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5L12 16l2.5-2.5"/></svg>
         <span data-i18n="tab_library">ライブラリ</span>
       </a>
-      <a class="nav-tab" data-tab="settings" href="/?tab=settings" draggable="false">
+      <a class="nav-tab" data-tab="settings" data-i18n-aria="tab_settings" aria-label="設定" href="/?tab=settings" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
         <span data-i18n="tab_settings">設定</span>
       </a>
-      <a class="nav-tab" data-tab="guide" href="/?tab=guide" draggable="false">
+      <a class="nav-tab" data-tab="guide" data-i18n-aria="tab_guide" aria-label="ガイド" href="/?tab=guide" draggable="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
         <span data-i18n="tab_guide">ガイド</span>
       </a>
@@ -156,6 +157,16 @@
       <button type="button" id="shortcuts-btn" class="dd-btn top-btn" onclick="toggleShortcutsModal()" data-i18n-title="shortcuts" data-i18n-aria="shortcuts" title="ショートカット (?)" aria-label="ショートカット (?)">
         <span class="dd-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/></svg></span>
       </button>
+      <div class="dd quit-dd" id="quit-dd">
+        <button type="button" id="quit-btn" class="dd-btn top-btn" onclick="toggleQuitMenu(event)" aria-haspopup="menu" aria-expanded="false" data-i18n-title="quit_app" data-i18n-aria="quit_app" title="Aobana を終了" aria-label="Aobana を終了">
+          <span class="dd-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9 9l6 6M15 9l-6 6"/></svg></span>
+        </button>
+        <div class="dd-menu" role="menu">
+          <button type="button" class="dd-item quit-item" role="menuitem" onclick="quitAobana(event, false)"><svg class="dd-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg><span data-i18n="quit_app">Aobana を終了</span></button>
+          <button type="button" class="dd-item quit-item" role="menuitem" onclick="quitAobana(event, true)"><svg class="dd-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg><span data-i18n="quit_keep_tabs">タブを残して終了</span></button>
+          <div class="quit-note" role="status" hidden></div>
+        </div>
+      </div>
     </div>
     <button type="button" class="menu-btn" id="menu-btn" onclick="toggleMenu(event)" aria-expanded="false" aria-controls="topbar-menu" data-i18n-title="menu" title="メニュー">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>

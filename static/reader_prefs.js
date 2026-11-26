@@ -1,7 +1,10 @@
     const RM_ENABLED_MEDIA = new Set(['epub', 'subs', 'manga', 'custom']);
-    // A part laid out from HTML sections: a book read from its file, and a Custom file.
+    // A part laid out from HTML sections: a book read from its file, and a Custom .txt or .md,
+    // read from its file or, when the file is missing, from the index
     function rmHtmlPart(part) {
-      return !!part && part.source === 'file' && (part.media === 'epub' || part.media === 'custom');
+      if (!part) return false;
+      if (part.media === 'custom') return typeof part.html === 'string' && (part.source === 'file' || part.source === 'db');
+      return part.media === 'epub' && part.source === 'file';
     }
     const RM_PREFS_KEY = 'aobana_reader_prefs';
     const RM_DEFAULT_PREFS = {
@@ -10,20 +13,23 @@
       font_weight: 400,
       line_height: 1.85,
       font_family: '',
-      max_width: 44,
-      max_height: 36,
+      width_pct: 75,
+      height_pct: 85,
+      scroll_size_pct: 75,
       image_scale: 80,
       furigana: 'on',
       writing_mode: 'auto',
       layout: 'paginated',
-      sub_timestamps: false,
+      sub_timestamps: true,
       manga_boxes: 'hover',
       manga_layout: 'single',
       edge_click_nav: true,
-      edge_click_width: 12,
+      scroll_turn_page: true,
+      edge_click_width: 25,
       show_progress: true,
       auto_hide_bar: false,
       hide_bar_scroll: false,
+      fallback_notice: true,
     };
 
     // Subtitles, books and manga keep their own display settings. Optional sub-profiles register here.
@@ -497,37 +503,111 @@
         }
       } catch (e) {}
     }
-    // Settings that leave the text where it is. The click zones are among them: on a wide window a
-    // page leaves room for zones of the default width (RM_EDGE_ROOM), whatever they are set to.
-    const RM_NO_RELAYOUT_KEYS = new Set(['theme', 'furigana', 'manga_boxes', 'edge_click_width', 'edge_click_nav']);
+    // Settings that leave the text where it is. On wide screens, text edge zones stop at the text
+    // hitbox edge while manga leaves RM_EDGE_ROOM so changing the % setting never reflows content.
+    const RM_NO_RELAYOUT_KEYS = new Set(['theme', 'furigana', 'manga_boxes', 'edge_click_width', 'edge_click_nav', 'scroll_turn_page', 'fallback_notice']);
     const RM_EDGE_ROOM = 0.12;
     let rmDragAnchor = null;
+    let rmDragActive = false;
+    let rmDragSettleTimer = null;
     let rmDragClearTimer = null;
+    let rmDragEndTick = null;
+    let rmDragUpBound = false;
+    let rmPrefsGen = 0;
+    function rmUnbindDragUp() {
+      if (!rmDragUpBound) return;
+      rmDragUpBound = false;
+      window.removeEventListener('pointerup', rmOnRangePointerEnd, true);
+      window.removeEventListener('pointercancel', rmOnRangePointerEnd, true);
+    }
+    // A slider dragged back to its starting value fires no onchange on release; finish the
+    // layout on the next tick unless onchange already did.
+    function rmOnRangePointerEnd() {
+      rmUnbindDragUp();
+      clearTimeout(rmDragEndTick);
+      rmDragEndTick = setTimeout(() => { rmDragEndTick = null; rmFinishRangeDrag(true); }, 0);
+    }
     function rmClearDragAnchor() {
+      clearTimeout(rmDragSettleTimer);
+      rmDragSettleTimer = null;
       clearTimeout(rmDragClearTimer);
       rmDragClearTimer = null;
+      clearTimeout(rmDragEndTick);
+      rmDragEndTick = null;
+      rmUnbindDragUp();
+      rmDragActive = false;
       rmDragAnchor = null;
     }
+    // Finish any partial sentence-break pass once a range drag stops or settles, even if the
+    // slider returned to its starting value so onchange never fires.
+    function rmFinishRangeDrag(clearAnchor = true) {
+      const needFull = typeof rmBreaksPartial !== 'undefined' && rmBreaksPartial;
+      const anchor = rmDragAnchor;
+      clearTimeout(rmDragSettleTimer);
+      rmDragSettleTimer = null;
+      rmDragActive = false;
+      if (clearAnchor) {
+        clearTimeout(rmDragClearTimer);
+        rmDragClearTimer = null;
+        clearTimeout(rmDragEndTick);
+        rmDragEndTick = null;
+        rmUnbindDragUp();
+        rmDragAnchor = null;
+      }
+      if (needFull && isReadingModeOpen() && rmState.part && rmState.layout === 'paginated' && rmHtmlPart(rmState.part)) {
+        rmMeasurePagination();
+        if (anchor) rmRestoreAnchor(anchor);
+        rmUpdateProgressUI();
+      }
+    }
+    // A touch screen may have no keys: swiping or the page edges always turn pages, so turning
+    // off the one still on turns the other back on.
+    function rmKeepAPageTurn(patch, current) {
+      const touch = window.innerWidth <= 720 || (window.matchMedia && window.matchMedia('(hover: none)').matches);
+      const next = { ...current, ...patch };
+      if (!touch || next.scroll_turn_page !== false || next.edge_click_nav !== false) return patch;
+      return 'scroll_turn_page' in patch ? { ...patch, edge_click_nav: true } : { ...patch, scroll_turn_page: true };
+    }
+
+    // A touch screen swipes and taps where a computer scrolls and clicks: the page-turn settings
+    // are named for the screen they are read on.
+    function rmPageTurnLabel(key) {
+      return t(TOUCH_ONLY ? key + '_touch' : key);
+    }
+
     async function rmUpdatePrefs(patch, opts = {}) {
+      const gen = ++rmPrefsGen;
       const m = rmPrefsMedia(opts.media);
+      patch = rmKeepAPageTurn(patch || {}, rmGetPrefs(m));
       const activeKey = rmPrefsMedia();
       const needsRelayout = Object.keys(patch || {}).some(k => !RM_NO_RELAYOUT_KEYS.has(k));
+      const layoutSwitch = !!(patch && ('layout' in patch || 'writing_mode' in patch));
+      if (layoutSwitch && !opts.endDrag) rmClearDragAnchor();
       const anchor = (needsRelayout && isReadingModeOpen() && m === activeKey && rmState.part)
         ? (opts.anchor || rmDragAnchor || rmLayoutAnchor())
         : null;
+      const appliedEndDrag = !!(opts.endDrag && isReadingModeOpen() && m === activeKey);
       if (opts.endDrag) rmClearDragAnchor();
       const next = { ...rmGetPrefs(m), ...patch };
       rmSetPrefsCache(m, next);
+      if (appliedEndDrag) rmApplyPrefsToDom(needsRelayout, opts.rebuildSettings !== false, anchor);
       let saved = false;
+      let serverDiff = false;
       try {
         const res = await apiPost('/api/reading/state', { media: m, prefs: patch });
         if (res && !res.error) {
           saved = true;
-          if (res.prefs) rmSetPrefsCache(m, res.prefs);
+          if (res.prefs && gen === rmPrefsGen) {
+            const prevJson = JSON.stringify(rmGetPrefs(m));
+            rmSetPrefsCache(m, res.prefs);
+            serverDiff = JSON.stringify(rmGetPrefs(m)) !== prevJson;
+          }
         }
       } catch (e) {}
       if (isReadingModeOpen() && m === activeKey) {
-        rmApplyPrefsToDom(needsRelayout, opts.rebuildSettings !== false, anchor);
+        if (gen === rmPrefsGen && (!appliedEndDrag || serverDiff)) {
+          rmApplyPrefsToDom(needsRelayout, opts.rebuildSettings !== false, anchor);
+        }
         if (!saved && typeof rmToast === 'function') rmToast(t('error'));
       }
       return opts.checkSaved ? saved : rmGetPrefs(m);
@@ -543,17 +623,30 @@
 
     function rmLiveRangePref(key, val, labelEl, text) {
       if (labelEl) labelEl.textContent = text;
+      rmPrefsGen++;
       const needsRelayout = !RM_NO_RELAYOUT_KEYS.has(key);
-      if (needsRelayout && isReadingModeOpen() && rmState.part && !rmDragAnchor) {
-        rmDragAnchor = rmLayoutAnchor();
-      }
-      if (rmDragAnchor) {
+      if (needsRelayout && isReadingModeOpen() && rmState.part) {
+        if (rmDragAnchor && rmDragAnchor.file !== rmState.part.file) rmClearDragAnchor();
+        if (!rmDragAnchor) rmDragAnchor = rmLayoutAnchor();
+        rmDragActive = true;
+        if (!rmDragUpBound) {
+          rmDragUpBound = true;
+          window.addEventListener('pointerup', rmOnRangePointerEnd, true);
+          window.addEventListener('pointercancel', rmOnRangePointerEnd, true);
+        }
+        clearTimeout(rmDragEndTick);
+        rmDragEndTick = null;
+        clearTimeout(rmDragSettleTimer);
+        rmDragSettleTimer = setTimeout(() => rmFinishRangeDrag(false), 180);
         clearTimeout(rmDragClearTimer);
-        rmDragClearTimer = setTimeout(() => { rmDragAnchor = null; }, 1200);
+        rmDragClearTimer = setTimeout(() => rmFinishRangeDrag(true), 1200);
       }
       rmSetPrefsCache(rmPrefsMedia(), { ...rmGetPrefs(), [key]: val });
       if (isReadingModeOpen()) rmApplyPrefsToDom(needsRelayout, false, rmDragAnchor);
       if (key === 'edge_click_width') rmPreviewEdgeZones();
+      else if (key === 'width_pct') rmPreviewBoxBounds('x');
+      else if (key === 'height_pct') rmPreviewBoxBounds('y');
+      else if (key === 'scroll_size_pct') rmPreviewBoxBounds(rmState.dir === 'vertical' ? 'y' : 'x');
     }
 
     // While クリック領域の幅 is dragged, both click zones are tinted so their reach shows.
@@ -561,9 +654,39 @@
     function rmPreviewEdgeZones() {
       const dlg = document.getElementById('reading-mode');
       if (!dlg) return;
+      if (typeof rmSyncEdgeZones === 'function') rmSyncEdgeZones();
       clearTimeout(rmEdgePreviewTimer);
+      dlg.classList.remove('rm-bound-preview-x', 'rm-bound-preview-y');
       dlg.classList.toggle('rm-edge-preview', rmEdgeNavActive());
       rmEdgePreviewTimer = setTimeout(() => dlg.classList.remove('rm-edge-preview'), 900);
+    }
+
+    // While 本文の幅 / 本文の高さ is dragged, tint the margins outside the text hitbox so its
+    // left/right or top/bottom boundary shows clearly.
+    let rmBoundPreviewTimer = null;
+    function rmPreviewBoxBounds(axis) {
+      const dlg = document.getElementById('reading-mode');
+      const main = document.getElementById('rm-main');
+      if (!dlg || !main) return;
+      const box = rmState.layout === 'paginated'
+        ? document.getElementById('rm-scroller')
+        : document.getElementById('rm-epub-root');
+      if (!box) return;
+      const mr = main.getBoundingClientRect();
+      const br = box.getBoundingClientRect();
+      if (mr.width <= 0 || mr.height <= 0) return;
+      if (axis === 'x') {
+        dlg.style.setProperty('--rm-bound-l', Math.max(0, Math.round(br.left - mr.left)) + 'px');
+        dlg.style.setProperty('--rm-bound-r', Math.max(0, Math.round(mr.right - br.right)) + 'px');
+      } else {
+        dlg.style.setProperty('--rm-bound-t', Math.max(0, Math.round(br.top - mr.top)) + 'px');
+        dlg.style.setProperty('--rm-bound-b', Math.max(0, Math.round(mr.bottom - br.bottom)) + 'px');
+      }
+      clearTimeout(rmBoundPreviewTimer);
+      dlg.classList.remove('rm-edge-preview');
+      dlg.classList.toggle('rm-bound-preview-x', axis === 'x');
+      dlg.classList.toggle('rm-bound-preview-y', axis === 'y');
+      rmBoundPreviewTimer = setTimeout(() => dlg.classList.remove('rm-bound-preview-x', 'rm-bound-preview-y'), 900);
     }
 
     function rmEntryButtonHTML(media, folder) {

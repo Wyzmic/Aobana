@@ -7,6 +7,7 @@
       renderDbCard(lib);
       renderPortCard(lib);
       renderSearchWorkersCard(lib.search_workers);
+      syncConsoleSetting(lib);
       settingsShown = true;
     }
 
@@ -65,12 +66,30 @@
           ${row(t('set_theme_dark'), seg(themes(THEMES_DARK), choice.dark, 'setLookDark'))}
           ${row(t('set_accent'), '<div id="set-accent-dd"></div>')}
           ${row(t('set_lang'), seg([['ja', '日本語'], ['en', 'English']], LANG, 'setLang'))}
+          ${consoleSetting && consoleSetting.kind ? row(t('set_console_' + consoleSetting.kind),
+            seg([['min', t('set_console_min')], ['shown', t('set_console_shown')]], consoleSetting.shown ? 'shown' : 'min', 'setConsoleShown')
+            + `<span class="set-look-note facts">${esc(t('set_console_note'))}</span>`) : ''}
         </div>`;
       makeDropdown(document.getElementById('set-accent-dd'), {
         options: ACCENTS.filter(([name]) => name !== 'device' || deviceAccentSupported()).map(([name, color]) => ({ value: name, label: t('accent_' + name), pre: `<span class="accent-dot" style="background:${color}"></span>` })),
         value: currentAccent(), left: true, title: t('set_accent'),
         onChange: v => { setAccent(v); renderLookCard(); },
       });
+    }
+    // The window Aobana runs in, minimized or shown at the next start (launcher.py). Known once
+    // the settings arrive; none on a phone. Drawn again only when it changes: the settings are
+    // read again every second while the library figures load, and the accent menu may be open.
+    let consoleSetting = null;
+    function syncConsoleSetting(lib) {
+      if (!('console_kind' in lib)) return;
+      const next = { kind: lib.console_kind, shown: !!lib.console_shown };
+      if (consoleSetting && consoleSetting.kind === next.kind && consoleSetting.shown === next.shown) return;
+      consoleSetting = next;
+      renderLookCard();
+    }
+    async function setConsoleShown(v) {
+      const res = await apiPost('/api/library', { console_shown: v === 'shown' }).catch(() => ({ error: 'network' }));
+      if (!res.error && consoleSetting) { consoleSetting.shown = v === 'shown'; renderLookCard(); }
     }
     function setLookMode(v) { setThemeChoice('theme_mode', v); renderLookCard(); }
     function setLookLight(v) { setThemeChoice('theme_light', v); renderLookCard(); }
@@ -1161,14 +1180,23 @@
         ['app', t('rm_theme_app')], ['haze', t('theme_haze')], ['paper', t('theme_paper')],
         ['sepia', t('rm_theme_sepia')], ['night', t('theme_night')], ['midnight', t('theme_midnight')],
       ];
+      const mangaVertical = p.writing_mode !== 'horizontal';
+      const mangaDir = `<div class="seg seg-fit">${[['vertical', t('rm_dir_vertical'), mangaVertical], ['horizontal', t('rm_dir_horizontal'), !mangaVertical]].map(([val, lbl, on]) =>
+        `<button type="button" class="seg-btn ${on ? 'active' : ''}" onclick="${setter}('${media}', 'writing_mode', '${val}')">${esc(lbl)}</button>`).join('')}</div>`;
       const textRows = [
+        media === 'manga' ? row(t('rm_dir'), mangaDir) : '',
         row(t('rm_furi'), seg('furigana', [['on', t('rm_furi_on')], ['hover', t('rm_furi_hover')], ['off', t('rm_furi_off')]])),
         row(t('rm_font'), rmFontSelectHtml(p.font_family, `set-${media}`, media)),
         row(t('rm_font_weight'), range('font_weight', 200, 900, 100, p.font_weight || 400, 'this.value', p.font_weight || 400)),
-        row(t('rm_font_size'), range('font_size', 12, 36, 1, p.font_size, "this.value+'px'", `${p.font_size}px`)),
+        row(t('rm_font_size'), range('font_size', 8, 72, 1, p.font_size, "this.value+'px'", `${p.font_size}px`)),
         row(t('rm_line_height'), range('line_height', 1, 2.6, 0.05, p.line_height, 'Number(this.value).toFixed(2)', Number(p.line_height).toFixed(2))),
-        row(t('rm_max_width'), range('max_width', 10, 72, 2, p.max_width, "this.value+'em'", `${p.max_width}em`)),
-        fixed.writing_mode === 'horizontal' ? '' : row(t('rm_max_height'), range('max_height', 10, 72, 2, p.max_height || 36, "this.value+'em'", `${p.max_height || 36}em`)),
+        ...(fixed.layout === 'continuous' || media === 'manga'
+          ? [row(t(media === 'manga' && mangaVertical ? 'rm_max_height' : 'rm_max_width'), range('scroll_size_pct', 10, 100, 1, p.scroll_size_pct || 75, "this.value+'%'", `${p.scroll_size_pct || 75}%`))]
+          : [
+            row(t('rm_page_width'), range('width_pct', 10, 100, 1, p.width_pct || 75, "this.value+'%'", `${p.width_pct || 75}%`)),
+            fixed.writing_mode === 'horizontal' ? '' : row(t('rm_page_height'), range('height_pct', 10, 100, 1, p.height_pct || 85, "this.value+'%'", `${p.height_pct || 85}%`)),
+            row(t('rm_scroll_size'), range('scroll_size_pct', 10, 100, 1, p.scroll_size_pct || 75, "this.value+'%'", `${p.scroll_size_pct || 75}%`)),
+          ]),
       ].join('');
       const rows = [row(t('rm_theme'), `<div class="rm-theme-grid">${themes.map(([v, lbl]) =>
         `<button type="button" class="btn rm-theme-chip ${p.theme === v ? 'active' : ''}" onclick="${setter}('${media}', 'theme', '${v}')">${esc(lbl)}</button>`
@@ -1184,12 +1212,14 @@
         if (media === 'epub') rows.push(row(t('rm_image_scale'), range('image_scale', 25, 100, 5, p.image_scale || 80, "this.value+'%'", `${p.image_scale || 80}%`)));
       }
       if (media === 'subs') rows.push(row(t('rm_sub_timestamps'), seg('sub_timestamps', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      if (['subs', 'epub', 'manga', 'custom'].includes(media)) rows.push(row(t('rm_fallback_notice'), seg('fallback_notice', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       if (opts.extraRows) rows.push(opts.extraRows(row, seg));
       rows.push(row(t('rm_progress_show'), seg('show_progress', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_auto_hide_bar'), seg('auto_hide_bar', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
       rows.push(row(t('rm_hide_bar_scroll'), seg('hide_bar_scroll', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
-      rows.push(row(t('rm_edge_click'), seg('edge_click_nav', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
-      rows.push(row(t('rm_edge_click_width'), range('edge_click_width', 5, 35, 1, p.edge_click_width || 12, "this.value+'%'", `${p.edge_click_width || 12}%`)));
+      rows.push(row(rmPageTurnLabel('rm_scroll_turn'), seg('scroll_turn_page', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(rmPageTurnLabel('rm_edge_click'), seg('edge_click_nav', [[true, t('lib_cache_on')], [false, t('lib_cache_off')]])));
+      rows.push(row(rmPageTurnLabel('rm_edge_click_width'), range('edge_click_width', 5, 40, 1, p.edge_click_width || 25, "this.value+'%'", `${p.edge_click_width || 25}%`)));
       let html = `<div class="rm-set-grid">${rows.join('')}</div>`;
       if (media === 'manga') {
         html += `<div class="set-reader-sub" id="set-reader-manga-text">
@@ -1226,17 +1256,36 @@
       card.hidden = !shown.length;
       if (!shown.length) { card.innerHTML = ''; return; }
       const open = readerSettingsMedia(shown);
+      const prevPick = card.querySelector('.set-reader-pick');
+      const prevScroll = prevPick ? prevPick.scrollLeft : 0;
       const picker = shown.length > 1 ? `<div class="seg seg-fit set-reader-pick">${shown.map(([m, label]) =>
         `<button type="button" class="seg-btn ${m === open ? 'active' : ''}" onclick="pickReaderSettingsMedia('${m}')">${esc(t(label))}</button>`).join('')}</div>` : '';
       card.innerHTML = `
         <h3>${esc(t('set_reader_title'))}</h3>
         <p class="muted" style="margin:0 0 0.7em; font-size:0.9em;">${esc(t('set_reader_lead'))}</p>
-        ${picker}${readerSettingsSection(open, profiles[open]?.settingsTab?.opts || {})}`;
+        ${picker}${readerSettingsSection(open, profiles[open]?.settingsTab?.opts || {})}
+        <div class="set-reader-sub" id="set-reader-notes-copy"></div>`;
+      renderNotesCopySettings();
+      // A row that scrolls sideways (a phone) keeps its place, and the medium picked comes fully into view.
+      const pick = card.querySelector('.set-reader-pick');
+      if (pick && typeof scrollStripTo === 'function') {
+        pick.scrollLeft = prevScroll;
+        scrollStripTo(pick, pick.querySelector('.seg-btn.active'));
+      }
       if (msg && media) {
         const sec = document.getElementById(`set-reader-${media.replace(/[^a-z0-9_-]/gi, '-')}`);
         if (sec) sec.insertAdjacentHTML('beforeend', `<div class="notice ${warn ? 'warn' : 'ok'}" style="margin:0.8em 0 0;">${esc(msg)}</div>`);
       }
       if (typeof rmFontSyncOpenPopup === 'function') rmFontSyncOpenPopup();
+    }
+
+    // How notes are copied: one setting for every medium, shared with the Notes panel and the 保存 tab
+    function renderNotesCopySettings() {
+      const box = document.getElementById('set-reader-notes-copy');
+      if (!box || typeof rmNotesCopyRowsHtml !== 'function') return;
+      box.innerHTML = `<div class="set-reader-sub-title">${esc(t('set_reader_notes_copy'))}</div>
+        <p class="muted">${esc(t('set_reader_notes_copy_lead'))}</p>
+        <div class="set-reader-notes-copy">${rmNotesCopyRowsHtml()}</div>`;
     }
 
     async function setReaderPref(media, key, val) {

@@ -1,6 +1,7 @@
 // In-reader Notes (メモ) and AI-friendly copy helpers for Reading mode.
 
 const RM_NOTES_COPY_FURI_KEY = 'aobana_rm_copy_furi';
+const RM_NOTES_COPY_MD_KEY = 'aobana_rm_copy_md';
 const RM_NOTES_BLOCK_TAGS = new Set([
   'P', 'DIV', 'LI', 'BLOCKQUOTE', 'PRE', 'TR', 'DT', 'DD',
   'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SECTION', 'ARTICLE', 'HR',
@@ -20,6 +21,9 @@ const rmNotesState = {
   selectedFuri: '',
   copyFuri: (() => {
     try { return localStorage.getItem(RM_NOTES_COPY_FURI_KEY) === '1'; } catch (e) { return false; }
+  })(),
+  copyMarkdown: (() => {
+    try { return localStorage.getItem(RM_NOTES_COPY_MD_KEY) === '1'; } catch (e) { return false; }
   })(),
   vpBound: false,
   saving: false,
@@ -364,10 +368,31 @@ function rmSetNotesScope(scope) {
   rmRenderNotesPanel();
 }
 
-function rmSetCopyFuri(on) {
-  rmNotesState.copyFuri = !!on;
-  try { localStorage.setItem(RM_NOTES_COPY_FURI_KEY, rmNotesState.copyFuri ? '1' : '0'); } catch (e) {}
-  rmRenderNotesPanel();
+// The two copy settings are one for every medium: the Notes panel, the 保存 tab and Settings share them
+function rmSetCopyPref(key, on) {
+  const md = key === 'markdown';
+  rmNotesState[md ? 'copyMarkdown' : 'copyFuri'] = !!on;
+  try { localStorage.setItem(md ? RM_NOTES_COPY_MD_KEY : RM_NOTES_COPY_FURI_KEY, on ? '1' : '0'); } catch (e) {}
+  const drawer = document.getElementById('rm-notes-panel');
+  if (drawer && !drawer.hidden) rmRenderNotesPanel();
+  const savedPane = document.querySelector('[data-saved-pane="notes"]');
+  if (savedPane && savedPane._groups && typeof renderSavedNotes === 'function') renderSavedNotes();
+  if (typeof renderNotesCopySettings === 'function') renderNotesCopySettings();
+}
+
+function rmSetCopyFuri(on) { rmSetCopyPref('furigana', on); }
+
+// The On / Off rows for the copy settings; withFuri is false where the text has no furigana to copy
+function rmNotesCopyRowsHtml(withFuri = true) {
+  const row = (label, key, on) => `
+      <div class="rm-notes-furi-row">
+        <span class="rm-set-label">${esc(t(label))}</span>
+        <div class="seg seg-fit">
+          <button type="button" class="seg-btn ${on ? 'active' : ''}" onclick="rmSetCopyPref('${key}', true)">${esc(t('lib_cache_on'))}</button>
+          <button type="button" class="seg-btn ${on ? '' : 'active'}" onclick="rmSetCopyPref('${key}', false)">${esc(t('lib_cache_off'))}</button>
+        </div>
+      </div>`;
+  return `<div class="rm-notes-copy-prefs">${withFuri ? row('rm_notes_copy_furi', 'furigana', rmNotesState.copyFuri) : ''}${row('rm_notes_copy_md', 'markdown', rmNotesState.copyMarkdown)}</div>`;
 }
 
 function rmRenderNotesPanel() {
@@ -380,7 +405,7 @@ function rmRenderNotesPanel() {
 
   const isManga = rmState.media === 'manga';
   const isPaginated = isManga
-    ? (rmGetPrefs().manga_layout !== 'strip' && !(rmState.part && rmState.part.source === 'db'))
+    ? !rmMangaIsStrip(rmGetPrefs(), rmState.part)
     : rmState.layout === 'paginated';
   const pageOrAreaLabel = isPaginated ? t('rm_notes_copy_page') : t('rm_notes_copy_area');
 
@@ -409,14 +434,7 @@ function rmRenderNotesPanel() {
         <button type="button" class="btn" onclick="rmCopyFullChapter()">${esc(t('rm_notes_copy_chapter'))}</button>
         <button type="button" class="btn" onclick="rmCopyCurrentPageOrArea()">${esc(pageOrAreaLabel)}</button>
       </div>
-      ${!isManga || rmMangaTextOnly(rmState.part) ? `
-      <div class="rm-notes-furi-row">
-        <span class="rm-set-label">${esc(t('rm_notes_copy_furi'))}</span>
-        <div class="seg seg-fit">
-          <button type="button" class="seg-btn ${rmNotesState.copyFuri ? 'active' : ''}" onclick="rmSetCopyFuri(true)">${esc(t('lib_cache_on'))}</button>
-          <button type="button" class="seg-btn ${!rmNotesState.copyFuri ? 'active' : ''}" onclick="rmSetCopyFuri(false)">${esc(t('lib_cache_off'))}</button>
-        </div>
-      </div>` : ''}
+      ${rmNotesCopyRowsHtml(!isManga || rmMangaTextOnly(rmState.part))}
     </div>
     <div class="rm-notes-composer">
       <div class="rm-notes-anchor-bar">
@@ -650,37 +668,37 @@ async function rmCopyTextToClipboard(text) {
   }
 }
 
+// Notes as plain text by default: the quote in 「」 or "…"; as Markdown with # headings and > quotes.
 // ctx: { work, place } when the notes are copied outside Reading mode (the 保存 tab)
-function rmFormatNotesMarkdown(notes, includeFurigana, multiPart, withQuotes = true, ctx = null) {
+function rmFormatNotes(notes, includeFurigana, multiPart, withQuotes = true, ctx = null, markdown = rmNotesState.copyMarkdown) {
   if (!notes || !notes.length) return '';
   const work = ctx ? ctx.work : (rmState.folder || '');
   const curTitle = ctx ? '' : rmState.part ? rmNotesShortTitle(rmState.part.file, (rmState.files[rmState.partIndex] || {}).title) : '';
-  const header = multiPart
-    ? (LANG === 'ja' ? `# 『${work}』` : `# ${work}`)
-    : (LANG === 'ja' ? `# 『${work}』 — ${curTitle}` : `# ${work} — ${curTitle}`);
-  const lines = [header, ''];
+  const name = LANG === 'ja' ? `『${work}』` : work;
+  const title = multiPart ? name : `${name} — ${curTitle}`;
+  const lines = [markdown ? `# ${title}` : title];
   notes.forEach((n, i) => {
     const loc = ctx ? ctx.place(n) : rmFormatNoteLocation(n, multiPart);
-    const label = LANG === 'ja' ? `## メモ ${i + 1}（${loc}）` : `## Note ${i + 1} (${loc})`;
-    lines.push(label);
+    const label = LANG === 'ja' ? `メモ ${i + 1}（${loc}）` : `Note ${i + 1} (${loc})`;
+    if (i) lines.push('');
+    lines.push(markdown ? `## ${label}` : label);
     const q = withQuotes ? rmNoteShownQuote(n, includeFurigana) : '';
-    if (q) lines.push(`> ${q}`);
-    lines.push(n.text || '');
-    lines.push('');
+    if (q) lines.push(markdown ? `> ${q}` : (LANG === 'ja' ? `「${q}」` : `"${q}"`));
+    if (n.text) lines.push(n.text);
   });
   return lines.join('\n').trim();
 }
 
 function rmCopyNotes(withQuotes) {
   const list = rmNotesForScope(rmNotesState.scope);
-  const md = rmFormatNotesMarkdown(list, rmNotesState.copyFuri, rmNotesState.scope === 'work', !!withQuotes);
+  const md = rmFormatNotes(list, rmNotesState.copyFuri, rmNotesState.scope === 'work', !!withQuotes);
   return rmCopyTextToClipboard(md);
 }
 
 function rmCopySingleNote(id) {
   const note = rmNotesState.notes.find(n => n.id === id);
   if (!note) return;
-  const md = rmFormatNotesMarkdown([note], rmNotesState.copyFuri, note.file !== (rmState.part && rmState.part.file));
+  const md = rmFormatNotes([note], rmNotesState.copyFuri, note.file !== (rmState.part && rmState.part.file));
   return rmCopyTextToClipboard(md);
 }
 

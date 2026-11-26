@@ -40,6 +40,18 @@
       return pages.length > 0 && pages.every(pg => !pg.image_url);
     }
 
+    // Manga with no page images (read from the index, or its images missing) shows its text on
+    // cards, always as a scroll, in vertical writing unless the text direction is set to horizontal.
+    function rmMangaIsText(part) {
+      return !!(part && (part.source === 'db' || rmMangaTextOnly(part)));
+    }
+    function rmMangaIsStrip(p, part) {
+      return p.manga_layout === 'strip' || rmMangaIsText(part);
+    }
+    function rmMangaTextVertical(p) {
+      return p.writing_mode !== 'horizontal';
+    }
+
     function rmResolveDirAndLayout() {
       const p = rmGetPrefs();
       const partWm = (rmState.part && rmState.part.writing_mode) || 'horizontal';
@@ -104,7 +116,7 @@
     function rmIsScrollableBarMode() {
       if (rmState.media === 'manga') {
         const p = rmGetPrefs();
-        return p.manga_layout === 'strip' || !!(rmState.part && (rmState.part.source === 'db' || rmMangaTextOnly(rmState.part)));
+        return rmMangaIsStrip(p, rmState.part);
       }
       return rmState.layout !== 'paginated';
     }
@@ -251,6 +263,10 @@
           <div class="rm-stage" id="rm-stage" tabindex="-1"></div>
           <div class="rm-edge-hint rm-edge-left" id="rm-edge-left" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l-8 8 8 8"/></svg></div>
           <div class="rm-edge-hint rm-edge-right" id="rm-edge-right" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4l8 8-8 8"/></svg></div>
+          <div class="rm-bound-hint rm-bound-left" id="rm-bound-left" aria-hidden="true"></div>
+          <div class="rm-bound-hint rm-bound-right" id="rm-bound-right" aria-hidden="true"></div>
+          <div class="rm-bound-hint rm-bound-top" id="rm-bound-top" aria-hidden="true"></div>
+          <div class="rm-bound-hint rm-bound-bottom" id="rm-bound-bottom" aria-hidden="true"></div>
         </div>
         <div class="rm-footer" id="rm-footer" onclick="rmToggleFooterMin()">
           <span id="rm-foot-left"></span>
@@ -306,6 +322,7 @@
       rmState.prefsKey = '';
       rmState.folder = folder;
       rmState.fallbackNoticed = false;
+      rmState.partMemory = new Map();
       const hSt = (history.state && typeof history.state === 'object') ? history.state : null;
       if (fromRestore && hSt && hSt.rmSession) {
         rmState.historySession = hSt.rmSession;
@@ -387,6 +404,7 @@
       clearTimeout(rmState.saveTimer);
       // Nothing of this visit's place carries into the next opening
       rmLanded = null;
+      rmState.partMemory = new Map();
       rmClearDragAnchor();
       clearTimeout(rmResizeTimer);
       rmResizeTimer = null;
@@ -402,6 +420,7 @@
       if (notesp) notesp.hidden = true;
       if (typeof rmResetNotesOnClose === 'function') rmResetNotesOnClose();
       dlg.hidden = true;
+      dlg.classList.remove('rm-edge-preview', 'rm-bound-preview-x', 'rm-bound-preview-y');
       document.documentElement.classList.remove('rm-open');
       document.body.classList.remove('rm-open');
       try { sessionStorage.removeItem('aobana_rm_open'); } catch (e) {}
@@ -425,6 +444,7 @@
     async function rmLoadPart(index, opts = {}) {
       if (index < 0 || index >= rmState.files.length) return false;
       rmLanded = null;
+      rmClearDragAnchor();
       rmState.partIndex = index;
       const item = rmState.files[index];
       if (typeof rmOnPartWillChange === 'function') rmOnPartWillChange(item);
@@ -473,8 +493,8 @@
       rmRenderToc();
 
       // The index-fallback notice shows once per entry into reading mode, bottom right, and fades
-      // after 4.5 s; a click dismisses it earlier.
-      if (part.source === 'db' && !rmState.fallbackNoticed) {
+      // after 4.5 s; a click dismisses it earlier. The Settings tab can turn it off per media.
+      if (part.source === 'db' && !rmState.fallbackNoticed && rmGetPrefs().fallback_notice !== false) {
         rmState.fallbackNoticed = true;
         rmShowFallbackBanner(rmFallbackText(part.fallback_reason));
       }
@@ -553,7 +573,7 @@
       const p = rmGetPrefs();
       const effTheme = (p.theme && p.theme !== 'app') ? p.theme : currentTheme();
       dlg.setAttribute('data-rm-theme', effTheme);
-      const edgePct = Math.max(5, Math.min(35, Number(p.edge_click_width) || 12));
+      const edgePct = Math.max(5, Math.min(40, Number(p.edge_click_width) || 25));
       dlg.style.setProperty('--rm-edge-w', edgePct + '%');
       rmSyncAutoHideClasses(p);
 
@@ -562,8 +582,12 @@
         stage.style.setProperty('--rm-font-size', p.font_size + 'px');
         stage.style.setProperty('--rm-font-weight', String(p.font_weight || 400));
         stage.style.setProperty('--rm-line-height', String(p.line_height));
-        stage.style.setProperty('--rm-max-w', p.max_width + 'em');
-        stage.style.setProperty('--rm-max-h', (p.max_height || 36) + 'em');
+        if (typeof rmSyncBoxVars === 'function') rmSyncBoxVars(stage, p);
+        else {
+          const sp = (p.scroll_size_pct || 75) + '%';
+          stage.style.setProperty('--rm-max-w', sp);
+          stage.style.setProperty('--rm-max-h', sp);
+        }
         stage.style.fontFamily = rmFontStack(p.font_family);
         stage.classList.toggle('rm-furi-off', p.furigana === 'off');
         stage.classList.toggle('rm-furi-hover', p.furigana === 'hover');
@@ -583,8 +607,10 @@
         rmSyncAutoHideClasses(p);
         if (rmState.media === 'manga') {
           const curStrip = !!document.querySelector('#rm-manga-stage.rm-manga-strip');
-          const wantStrip = p.manga_layout === 'strip' || rmState.part.source === 'db';
-          if (curStrip !== wantStrip) {
+          const wantStrip = rmMangaIsStrip(p, rmState.part);
+          const curVText = !!document.querySelector('#rm-manga-stage.rm-manga-vtext');
+          const wantVText = rmMangaIsText(rmState.part) && rmMangaTextVertical(p);
+          if (curStrip !== wantStrip || curVText !== wantVText) {
             rmRenderMangaPart({ restorePos: false, targetPage: (prevAnchor && prevAnchor.page) || rmState.mangaPage, targetAnchor: prevAnchor });
           } else if (!wantStrip && typeof rmMangaFit === 'function') {
             requestAnimationFrame(() => rmMangaFit(false));
@@ -598,7 +624,7 @@
           rmRenderPartContent({ targetAnchor: prevAnchor, targetRatio: prevAnchor ? prevAnchor.scroll_ratio : 0 });
         } else if (rmState.layout === 'paginated') {
           rmApplyStageLayoutClasses();
-          rmMeasurePagination();
+          rmMeasurePagination(prevAnchor);
           if (prevAnchor) rmRestoreAnchor(prevAnchor);
           else rmApplyPaginatedOffset(rmState.pageIndex);
           rmUpdateProgressUI();
@@ -613,18 +639,76 @@
       if (rebuildSettings && setp && !setp.hidden) rmRenderSettingsPanel();
       rmSyncPartNavButtons();
       rmSyncFuriganaAria();
+      rmSyncEdgeZones();
+    }
+
+    // Edge click/tap widths in px. In page view (text or single-page manga), each side stops at
+    // the content/page edge so a large % setting never overlaps it while the saved % stays intact.
+    function rmEdgeZonePx(containerEl) {
+      if (!containerEl) return { left: 0, right: 0 };
+      const rect = containerEl.getBoundingClientRect();
+      if (rect.width <= 0) return { left: 0, right: 0 };
+      const pct = Math.max(5, Math.min(40, Number(rmGetPrefs().edge_click_width) || 25)) / 100;
+      let left = rect.width * pct;
+      let right = rect.width * pct;
+      if (rmState.media !== 'manga' && rmState.layout === 'paginated') {
+        const box = document.getElementById('rm-scroller');
+        if (box && box.clientWidth > 0) {
+          const br = box.getBoundingClientRect();
+          left = Math.min(left, Math.max(0, br.left - rect.left));
+          right = Math.min(right, Math.max(0, rect.right - br.right));
+        }
+      } else if (rmState.media === 'manga') {
+        const mStage = document.getElementById('rm-manga-stage');
+        const canvas = document.getElementById('rm-mokuro-canvas');
+        const page = canvas && (canvas.firstElementChild || canvas);
+        if (mStage && !mStage.classList.contains('rm-manga-strip') && page) {
+          const br = page.getBoundingClientRect();
+          if (br.width > 0) {
+            const gapL = Math.max(0, br.left - rect.left);
+            const gapR = Math.max(0, rect.right - br.right);
+            if (window.innerWidth > 720 || Math.min(gapL, gapR) >= 16) {
+              left = Math.min(left, gapL);
+              right = Math.min(right, gapR);
+            }
+          }
+        }
+      }
+      return { left, right };
+    }
+
+    function rmSyncEdgeZones() {
+      const dlg = document.getElementById('reading-mode');
+      const stage = document.getElementById('rm-stage');
+      if (!dlg || !stage) return;
+      if (stage.clientWidth > 0) {
+        const { left, right } = rmEdgeZonePx(stage);
+        dlg.style.setProperty('--rm-edge-l', Math.round(left) + 'px');
+        dlg.style.setProperty('--rm-edge-r', Math.round(right) + 'px');
+      } else {
+        dlg.style.removeProperty('--rm-edge-l');
+        dlg.style.removeProperty('--rm-edge-r');
+      }
     }
 
     function rmEdgeHitSide(clientX, containerEl) {
       if (!containerEl) return null;
       const rect = containerEl.getBoundingClientRect();
       if (rect.width <= 0) return null;
-      const pct = Math.max(5, Math.min(35, Number(rmGetPrefs().edge_click_width) || 12)) / 100;
-      const edgeW = rect.width * pct;
+      const { left, right } = rmEdgeZonePx(containerEl);
       const x = clientX - rect.left;
-      if (x >= 0 && x <= edgeW) return 'left';
-      if (x >= rect.width - edgeW && x <= rect.width) return 'right';
+      if (left > 0 && x >= 0 && x <= left) return 'left';
+      if (right > 0 && x >= rect.width - right && x <= rect.width) return 'right';
       return null;
+    }
+
+    // A tap on a page edge while text is selected turns no page. On a touch screen it clears the
+    // selection, as a tap on empty space would, so the next edge tap turns the page.
+    function rmEdgeTapSelection() {
+      const sel = window.getSelection && window.getSelection();
+      if (!sel || !String(sel).trim()) return false;
+      if (TOUCH_ONLY) sel.removeAllRanges();
+      return true;
     }
 
     function rmSetEdgeHint(side) {
@@ -637,11 +721,10 @@
     }
 
     function rmEdgeNavActive() {
-      if (window.innerWidth <= 720) return false;
       if (rmGetPrefs().edge_click_nav === false) return false;
       if (rmState.media === 'manga') {
         const p = rmGetPrefs();
-        if (p.manga_layout === 'strip' || (rmState.part && rmState.part.source === 'db')) return false;
+        if (rmMangaIsStrip(p, rmState.part)) return false;
         return rmPz.scale <= rmPz.fitScale * 1.04;
       }
       return rmState.layout === 'paginated';
@@ -671,6 +754,13 @@
             if (!ok) n.removeAttribute(a.name);
           }
         }
+      });
+      // On a touch screen a link inside the book keeps its target but loses its href: a long press
+      // then opens no browser link menu for a "#…" address that leads nowhere outside the reader.
+      if (TOUCH_ONLY) doc.querySelectorAll('a[href^="#"]').forEach(a => {
+        if (!a.hasAttribute('data-rm-href')) a.setAttribute('data-rm-href', a.getAttribute('href'));
+        a.removeAttribute('href');
+        a.setAttribute('role', 'link');
       });
       return doc;
     }
@@ -822,18 +912,21 @@
       }
     }
 
-    function rmWatchPaginatedAssets(root, keepAtEnd) {
+    function rmWatchPaginatedAssets(root, keepAtEnd, initAnchor = null) {
       const secSnap = rmState.secIndex;
       const partSnap = rmState.partIndex;
+      let initKey = initAnchor ? rmPositionKey() : '';
       const recalc = () => {
         if (!isReadingModeOpen() || rmState.layout !== 'paginated') return;
         if (rmState.secIndex !== secSnap || rmState.partIndex !== partSnap) return;
-        const snap = keepAtEnd ? null : rmLayoutAnchor();
+        const keepInit = !!(initAnchor && initKey && rmPositionKey() === initKey);
+        const snap = keepAtEnd ? null : (keepInit ? initAnchor : rmLayoutAnchor());
         rmMeasurePagination();
         if (keepAtEnd) {
           rmApplyPaginatedOffset(rmState.pageCount - 1);
         } else if (snap) {
           rmRestoreAnchor(snap);
+          if (keepInit) initKey = rmPositionKey();
         } else {
           rmApplyPaginatedOffset(Math.min(rmState.pageCount - 1, rmState.pageIndex));
         }
@@ -887,7 +980,7 @@
         rmApplyPaginatedOffset(targetPage);
         rmUpdateProgressUI();
       }
-      rmWatchPaginatedAssets(root, !!opts.atEnd);
+      if (!opts.deferWatch) rmWatchPaginatedAssets(root, !!opts.atEnd);
     }
 
     function rmRenderPartContent(opts = {}) {
@@ -937,9 +1030,10 @@
           if (anchor) {
             const sIdx = rmAnchorTargetSection(anchor);
             rmBindStageInteractions();
-            rmRenderPaginatedSection(sIdx, { skipOffset: true });
+            rmRenderPaginatedSection(sIdx, { skipOffset: true, deferWatch: true });
             rmRestoreAnchor(anchor);
             rmUpdateProgressUI();
+            rmWatchPaginatedAssets(root, false, anchor);
             rmResetTopbarForMode();
             rmFocusStage();
             return;
@@ -982,6 +1076,7 @@
             rmApplyPaginatedOffset(targetPage);
           }
           rmUpdateProgressUI();
+          rmWatchPaginatedAssets(root, !!opts.atEnd, anchor);
           rmResetTopbarForMode();
           rmFocusStage();
         };
@@ -1014,8 +1109,8 @@
           const nav = document.createElement('div');
           nav.className = 'rm-part-nav-end';
           nav.innerHTML = `
-            <button type="button" class="btn" ${rmState.partIndex <= 0 ? 'disabled' : ''} onclick="rmStepPart(-1)">${vert ? '' : '← '}${esc(t('rm_prev_part'))}</button>
-            <button type="button" class="btn primary" ${rmState.partIndex >= rmState.files.length - 1 ? 'disabled' : ''} onclick="rmStepPart(1)">${esc(t('rm_next_part'))}${vert ? '' : ' →'}</button>`;
+            <button type="button" class="btn" ${rmState.partIndex <= 0 ? 'disabled' : ''} onclick="rmStepPart(-1, false)">${vert ? '' : '← '}${esc(t('rm_prev_part'))}</button>
+            <button type="button" class="btn primary" ${rmState.partIndex >= rmState.files.length - 1 ? 'disabled' : ''} onclick="rmStepPart(1, false)">${esc(t('rm_next_part'))}${vert ? '' : ' →'}</button>`;
           root.appendChild(nav);
         }
         rmSyncFuriganaAria();

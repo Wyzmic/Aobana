@@ -96,19 +96,23 @@
         const a = document.querySelector(`.nav-tab[data-tab="${name}"]`);
         if (a) (inDrawer.includes(name) ? menuTabs : tabs).appendChild(a);
       });
+      // The quit button stays in the bar, last on the right, at every width
+      const quit = document.getElementById('quit-dd');
       SETTINGS.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.hidden = noShortcuts;
-        (inDrawer.includes(id) ? menuRight : right).appendChild(el);
+        if (inDrawer.includes(id)) menuRight.appendChild(el);
+        else right.insertBefore(el, quit && quit.parentElement === right ? quit : null);
       });
-      right.classList.toggle('is-empty', noShortcuts || settingsIn === SETTINGS.length);
+      right.classList.toggle('is-empty', !quit && (noShortcuts || settingsIn === SETTINGS.length));
       menuRight.classList.toggle('is-empty', noShortcuts || !settingsIn);
     }
 
     function topbarGap() {
       const bar = document.querySelector('.topbar');
-      const last = bar.querySelector('.nav-tabs').lastElementChild;
+      const tabs = bar.querySelector('.nav-tabs');
+      const last = tabs.lastElementChild;
       if (!last) return Infinity;
       const right = bar.querySelector(':scope > .topbar-right');
       if (!right.classList.contains('is-empty')) return right.getBoundingClientRect().left - last.getBoundingClientRect().right;
@@ -195,6 +199,177 @@
           queueDock();
         }
       }, { threshold: 0 }).observe(sentinel);
+    });
+
+    // The top bar's ✕ menu: Aobana stops as when its console window is closed (routes_update
+    // api_quit). A running index or check is stopped first; the page then says Aobana has quit.
+    function toggleQuitMenu(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('quit-dd');
+      const open = !dd.classList.contains('open');
+      document.querySelectorAll('.dd.open').forEach(d => {
+        d.classList.remove('open');
+        d.querySelector('.dd-btn')?.setAttribute('aria-expanded', 'false');
+      });
+      dd.classList.toggle('open', open);
+      dd.querySelector('.dd-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
+      const note = dd.querySelector('.quit-note');
+      note.hidden = true;
+      if (!open) return;
+      dd.classList.remove('flip');
+      if (dd.querySelector('.dd-menu').getBoundingClientRect().left < 0) dd.classList.add('flip');
+      fetch('/api/activity').then(r => r.json()).then(a => {
+        if (!dd.classList.contains('open') || !(a.index || a.check)) return;
+        note.textContent = t(a.index ? 'quit_busy_index' : 'quit_busy_check');
+        note.hidden = false;
+      }).catch(() => {});
+    }
+    // Keys as in every other menu: arrows open it and move between its items, Esc closes it and
+    // returns to the ✕.
+    document.addEventListener('keydown', e => {
+      const dd = e.target.closest?.('#quit-dd');
+      if (!dd) return;
+      const btn = dd.querySelector('.dd-btn');
+      const items = [...dd.querySelectorAll('.quit-item')];
+      const at = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!dd.classList.contains('open')) btn.click();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        items[at < 0 ? (step > 0 ? 0 : items.length - 1) : (at + step + items.length) % items.length]?.focus();
+      } else if (e.key === 'Escape' && dd.classList.contains('open')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        btn.click();
+        btn.focus();
+      }
+    });
+    async function quitAobana(e, keep) {
+      e.stopPropagation();
+      const dd = document.getElementById('quit-dd');
+      const note = dd.querySelector('.quit-note');
+      let res;
+      try {
+        const r = await fetch('/api/quit', { method: 'POST', headers: { 'Content-Type': 'application/json', ...API_HEADERS }, body: JSON.stringify({ keep: !!keep }) });
+        res = await r.json();
+      } catch (err) { res = { error: 'network' }; }
+      if (res.error) {
+        note.textContent = t(res.error === 'moving' ? 'quit_moving' : 'quit_failed');
+        note.hidden = false;
+        return;
+      }
+      dd.classList.remove('open');
+      if (quitChannel) quitChannel.postMessage(keep ? 'keep' : 'quit');
+      showQuitPage(keep);
+    }
+    // Every Aobana tab closes, or says Aobana has quit where the browser keeps it open: a page
+    // may close its own tab only while the tab holds that one page (a new tab, nothing else
+    // opened in it yet), and every tab and search here is a page of its own. Such a tab waits
+    // for Aobana to start again, then loads its page again (watchServer below). "Quit and keep
+    // tabs" leaves every tab as it is, on the screen it shows. Either way the tab tells the next
+    // start it is open, and the launcher opens no other tab (launcher.py wait_and_open).
+    function showQuitPage(keep) {
+      if (document.documentElement.classList.contains('quit-done')) return;
+      document.querySelectorAll('.dd.open').forEach(d => d.classList.remove('open'));
+      if (keep) { kickWatch(); return; }
+      // A full quit keeps no place: the tab's next load, at the next start, is Search, with
+      // nothing this tab held (the chosen titles, Reading mode left open), as in a new tab.
+      try { history.replaceState(null, '', '/'); } catch (err) {}
+      try { sessionStorage.clear(); } catch (err) {}
+      const page = document.createElement('div');
+      page.className = 'quit-page';
+      page.innerHTML = `<div class="quit-box"><h1>${esc(t('quit_done'))}</h1><p>${esc(t('quit_done_lead'))}</p></div>`;
+      document.body.appendChild(page);
+      document.documentElement.classList.add('quit-done');
+      document.title = t('quit_done');
+      reloadWhenBack = true;
+      kickWatch();
+      try { window.close(); } catch (err) {}
+    }
+    const quitChannel = 'BroadcastChannel' in window ? new BroadcastChannel('aobana-quit') : null;
+    if (quitChannel) quitChannel.onmessage = e => { if (e.data === 'quit' || e.data === 'keep') showQuitPage(e.data === 'keep'); };
+
+    // The server is told which tabs are open (routes_update api_alive), so a tab left open when
+    // the console window or Terminal was closed is used again at the next start, and the
+    // launcher opens no second tab. A tab says so when it loads and each time it is shown, and
+    // asks every 0.2 s only while it is shown and the server is gone; nothing is asked while the
+    // server runs. One shared worker (static/alive.js) holds one quiet request for all tabs, so a
+    // tab out of sight comes back too where the browser keeps the worker running (a computer;
+    // a phone may freeze it). After a quit the page loads again once the server is back. A tab
+    // shown or put out of sight says where it is: a phone's shortcut opens that very address, which
+    // Firefox answers with this tab instead of a new one (termux/aobana-shortcut.sh open_page).
+    const PAGE_ID = Math.random().toString(36).slice(2, 12);
+    let reloadWhenBack = false;
+    let kickWatch = () => {};
+    let byeWorker = () => {};
+    // The build this page was loaded with: app.js's ?v=
+    const PAGE_ASSETS = (() => {
+      try { return new URL((document.querySelector('script[src*="/static/app.js"]') || {}).src || '', location.href).searchParams.get('v') || ''; } catch (err) { return ''; }
+    })();
+    let backChecking = false;
+    async function onServerBack() {
+      if (reloadWhenBack) {
+        try { sessionStorage.clear(); } catch (err) {}
+        location.reload();
+        return;
+      }
+      // A kept tab loads again in place when Aobana comes back as another build (an update, new
+      // code), so its scripts match the server's; the tab's own storage stays, and Reading mode
+      // opens again where it was. The same build changes nothing on screen.
+      if (backChecking || !PAGE_ASSETS) return;
+      backChecking = true;
+      try {
+        const r = await fetch(`/api/alive?page=${PAGE_ID}`, { cache: 'no-store' });
+        const v = r.ok ? (r.headers.get('X-Aobana-Assets') || '') : '';
+        if (v && v !== PAGE_ASSETS) {
+          // Reading mode opens again at the place shown, as a jump from the 保存 tab does (media.js)
+          if (typeof rmState !== 'undefined' && rmState.open && rmState.part && typeof rmCurrentBookmarkCandidate === 'function') {
+            try { sessionStorage.setItem('aobana_rm_jump', JSON.stringify({ media: rmState.media, folder: rmState.folder, file: rmState.part.file, target: rmCurrentBookmarkCandidate(), explicitStart: true })); } catch (err) {}
+          }
+          location.reload();
+          return;
+        }
+      } catch (err) {}
+      backChecking = false;
+    }
+    function watchServer() {
+      let gone = false, waiting = false, timer = 0;
+      const ask = () => {
+        clearTimeout(timer);
+        fetch(`/api/alive?page=${PAGE_ID}${document.visibilityState === 'visible' ? `&shown=1&at=${encodeURIComponent(here())}` : ''}`, { cache: 'no-store' }).then(r => r.ok, () => false).then(ok => {
+          if (ok && gone) onServerBack();
+          gone = !ok;
+          if ((gone || waiting) && document.visibilityState === 'visible') timer = setTimeout(ask, 200);
+        });
+      };
+      const shown = () => {
+        if (document.visibilityState === 'visible') ask();
+        else try { navigator.sendBeacon('/api/alive', new URLSearchParams({ page: PAGE_ID, at: here(), hidden: '1' })); } catch (err) {}
+      };
+      document.addEventListener('visibilitychange', shown);
+      window.addEventListener('pageshow', shown);
+      ask();
+      kickWatch = () => { waiting = true; ask(); };
+      if (!('SharedWorker' in window)) return;
+      // The page's own ?v=, so a new build's worker is fetched, not a year-old cached one
+      const v = ((document.querySelector('script[src*="/static/app.js"]') || {}).src || '').split('?')[1] || '';
+      let worker;
+      try { worker = new SharedWorker(`/static/alive.js${v ? '?' + v : ''}`); } catch (err) { return; }
+      const hello = () => worker.port.postMessage(`hello:${PAGE_ID}`);
+      worker.port.onmessage = e => { if (e.data === 'back') onServerBack(); };
+      worker.port.start();
+      hello();
+      window.addEventListener('pageshow', e => { if (e.persisted) hello(); });
+      byeWorker = () => worker.port.postMessage(`bye:${PAGE_ID}`);
+    }
+    const here = () => location.pathname + location.search + location.hash;
+    watchServer();
+    // A tab that loads while Aobana is not running shows a page of Aobana's own, which loads this
+    // page once it runs again (static/sw.js), not the browser's error page that never comes back.
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    window.addEventListener('pagehide', () => {
+      byeWorker();
+      try { navigator.sendBeacon('/api/alive', new URLSearchParams({ page: PAGE_ID })); } catch (err) {}
     });
 
     function setMenu(open) {
@@ -312,6 +487,13 @@
           const link = e.target.closest('.folder-link[data-folder]');
           if (link) setFolder(link.dataset.folder || null, e);
         });
+        // A title is a button with no link behind it, so a long press on a phone opens no link
+        // menu; Enter and Space pick it as a click does.
+        document.getElementById('folder-list-dynamic').addEventListener('keydown', e => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          const link = e.target.closest('.folder-link[data-folder]');
+          if (link) { e.preventDefault(); link.click(); }
+        });
       } else if (TAB === 'saved') {
         initSavedTab();
       } else if (TAB === 'media') {
@@ -394,7 +576,7 @@
           if (!span) { scheduleHide(); return; }
 
           if (span.scrollWidth - span.clientWidth > 1) {
-            const text = span.textContent.trim();
+            const text = labelText(span).trim();
             clearTimeout(tooltipTimeout);
             clearTimeout(closeGraceTimeout);
             if (isTooltipActive) {
@@ -425,8 +607,8 @@
         if (el && el.scrollWidth - el.clientWidth > 1) {
           clearTimeout(tooltipTimeout);
           clearTimeout(closeGraceTimeout);
-          if (isTooltipActive) showTooltip(el, el.textContent.trim());
-          else tooltipTimeout = setTimeout(() => { showTooltip(el, el.textContent.trim()); }, 120);
+          if (isTooltipActive) showTooltip(el, labelText(el).trim());
+          else tooltipTimeout = setTimeout(() => { showTooltip(el, labelText(el).trim()); }, 120);
         } else {
           scheduleHide();
         }

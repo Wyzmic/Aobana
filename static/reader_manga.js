@@ -90,6 +90,7 @@
       else rmPz.ty = Math.min(0, Math.max(sh - ch, rmPz.ty));
       canvas.style.transform = `translate(${rmPz.tx}px, ${rmPz.ty}px) scale(${rmPz.scale})`;
       rmSyncZoomPill();
+      rmSyncEdgeZones();
     }
 
     function rmMangaFit(preserveZoom) {
@@ -176,8 +177,10 @@
       rmState.mangaPage = pno;
 
       const p = rmGetPrefs();
-      const isStrip = p.manga_layout === 'strip' || part.source === 'db';
-      stage.innerHTML = `<div class="rm-manga-stage ${isStrip ? 'rm-manga-strip' : ''}" id="rm-manga-stage"></div>`;
+      const isStrip = rmMangaIsStrip(p, part);
+      const isText = rmMangaIsText(part);
+      const vText = isText && rmMangaTextVertical(p);
+      stage.innerHTML = `<div class="rm-manga-stage ${isStrip ? 'rm-manga-strip' : ''} ${isText ? 'rm-manga-text' : ''} ${vText ? 'rm-manga-vtext' : ''}" id="rm-manga-stage"></div>`;
       const mStage = document.getElementById('rm-manga-stage');
 
       if (window.ResizeObserver) {
@@ -202,10 +205,28 @@
         }
         rmSyncFuriganaAria();
         rmResizeStripPages();
-        rmMangaStripObs = new IntersectionObserver(entries => {
-          const vis = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-          if (vis.length) {
-            const pNum = parseInt(vis[0].target.dataset.page || '1', 10);
+        // The current page is the topmost one mostly in view: when two pages fit on the screen, the
+        // one placed at the top is the one being read, not the larger one below it.
+        // In vertical writing the cards run from right to left, and the first is the rightmost.
+        const stripPage = () => {
+          const sr = mStage.getBoundingClientRect();
+          let cur = null;
+          for (const el of mStage.querySelectorAll('[data-page]')) {
+            const b = el.getBoundingClientRect();
+            if (vText) {
+              if (b.left >= sr.right) continue;
+              if (b.right <= sr.left) break;
+              const seen = Math.min(b.right, sr.right) - Math.max(b.left, sr.left);
+              if (seen >= Math.min(b.width * 0.6, sr.width * 0.5)) { cur = el; break; }
+              continue;
+            }
+            if (b.bottom <= sr.top) continue;
+            if (b.top >= sr.bottom) break;
+            const seen = Math.min(b.bottom, sr.bottom) - Math.max(b.top, sr.top);
+            if (seen >= Math.min(b.height * 0.6, sr.height * 0.5)) { cur = el; break; }
+          }
+          if (cur) {
+            const pNum = parseInt(cur.dataset.page || '1', 10);
             if (pNum && pNum !== rmState.mangaPage) {
               rmState.mangaPage = pNum;
               rmUpdateProgressUI();
@@ -213,12 +234,24 @@
               saveMediaState();
             }
           }
-        }, { root: mStage, threshold: [0.25, 0.6] });
+        };
+        rmMangaStripObs = new IntersectionObserver(stripPage, { root: mStage, threshold: [0.25, 0.6] });
         mStage.querySelectorAll('[data-page]').forEach(el => rmMangaStripObs.observe(el));
         const targetEl = mStage.querySelector(`[data-page="${pno}"]`);
         const frac = (opts.targetAnchor && opts.targetAnchor.page_frac) || (opts.restorePos && rmState.work && rmState.work.page_frac) || 0;
-        if (pno <= 1 && !frac) mStage.scrollTop = 0;
+        if (vText) {
+          if (targetEl && (pno > 1 || frac)) rmMangaScrollToCard(mStage, targetEl, frac);
+          mStage.addEventListener('wheel', e => {
+            if (e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+            e.preventDefault();
+            mStage.scrollLeft -= e.deltaY;
+          }, { passive: false });
+        } else if (pno <= 1 && !frac) mStage.scrollTop = 0;
         else if (targetEl) mStage.scrollTop = Math.max(0, targetEl.offsetTop + Math.round(frac * targetEl.offsetHeight));
+        let stripFrame = 0;
+        mStage.addEventListener('scroll', () => {
+          if (!stripFrame) stripFrame = requestAnimationFrame(() => { stripFrame = 0; stripPage(); });
+        }, { passive: true });
         mStage.addEventListener('scroll', rmOnBarScroll, { passive: true });
       } else {
         rmDrawSingleMangaPage(pno);
@@ -356,8 +389,10 @@
       mStage.addEventListener('click', e => {
         if (isStrip) return;
         if (rmPz.moved) { rmPz.moved = false; return; }
-        if (window.getSelection && String(window.getSelection()).trim()) return;
         if (e.target.closest('.rm-text-box, a, button')) return;
+        if (rmEdgeNavActive() && rmEdgeHitSide(e.clientX, mStage)) {
+          if (rmEdgeTapSelection()) return;
+        } else if (window.getSelection && String(window.getSelection()).trim()) return;
         mStage.querySelectorAll('.rm-text-box.rm-hovered').forEach(x => x.classList.remove('rm-hovered'));
         if (rmEdgeNavActive()) {
           const side = rmEdgeHitSide(e.clientX, mStage);
@@ -376,6 +411,7 @@
         const dy = e.changedTouches[0].clientY - rmState.touchStart.y;
         const dt = Date.now() - rmState.touchStart.t;
         rmState.touchStart = null;
+        if (rmGetPrefs().scroll_turn_page === false) return;
         if (dt < 500 && Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
           rmTurnMangaPage(dx > 0 ? 1 : -1);
         }
@@ -437,9 +473,16 @@
       saveMediaState();
     }
 
+    // Brings a text card's start to the start of the vertical scroll, `frac` of the card further on.
+    function rmMangaScrollToCard(mStage, el, frac = 0) {
+      const sr = mStage.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      mStage.scrollLeft += (er.right - sr.right) - Math.round((frac || 0) * er.width);
+    }
+
     function rmGoMangaPage(pageNo) {
       const p = rmGetPrefs();
-      if (p.manga_layout === 'strip' || (rmState.part && rmState.part.source === 'db')) {
+      if (rmMangaIsStrip(p, rmState.part)) {
         const el = document.querySelector(`#rm-manga-stage [data-page="${pageNo}"]`);
         if (el) el.scrollIntoView({ block: 'start' });
         rmState.mangaPage = pageNo;
@@ -453,9 +496,10 @@
       const pages = (rmState.part && rmState.part.pages) || [];
       if (!pages.length) return;
       const p = rmGetPrefs();
-      if (p.manga_layout === 'strip' || rmState.part.source === 'db') {
+      if (rmMangaIsStrip(p, rmState.part)) {
         const mStage = document.getElementById('rm-manga-stage');
-        if (mStage) mStage.scrollBy({ top: delta * Math.round(mStage.clientHeight * 0.85), behavior: 'smooth' });
+        if (mStage && mStage.classList.contains('rm-manga-vtext')) mStage.scrollBy({ left: -delta * Math.round(mStage.clientWidth * 0.85), behavior: 'smooth' });
+        else if (mStage) mStage.scrollBy({ top: delta * Math.round(mStage.clientHeight * 0.85), behavior: 'smooth' });
         return;
       }
       if (rmBarAutoHideActive(p)) rmSetTopbarHidden(true);

@@ -346,7 +346,14 @@ def settings_view_data():
             "subtitle_tags": paths.subtitle_tags(),
             "custom_trim": paths.custom_trim(), "custom_trim_pending": _custom_trim_pending(),
             "custom_ruby": paths.custom_ruby(), "custom_ruby_pending": _custom_ruby_pending(),
+            "console_shown": paths.console_shown(), "console_kind": console_kind(),
             **{key: paths.media_roots(kind) for kind, key in paths.MEDIA_DIR_LIST_KEYS.items()}}
+
+
+def console_kind():
+    if os.environ.get("AOBANA_TERMUX") == "1" or os.environ.get("TERMUX_VERSION"):
+        return None
+    return "console" if sys.platform == "win32" else "terminal"
 
 
 _SNAPSHOT_SAVED = {}
@@ -892,6 +899,18 @@ def set_search_workers(count):
             cfg.pop("search_workers", None)
         else:
             cfg["search_workers"] = count
+    return paths.update_config(change)
+
+
+def set_console_shown(value):
+    if not isinstance(value, bool):
+        return "bad_console"
+
+    def change(cfg):
+        if value:
+            cfg["console"] = "shown"
+        else:
+            cfg.pop("console", None)
     return paths.update_config(change)
 
 

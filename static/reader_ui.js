@@ -452,6 +452,10 @@
       const mangaText = isManga && rmMangaTextOnly(rmState.part);
       const isSubs = rmState.media === 'subs';
       const fixed = rmFixedPrefs();
+      // Page turns exist in page view and in a manga's single pages, never in its strip.
+      const pageTurns = isManga
+        ? !mangaText && p.manga_layout !== 'strip' && !(rmState.part && rmState.part.source === 'db')
+        : layoutVal === 'paginated';
       card.innerHTML = `
         <div class="rm-drawer-head">
           <span>${esc(t('rm_settings'))}</span>
@@ -473,7 +477,14 @@
               <button type="button" class="seg-btn ${layoutVal === 'paginated' ? 'active' : ''}" onclick="rmSetLayout('paginated')">${esc(t('rm_layout_paginated'))}</button>
               <button type="button" class="seg-btn ${layoutVal === 'continuous' ? 'active' : ''}" onclick="rmSetLayout('continuous')">${esc(t('rm_layout_continuous'))}</button>
             </div>
-          </div>`}` : `
+          </div>`}` : mangaText ? `
+          <div class="rm-set-row">
+            <span class="rm-set-label">${esc(t('rm_dir'))}</span>
+            <div class="seg seg-fit">
+              <button type="button" class="seg-btn ${rmMangaTextVertical(p) ? 'active' : ''}" onclick="rmUpdatePrefs({writing_mode:'vertical'})">${esc(t('rm_dir_vertical'))}</button>
+              <button type="button" class="seg-btn ${rmMangaTextVertical(p) ? '' : 'active'}" onclick="rmUpdatePrefs({writing_mode:'horizontal'})">${esc(t('rm_dir_horizontal'))}</button>
+            </div>
+          </div>` : `
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_manga_layout'))}</span>
             <div class="seg seg-fit">
@@ -527,7 +538,7 @@
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_font_size'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="12" max="36" step="1" value="${p.font_size}" oninput="rmLiveRangePref('font_size', Number(this.value), this.nextElementSibling, this.value + 'px')" onchange="rmUpdatePrefs({font_size:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <input type="range" min="8" max="72" step="1" value="${p.font_size}" oninput="rmLiveRangePref('font_size', Number(this.value), this.nextElementSibling, this.value + 'px')" onchange="rmUpdatePrefs({font_size:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
               <span class="rm-range-val">${p.font_size}px</span>
             </div>
           </div>
@@ -538,20 +549,26 @@
               <span class="rm-range-val">${Number(p.line_height).toFixed(2)}</span>
             </div>
           </div>
-          <div class="rm-set-row">
+          ${layoutVal === 'continuous' || mangaText ? `<div class="rm-set-row">
+            <span class="rm-set-label">${esc(t((mangaText ? rmMangaTextVertical(p) : rmState.dir === 'vertical') ? 'rm_max_height' : 'rm_max_width'))}</span>
+            <div class="rm-range-row">
+              <input type="range" min="10" max="100" step="1" value="${p.scroll_size_pct || 75}" oninput="rmLiveRangePref('scroll_size_pct', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({scroll_size_pct:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.scroll_size_pct || 75}%</span>
+            </div>
+          </div>` : `<div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_max_width'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="10" max="72" step="2" value="${p.max_width}" oninput="rmLiveRangePref('max_width', Number(this.value), this.nextElementSibling, this.value + 'em')" onchange="rmUpdatePrefs({max_width:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
-              <span class="rm-range-val">${p.max_width}em</span>
+              <input type="range" min="10" max="100" step="1" value="${p.width_pct || 75}" oninput="rmLiveRangePref('width_pct', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({width_pct:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.width_pct || 75}%</span>
             </div>
           </div>
           ${fixed.writing_mode === 'horizontal' ? '' : `<div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_max_height'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="10" max="72" step="2" value="${p.max_height || 36}" oninput="rmLiveRangePref('max_height', Number(this.value), this.nextElementSibling, this.value + 'em')" onchange="rmUpdatePrefs({max_height:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
-              <span class="rm-range-val">${p.max_height || 36}em</span>
+              <input type="range" min="10" max="100" step="1" value="${p.height_pct || 85}" oninput="rmLiveRangePref('height_pct', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({height_pct:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.height_pct || 85}%</span>
             </div>
-          </div>`}
+          </div>`}`}
           ${rmState.media === 'epub' && layoutVal === 'continuous' ? `
           <div class="rm-set-row">
             <span class="rm-set-label">${esc(t('rm_image_scale'))}</span>
@@ -560,7 +577,7 @@
               <span class="rm-range-val">${p.image_scale || 80}%</span>
             </div>
           </div>` : ''}` : ''}
-          ${isSubs ? `
+          ${isSubs && !(rmState.part && rmState.part.source === 'db') ? `
           <div class="rm-set-row-inline">
             <span class="rm-set-label">${esc(t('rm_sub_timestamps'))}</span>
             <div class="seg seg-fit">
@@ -569,9 +586,17 @@
             </div>
           </div>` : ''}
           ${RM_EXTRA_PROFILES[rmPrefsMedia()]?.settingsHtml ? RM_EXTRA_PROFILES[rmPrefsMedia()].settingsHtml(p) : ''}
-          ${(isManga || layoutVal === 'paginated') && window.innerWidth > 720 ? `
+          ${pageTurns ? `
           <div class="rm-set-row-inline">
-            <span class="rm-set-label">${esc(t('rm_edge_click'))}</span>
+            <span class="rm-set-label">${esc(rmPageTurnLabel('rm_scroll_turn'))}</span>
+            <div class="seg seg-fit">
+              <button type="button" class="seg-btn ${p.scroll_turn_page !== false ? 'active' : ''}" onclick="rmUpdatePrefs({scroll_turn_page:true})">${esc(t('lib_cache_on'))}</button>
+              <button type="button" class="seg-btn ${p.scroll_turn_page === false ? 'active' : ''}" onclick="rmUpdatePrefs({scroll_turn_page:false})">${esc(t('lib_cache_off'))}</button>
+            </div>
+          </div>` : ''}
+          ${pageTurns ? `
+          <div class="rm-set-row-inline">
+            <span class="rm-set-label">${esc(rmPageTurnLabel('rm_edge_click'))}</span>
             <div class="seg seg-fit">
               <button type="button" class="seg-btn ${p.edge_click_nav !== false ? 'active' : ''}" onclick="rmUpdatePrefs({edge_click_nav:true})">${esc(t('lib_cache_on'))}</button>
               <button type="button" class="seg-btn ${p.edge_click_nav === false ? 'active' : ''}" onclick="rmUpdatePrefs({edge_click_nav:false})">${esc(t('lib_cache_off'))}</button>
@@ -579,10 +604,10 @@
           </div>
           ${p.edge_click_nav !== false ? `
           <div class="rm-set-row">
-            <span class="rm-set-label">${esc(t('rm_edge_click_width'))}</span>
+            <span class="rm-set-label">${esc(rmPageTurnLabel('rm_edge_click_width'))}</span>
             <div class="rm-range-row">
-              <input type="range" min="5" max="35" step="1" value="${p.edge_click_width || 12}" oninput="rmLiveRangePref('edge_click_width', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({edge_click_width:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
-              <span class="rm-range-val">${p.edge_click_width || 12}%</span>
+              <input type="range" min="5" max="40" step="1" value="${p.edge_click_width || 25}" oninput="rmLiveRangePref('edge_click_width', Number(this.value), this.nextElementSibling, this.value + '%')" onchange="rmUpdatePrefs({edge_click_width:Number(this.value)}, {rebuildSettings:false, endDrag:true})">
+              <span class="rm-range-val">${p.edge_click_width || 25}%</span>
             </div>
           </div>` : ''}` : ''}
           <div class="rm-set-row-inline">
@@ -678,6 +703,7 @@
       rmMeasurePagination();
       if (anchor) rmRestoreAnchor(anchor);
       rmUpdateProgressUI();
+      if (typeof rmSyncEdgeZones === 'function') rmSyncEdgeZones();
     }
 
     function rmIsVerticalScrollMode() {

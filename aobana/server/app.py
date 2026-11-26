@@ -89,14 +89,21 @@ def _asset_v():
 def favicon():
     return app.send_static_file("aobana.svg")
 
+
+@app.route("/sw.js")
+def service_worker():
+    resp = app.send_static_file("sw.js")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
 BOOT_ID = os.environ.setdefault("AOBANA_BOOT_ID", uuid.uuid4().hex)
 
-VERSION = "3.0"
+VERSION = "3.1"
 RELEASES_URL = "https://github.com/Wyzmic/Aobana/releases/latest"
 RELEASES_API = "https://api.github.com/repos/Wyzmic/Aobana/releases"
 LATEST_API = f"{RELEASES_API}/latest"
 RELEASES_TAG_URL = "https://github.com/Wyzmic/Aobana/releases/tag/v"
-update_info = {"checked": False, "latest": None, "release": None, "page_waiting": 0.0}
+update_info = {"checked": False, "latest": None, "release": None, "page_waiting": 0.0, "page_shown": 0.0}
 TERMUX = os.environ.get("AOBANA_TERMUX") == "1"
 SELF_UPDATE = TERMUX and os.environ.get("AOBANA_UPDATER") == "1"
 ON_PHONE = TERMUX or bool(os.environ.get("TERMUX_VERSION"))
@@ -360,7 +367,7 @@ if __name__ == "__main__":
 
     class _QuietRequestHandler(WSGIRequestHandler):
         def log_request(self, code="-", size="-"):
-            if str(code) == "200" and self.path.split("?", 1)[0] in ("/api/activity", "/api/search/progress"):
+            if str(code) in ("200", "204") and self.path.split("?", 1)[0] in ("/api/activity", "/api/search/progress"):
                 return
             super().log_request(code, size)
 

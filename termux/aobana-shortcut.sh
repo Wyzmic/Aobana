@@ -17,19 +17,57 @@ if [ -z "$PORT" ] && [ -f "$CONFIG" ]; then
 fi
 PORT="${PORT:-5000}"
 URL="http://127.0.0.1:$PORT/"
+APP_ID="aobana"
 
 up() { (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; }
 
+target() {
+    local at=""
+    [ -f "$AOBANA_DIR/data/kept-tab" ] && at="$(head -n 1 "$AOBANA_DIR/data/kept-tab" 2>/dev/null)"
+    case "$at" in
+        //*|*[[:space:]\'\"\\]*) at="/" ;;
+        /*) ;;
+        *) at="/" ;;
+    esac
+    printf '%s%s' "${URL%/}" "$at"
+}
+page_shown() { curl -fsS --max-time 2 "${URL}api/update" 2>/dev/null | grep -Eq '"page_shown": ?true'; }
 open_page() {
-    if am start -a android.intent.action.VIEW -d "$URL" -p "$BROWSER_PKG" 2>&1 | grep -qi "error"; then
-        termux-open-url "$URL"
+    local to
+    to="$(target)"
+    if am start -a android.intent.action.VIEW -d "$to" -p "$BROWSER_PKG" \
+        --es com.android.browser.application_id "$APP_ID" 2>&1 | grep -qi "error"; then
+        termux-open-url "$to"
     fi
+    for _ in $(seq 1 16); do
+        if page_shown; then
+            echo "Aobana is on screen."
+            return 0
+        fi
+        sleep 0.5
+    done
+    echo "No Aobana page on screen after 8 s: switch to the browser."
+}
+
+quit_termux() {
+    local app
+    app=$(pidof com.termux 2>/dev/null | awk '{print $1}')
+    [ -n "$app" ] || return 0
+    [ "$(ps -A -o ppid= 2>/dev/null | awk -v p="$app" '$1 == p' | wc -l)" -le 1 ] || return 0
+    am startservice -a com.termux.service_stop -n com.termux/.app.TermuxService >/dev/null 2>&1
 }
 
 if up; then
     open_page
     return 0
 fi
+
+stop_server() {
+    curl -fsS -m 3 -X POST -H 'X-Aobana: 1' -H 'Content-Type: application/json' -d '{}' \
+        "http://127.0.0.1:$PORT/api/quit" >/dev/null 2>&1 || { [ -n "${PID:-}" ] && kill "$PID" 2>/dev/null; }
+    exit 130
+}
+trap stop_server INT TERM HUP
 
 first=1
 while :; do
@@ -53,6 +91,7 @@ while :; do
     code=$?
     if [ "$code" != "$UPDATE_EXIT_CODE" ]; then
         [ "$code" = 0 ] || echo "The server stopped; see the messages above."
+        [ "$code" = 0 ] && quit_termux
         return "$code"
     fi
     printf '\n== Updating Aobana\n'

@@ -74,7 +74,7 @@ APP_FILES = [
     "static/media.js", "static/reader_prefs.js", "static/reader_anchors.js", "static/reader_core.js",
     "static/reader_layout.js", "static/reader_ui.js", "static/reader_manga.js", "static/reader_notes.js",
     "static/saved.js", "static/custom.js", "static/settings.js",
-    "static/library.js", "static/guide.js", "static/notices.js", "static/learn.js", "static/app.js",
+    "static/library.js", "static/guide.js", "static/notices.js", "static/learn.js", "static/app.js", "static/alive.js", "static/sw.js",
     "static/aobana.svg", "static/fonts/NotoSansJP.ttf", "static/fonts/OFL.txt",
 ]
 NOT_EXPORTED = {

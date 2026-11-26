@@ -36,9 +36,31 @@ def attach_ruby(text, marks):
 VOID_TAGS = {'br', 'img', 'wbr', 'hr'}
 
 
+# A Markdown file's own styles, drawn in Reading mode when it reads the file (the index keeps none)
+MD_STYLES = {
+    'md_b': 'font-weight:bold',
+    'md_i': 'font-style:italic',
+    'md_s': 'text-decoration:line-through',
+    'md_mark': 'background:var(--mark-bg, rgba(250, 204, 21, 0.3))',
+    'md_code': "font-family:ui-monospace, SFMono-Regular, Consolas, 'Noto Sans Mono', monospace;font-size:0.9em;background:var(--bg-inset)",
+}
+
+def link_open(value, style=None):
+    kind, _, target = value.partition(':')
+    attr = html.escape(target, quote=True)
+    styled = f' style="{style}"' if style else ''
+    if kind == 'url':
+        return f'<a class="rm-md-url" href="{attr}" data-rm-url="{attr}" target="_blank" rel="noopener noreferrer"{styled}>'
+    return f'<a class="rm-md-page" data-rm-custom-file="{attr}"{styled}>'
+
+
 class MarkedHTML(HTMLParser):
-    def __init__(self, attached):
+    def __init__(self, attached, marks=()):
         super().__init__(convert_charrefs=True)
+        self.styles = [(start, end, MD_STYLES[kind]) for kind, start, end, _ in marks if kind in MD_STYLES]
+        self.links = [(start, end, value) for kind, start, end, value in marks if kind == 'md_link' and value]
+        self.run = None
+        self.run_close = '</span>'
         self.parts = []
         self.text_pos = 0
         self.in_reading = 0
@@ -46,7 +68,13 @@ class MarkedHTML(HTMLParser):
         self.opens = {s: r for s, e, r in attached.values()}
         self.closes = {e: r for s, e, r in attached.values()}
 
+    def end_run(self):
+        if self.run is not None:
+            self.parts.append(self.run_close)
+            self.run = None
+
     def handle_starttag(self, tag, attrs):
+        self.end_run()
         if tag == 'rt':
             self.in_reading += 1
         elif tag not in VOID_TAGS and not self.in_reading:
@@ -54,6 +82,7 @@ class MarkedHTML(HTMLParser):
         self.parts.append(self.get_starttag_text())
 
     def handle_endtag(self, tag):
+        self.end_run()
         self.parts.append(f'</{tag}>')
         if tag == 'rt':
             self.in_reading -= 1
@@ -73,10 +102,23 @@ class MarkedHTML(HTMLParser):
             return
         for char in data:
             if self.text_pos in self.opens:
+                self.end_run()
                 self.around('<ruby>')
+            style = ';'.join(v for start, end, v in self.styles if start <= self.text_pos < end) or None
+            link = next((v for start, end, v in self.links if start <= self.text_pos < end), None)
+            key = (style, link) if link else style
+            if key != self.run:
+                self.end_run()
+                if link:
+                    self.parts.append(link_open(link, style))
+                    self.run, self.run_close = key, '</a>'
+                elif style:
+                    self.parts.append(f'<span style="{style}">')
+                    self.run, self.run_close = key, '</span>'
             self.parts.append(html.escape(char))
             self.text_pos += 1
             if self.text_pos in self.closes:
+                self.end_run()
                 self.around(f'<rt>{html.escape(self.closes[self.text_pos])}</rt></ruby>')
 
 
@@ -84,8 +126,9 @@ def draw_line(text, marks, file='', highlight=None):
     args = {'content_bases': [], 'q': '', 'mark': False, 'bold': False, 'work': work_key('custom', file)}
     args.update(highlight or {})
     rendered = highlight_and_furigana(text, **args)
-    parser = MarkedHTML(attach_ruby(text, marks or []))
+    parser = MarkedHTML(attach_ruby(text, marks or []), marks or [])
     parser.feed(rendered)
+    parser.end_run()
     return f'<span class="custom-text">{"".join(parser.parts)}</span>'
 
 

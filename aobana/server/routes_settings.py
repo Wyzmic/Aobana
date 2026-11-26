@@ -47,6 +47,8 @@ def api_library_set():
         error = library.set_workers(body.get("index_workers"))
     elif "search_workers" in body:
         error = library.set_search_workers(body.get("search_workers"))
+    elif "console_shown" in body:
+        error = library.set_console_shown(body.get("console_shown"))
     elif "subtitle_tags" in body:
         error = library.set_subtitle_tags(body.get("subtitle_tags"))
     elif "custom_trim" in body:

@@ -228,6 +228,7 @@ def _source_store():
 
 STORE_DIR = _user_data_dir() if INSTALLED else (os.environ.get("AOBANA_DATA_DIR") or _source_store())
 CONFIG_PATH = os.path.join(STORE_DIR, "config.json")
+KEPT_TAB_PATH = os.path.join(STORE_DIR, "kept-tab")
 
 
 def _read_json(path, preserve_bad=False):
@@ -579,6 +580,10 @@ def custom_trim():
 
 def custom_ruby():
     return load_config().get("custom_ruby", True) is not False
+
+
+def console_shown(cfg=None):
+    return (load_config() if cfg is None else cfg).get("console") == "shown"
 
 
 def subtitle_tags(cfg=None):
